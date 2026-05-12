@@ -1,0 +1,178 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# ---------- dependencies ----------
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+jspm_packages/
+
+# ---------- testing ----------
+/coverage
+*.lcov
+.nyc_output
+
+# ---------- next.js ----------
+/.next/
+/out/
+
+# ---------- production ----------
+/build
+/dist
+
+# ---------- env files (opt-in for committing if needed) ----------
+.env
+.env.*
+!.env.example
+
+# ---------- vercel ----------
+.vercel
+
+# ---------- typescript ----------
+*.tsbuildinfo
+next-env.d.ts
+
+# ---------- logs & debug ----------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# ---------- caches ----------
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+.stylelintcache
+.npm
+.node_repl_history
+
+# ---------- macOS ----------
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# ---------- Windows ----------
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ---------- Linux ----------
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ---------- VS Code ----------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.history/
+*.vsix
+
+# ---------- JetBrains (WebStorm, IntelliJ, etc.) ----------
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ---------- Sublime / Vim / Emacs / other editors ----------
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
+.*.sw[a-p]
+Session.vim
+.netrwhist
+\#*\#
+.\#*
+.tern-port
+
+# ---------- Zed ----------
+.zed/
+
+# ---------- AI tools ----------
+# Claude Code
+.claude/
+CLAUDE.local.md
+
+# Cursor
+.cursor/
+.cursorignore
+.cursorindexingignore
+
+# Windsurf
+.windsurf/
+.windsurfrules
+
+# GitHub Copilot
+.copilot/
+
+# Aider
+.aider*
+!.aider.conf.yml
+
+# Cody / Continue / Codeium / others
+.cody/
+.continue/
+.codeium/
+
+# Generic AI/agent scratch
+.ai/
+.agent/
+.agents/
+
+# ---------- secrets & certs ----------
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+secrets.json
+.secrets/
+
+# ---------- misc ----------
+*.tgz
+*.tar.gz
+*.zip
+tmp/
+temp/
+.tmp/
+pids
+*.pid
+*.seed
+*.pid.lock
