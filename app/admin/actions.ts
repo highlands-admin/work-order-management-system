@@ -195,11 +195,17 @@ export async function changeUserRoleAction(formData: FormData): Promise<void> {
 
   const { supabase, claims } = await requireAdmin()
 
-  // Prevent admins from demoting themselves; would lock them out of the admin UI.
+  // Admins cannot change their own role.
   const selfId = (claims as { sub?: string } | undefined)?.sub
-  if (selfId && selfId === parsed.data.userId && parsed.data.role !== 'administrator') {
-    return
-  }
+  if (selfId && selfId === parsed.data.userId) return
+
+  // Admins cannot change another administrator's role. Mirrored by RLS on user_roles.
+  const { data: target } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', parsed.data.userId)
+    .maybeSingle()
+  if (target?.role === 'administrator') return
 
   await supabase
     .from('user_roles')

@@ -1,5 +1,13 @@
 import type { Metadata } from 'next'
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { createClient } from '@/lib/supabase/server'
 import { ROLE_LABELS, type AppRole } from '@/lib/schemas/admin'
 
@@ -76,42 +84,52 @@ export default async function InvitationsPage() {
             No invitations yet.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm whitespace-nowrap">
-            <thead>
-              <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Role</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Sent</th>
-                <th className="px-4 py-2 font-medium">Expires</th>
-                <th className="px-4 py-2 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Email
+                </TableHead>
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Role
+                </TableHead>
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Status
+                </TableHead>
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Sent
+                </TableHead>
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Expires
+                </TableHead>
+                <TableHead className="px-4 text-right text-xs uppercase tracking-wide text-muted-foreground">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {invitations.map((invite) => {
                 const status = statusOf(invite)
                 return (
-                  <tr
-                    key={invite.id}
-                    className="border-b last:border-b-0 align-middle"
-                  >
-                    <td className="px-4 py-3">{invite.email}</td>
-                    <td className="px-4 py-3">{ROLE_LABELS[invite.role]}</td>
-                    <td className="px-4 py-3">
+                  <TableRow key={invite.id}>
+                    <TableCell className="px-4 py-3">{invite.email}</TableCell>
+                    <TableCell className="px-4 py-3">
+                      {ROLE_LABELS[invite.role]}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}
                       >
                         {STATUS_LABEL[status]}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
                       {formatDate(invite.created_at)}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
                       {formatDate(invite.expires_at)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
                       {status === 'pending' || status === 'expired' ? (
                         <div className="flex justify-end gap-2">
                           <form action={resendInvitationAction}>
@@ -144,13 +162,12 @@ export default async function InvitationsPage() {
                           ) : null}
                         </div>
                       ) : null}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )
               })}
-            </tbody>
-          </table>
-          </div>
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>

@@ -1,5 +1,13 @@
 import type { Metadata } from 'next'
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { createClient } from '@/lib/supabase/server'
 import { type AppRole } from '@/lib/schemas/admin'
 
@@ -44,39 +52,45 @@ export default async function UsersPage() {
         {users.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">No users yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm whitespace-nowrap">
-            <thead>
-              <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Role</th>
-                <th className="px-4 py-2 font-medium">Last sign-in</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Name
+                </TableHead>
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Email
+                </TableHead>
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Role
+                </TableHead>
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Last sign-in
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {users.map((u) => {
                 const name = [u.first_name, u.last_name]
                   .filter(Boolean)
                   .join(' ')
                 const isSelf = u.user_id === currentUserId
+                const isAdmin = u.role === 'administrator'
+                const locked = isSelf || isAdmin
                 return (
-                  <tr
-                    key={u.user_id}
-                    className="border-b last:border-b-0 align-middle"
-                  >
-                    <td className="px-4 py-3">{name || '—'}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                  <TableRow key={u.user_id}>
+                    <TableCell className="px-4 py-3">{name || '—'}</TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
                       {u.email}
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <RoleSelect
                         userId={u.user_id}
                         currentRole={u.role ?? 'requester'}
-                        disabled={isSelf}
+                        disabled={locked}
                       />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
                       {u.last_sign_in_at
                         ? new Date(u.last_sign_in_at).toLocaleString(undefined, {
                             month: 'short',
@@ -86,13 +100,12 @@ export default async function UsersPage() {
                             minute: '2-digit',
                           })
                         : '—'}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )
               })}
-            </tbody>
-          </table>
-          </div>
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>
