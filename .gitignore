@@ -93,11 +93,6 @@ $RECYCLE.BIN/
 
 # ---------- VS Code ----------
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
 .history/
 *.vsix
 
@@ -164,6 +159,10 @@ CLAUDE.local.md
 *.pfx
 secrets.json
 .secrets/
+
+# ---------- supabase CLI ----------
+supabase/.temp/
+supabase/.branches/
 
 # ---------- misc ----------
 *.tgz
