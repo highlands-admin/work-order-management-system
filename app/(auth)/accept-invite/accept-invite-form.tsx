@@ -55,6 +55,7 @@ export function AcceptInviteForm({
             name="firstName"
             autoComplete="given-name"
             autoFocus
+            placeholder="Alex"
             defaultValue={state.values?.firstName ?? initialFirstName}
             onChange={() => markEdited('firstName')}
             aria-invalid={firstNameError ? true : undefined}
@@ -69,6 +70,7 @@ export function AcceptInviteForm({
             id="lastName"
             name="lastName"
             autoComplete="family-name"
+            placeholder="Doe"
             defaultValue={state.values?.lastName ?? initialLastName}
             onChange={() => markEdited('lastName')}
             aria-invalid={lastNameError ? true : undefined}
@@ -84,6 +86,7 @@ export function AcceptInviteForm({
           id="password"
           name="password"
           autoComplete="new-password"
+          placeholder="Create a strong password"
           value={password}
           onChange={(e) => {
             setPassword(e.target.value)
@@ -103,6 +106,7 @@ export function AcceptInviteForm({
           id="confirmPassword"
           name="confirmPassword"
           autoComplete="new-password"
+          placeholder="Re-enter your password"
           value={confirmPassword}
           onChange={(e) => {
             setConfirmPassword(e.target.value)
@@ -117,7 +121,7 @@ export function AcceptInviteForm({
         />
       </Field>
 
-      <SubmitButton label="Create account" pendingLabel="Creating account..." />
+      <SubmitButton label="Create Account" pendingLabel="Creating Account..." />
     </form>
   )
 }

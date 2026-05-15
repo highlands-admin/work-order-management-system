@@ -9,7 +9,6 @@ import {
   forgotPasswordSchema,
   loginSchema,
   updatePasswordSchema,
-  verifyResetOtpSchema,
   verifySchema,
 } from '@/lib/schemas/auth'
 
@@ -197,7 +196,7 @@ export async function verifyResetOtpAction(
     token: String(formData.get('token') ?? ''),
   }
 
-  const parsed = verifyResetOtpSchema.safeParse(raw)
+  const parsed = verifySchema.safeParse(raw)
   if (!parsed.success) {
     return formError(z4FieldErrors(parsed.error), { email: raw.email })
   }

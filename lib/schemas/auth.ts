@@ -1,20 +1,30 @@
 import * as z from 'zod'
 
+const email = z
+  .email('Enter a valid email address')
+  .transform((v) => v.trim().toLowerCase())
+
 const password = z
   .string()
   .min(8, 'Password must be at least 8 characters')
-  .regex(/[a-z]/, 'Password must contain a lowercase letter')
-  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .max(72, 'Password must not exceed 72 characters')
+  .regex(/\p{Ll}/u, 'Password must contain a lowercase letter')
+  .regex(/\p{Lu}/u, 'Password must contain an uppercase letter')
   .regex(/\d/, 'Password must contain a number')
-  .regex(/[^A-Za-z0-9]/, 'Password must contain a special character')
+  .regex(/[^\p{L}\p{N}]/u, 'Password must contain a special character')
 
 const otp = z
   .string()
   .regex(/^\d{6}$/, 'Enter the 6-digit code from your email')
 
+// Invitation tokens are generated as randomBytes(24).toString('hex') = 48 lowercase hex chars.
+const inviteToken = z
+  .string()
+  .regex(/^[a-f0-9]{48}$/, 'Invalid invitation token')
+
 export const acceptInviteSchema = z
   .object({
-    token: z.string().min(1),
+    token: inviteToken,
     firstName: z.string().trim().min(1, 'First name is required').max(50),
     lastName: z.string().trim().min(1, 'Last name is required').max(50),
     password,
@@ -28,31 +38,24 @@ export const acceptInviteSchema = z
 export type AcceptInviteInput = z.infer<typeof acceptInviteSchema>
 
 export const loginSchema = z.object({
-  email: z.email('Enter a valid email address'),
+  email,
   password: z.string().min(1, 'Password is required'),
 })
 
 export type LoginInput = z.infer<typeof loginSchema>
 
 export const verifySchema = z.object({
-  email: z.email(),
+  email,
   token: otp,
 })
 
 export type VerifyInput = z.infer<typeof verifySchema>
 
 export const forgotPasswordSchema = z.object({
-  email: z.email('Enter a valid email address'),
+  email,
 })
 
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
-
-export const verifyResetOtpSchema = z.object({
-  email: z.email(),
-  token: otp,
-})
-
-export type VerifyResetOtpInput = z.infer<typeof verifyResetOtpSchema>
 
 export const updatePasswordSchema = z
   .object({

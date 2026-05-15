@@ -1,5 +1,10 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import {
+  RiAlertLine,
+  RiCheckboxCircleLine,
+  RiCloseCircleLine,
+} from "@remixicon/react"
 
 import { cn } from "@/lib/utils"
 
@@ -9,8 +14,12 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: "bg-card text-card-foreground",
+        success:
+          "border-emerald-200 bg-emerald-50 text-emerald-800 *:data-[slot=alert-description]:text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200 dark:*:data-[slot=alert-description]:text-emerald-300",
+        warning:
+          "border-amber-200 bg-amber-50 text-amber-800 *:data-[slot=alert-description]:text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200 dark:*:data-[slot=alert-description]:text-amber-300",
         destructive:
-          "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
+          "border-rose-200 bg-rose-50 text-rose-800 *:data-[slot=alert-description]:text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200 dark:*:data-[slot=alert-description]:text-rose-300",
       },
     },
     defaultVariants: {
@@ -19,18 +28,32 @@ const alertVariants = cva(
   }
 )
 
+const VARIANT_ICONS = {
+  success: RiCheckboxCircleLine,
+  warning: RiAlertLine,
+  destructive: RiCloseCircleLine,
+} as const
+
 function Alert({
   className,
   variant,
+  children,
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) {
+  const Icon =
+    variant && variant in VARIANT_ICONS
+      ? VARIANT_ICONS[variant as keyof typeof VARIANT_ICONS]
+      : null
   return (
     <div
       data-slot="alert"
       role="alert"
       className={cn(alertVariants({ variant }), className)}
       {...props}
-    />
+    >
+      {Icon ? <Icon aria-hidden="true" /> : null}
+      {children}
+    </div>
   )
 }
 

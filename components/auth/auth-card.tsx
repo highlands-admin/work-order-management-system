@@ -22,7 +22,7 @@ export function AuthCard({
   return (
     <Card className="gap-6 py-6">
       <CardHeader>
-        <CardTitle className="text-xl">{title}</CardTitle>
+        <CardTitle className="text-xl font-semibold">{title}</CardTitle>
         {description ? (
           <CardDescription>{description}</CardDescription>
         ) : null}

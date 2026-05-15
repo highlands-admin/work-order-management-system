@@ -26,7 +26,7 @@ export function InviteForm() {
       <FormError state={state} />
 
       {state.status === 'success' && state.message ? (
-        <Alert aria-live="polite">
+        <Alert variant="success" aria-live="polite">
           <AlertDescription>{state.message}</AlertDescription>
         </Alert>
       ) : null}
@@ -39,6 +39,7 @@ export function InviteForm() {
           type="email"
           autoComplete="off"
           autoFocus
+          placeholder="person@example.com"
           defaultValue={state.values?.email}
           onChange={() => markEdited('email')}
           aria-invalid={emailError ? true : undefined}
@@ -74,6 +75,7 @@ export function InviteForm() {
             id="firstName"
             name="firstName"
             autoComplete="off"
+            placeholder="Alex"
             defaultValue={state.values?.firstName}
             onChange={() => markEdited('firstName')}
             aria-invalid={firstNameError ? true : undefined}
@@ -87,6 +89,7 @@ export function InviteForm() {
             id="lastName"
             name="lastName"
             autoComplete="off"
+            placeholder="Doe"
             defaultValue={state.values?.lastName}
             onChange={() => markEdited('lastName')}
             aria-invalid={lastNameError ? true : undefined}

@@ -41,6 +41,7 @@ export function ResetPasswordForm() {
           name="password"
           autoComplete="new-password"
           autoFocus
+          placeholder="Create a new password"
           value={password}
           onChange={(e) => {
             setPassword(e.target.value)
@@ -60,6 +61,7 @@ export function ResetPasswordForm() {
           id="confirmPassword"
           name="confirmPassword"
           autoComplete="new-password"
+          placeholder="Re-enter the new password"
           value={confirmPassword}
           onChange={(e) => {
             setConfirmPassword(e.target.value)

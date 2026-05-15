@@ -47,7 +47,11 @@ export default async function Home() {
             <Link href="/admin" className={buttonVariants({ variant: 'default' })}>
               Admin
             </Link>
-          ) : null}
+          ) : (
+            <Link href="/work-orders" className={buttonVariants({ variant: 'default' })}>
+              Work Orders
+            </Link>
+          )}
           <form action={signOutAction}>
             <Button type="submit" variant="outline">
               Sign out

@@ -6,6 +6,7 @@ import { useFormStatus } from 'react-dom'
 import { FormError } from '@/components/auth/form-error'
 import { SixDigitOtp } from '@/components/auth/six-digit-otp'
 import { SubmitButton } from '@/components/auth/submit-button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 
 import { resendVerificationAction, verifyAction } from '../actions'
@@ -34,6 +35,7 @@ export function VerifyForm({ email }: { email: string }) {
             }}
             invalid={Boolean(tokenError)}
             autoFocus
+            
           />
           {tokenError ? (
             <p className="text-xs text-destructive">{tokenError}</p>
@@ -59,21 +61,23 @@ function ResendBlock({ email }: { email: string }) {
   )
 
   return (
-    <form action={action} noValidate className="text-center text-sm text-muted-foreground">
-      <input type="hidden" name="email" value={email} />
-      Did not receive a code?{' '}
-      <ResendButton />
+    <div className="flex flex-col gap-3">
+      <form action={action} noValidate className="text-center text-sm text-muted-foreground">
+        <input type="hidden" name="email" value={email} />
+        Did not receive a code?{' '}
+        <ResendButton />
+      </form>
       {state.status === 'success' && state.message ? (
-        <p className="mt-1 text-xs text-emerald-600" aria-live="polite">
-          {state.message}
-        </p>
+        <Alert variant="success" aria-live="polite">
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
       ) : null}
       {state.status === 'error' && state.message ? (
-        <p className="mt-1 text-xs text-destructive" aria-live="polite">
-          {state.message}
-        </p>
+        <Alert variant="destructive" aria-live="polite">
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
       ) : null}
-    </form>
+    </div>
   )
 }
 

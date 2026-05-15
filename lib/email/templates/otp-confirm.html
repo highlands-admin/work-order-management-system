@@ -1,0 +1,27 @@
+<!--
+  Supabase Auth "Confirm signup" template. Paste into the Supabase Dashboard
+  under Authentication > Email Templates > Confirm signup.
+
+  Token variable: {{ .Token }} delivers the 6-digit OTP (not a magic link).
+  Keep this file in sync with what is configured in the dashboard.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><title>Confirm your email</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#18181b;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px;background:#fff;border:1px solid #e4e4e7;border-radius:8px;">
+        <tr><td style="padding:32px;">
+          <h1 style="margin:0 0 8px;font-size:20px;line-height:28px;font-weight:600;color:#18181b;">Confirm Your Email</h1>
+          <p style="margin:0 0 16px;font-size:15px;line-height:22px;color:#52525b;">Your Verification Code is:</p>
+          <p style="margin:24px 0;text-align:center;">
+            <span style="display:inline-block;padding:12px 20px;background:#f4f4f5;border:1px solid #e4e4e7;border-radius:6px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:24px;font-weight:600;letter-spacing:6px;color:#18181b;">{{ .Token }}</span>
+          </p>
+          <p style="margin:0;font-size:13px;line-height:20px;color:#71717a;">This code expires in 10 minutes. Do not share it with anyone.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

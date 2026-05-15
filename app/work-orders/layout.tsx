@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar'
 import { createClient } from '@/lib/supabase/server'
 
-export default async function AdminLayout({
+export default async function WorkOrdersLayout({
   children,
 }: {
   children: ReactNode
@@ -25,7 +25,6 @@ export default async function AdminLayout({
     | undefined
 
   if (!claims) redirect('/login')
-  if (claims.user_role !== 'administrator') redirect('/')
 
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get('sidebar_state')?.value !== 'false'

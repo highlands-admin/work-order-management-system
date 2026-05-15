@@ -1,0 +1,58 @@
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
+
+import { createClient } from '@/lib/supabase/server'
+
+import { NewWorkOrderForm } from './new-work-order-form'
+
+export const metadata: Metadata = { title: 'New Work Order' }
+
+const FILER_ROLES = new Set(['administrator', 'supervisor', 'requester'])
+
+export default async function NewWorkOrderPage() {
+  const supabase = await createClient()
+  const { data } = await supabase.auth.getClaims()
+  const claims = data?.claims as
+    | {
+        sub?: string
+        email?: string
+        user_role?: string
+        user_metadata?: { first_name?: string; last_name?: string }
+      }
+    | undefined
+
+  if (!claims) redirect('/login')
+  if (!claims.user_role || !FILER_ROLES.has(claims.user_role)) {
+    redirect('/work-orders')
+  }
+
+  // Prefill the reporter section for requesters who file their own tickets.
+  // Admins and supervisors typically file on behalf of someone else, so leave blank.
+  const reporterDefaults =
+    claims.user_role === 'requester'
+      ? {
+          name:
+            [
+              claims.user_metadata?.first_name,
+              claims.user_metadata?.last_name,
+            ]
+              .filter(Boolean)
+              .join(' ') || undefined,
+          email: claims.email,
+        }
+      : undefined
+
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <div>
+        <h1 className="font-heading text-2xl font-semibold">
+          New Work Order
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          File a new work order. The team will see it as soon as you submit.
+        </p>
+      </div>
+      <NewWorkOrderForm reporterDefaults={reporterDefaults} />
+    </div>
+  )
+}

@@ -9,6 +9,7 @@ export function EmailField({
   id = 'email',
   name = 'email',
   label = 'Email',
+  placeholder = 'you@example.com',
   autoFocus,
   defaultValue = '',
   serverError,
@@ -18,6 +19,7 @@ export function EmailField({
   id?: string
   name?: string
   label?: string
+  placeholder?: string
   autoFocus?: boolean
   defaultValue?: string
   serverError?: string
@@ -35,6 +37,7 @@ export function EmailField({
         type="email"
         autoComplete="email"
         autoFocus={autoFocus}
+        placeholder={placeholder}
         value={value}
         onChange={(e) => {
           setValue(e.target.value)

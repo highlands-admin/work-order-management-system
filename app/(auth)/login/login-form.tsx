@@ -45,6 +45,7 @@ export function LoginForm() {
           id="password"
           name="password"
           autoComplete="current-password"
+          placeholder="Enter your password"
           onChange={() => markEdited('password')}
           aria-invalid={passwordError ? true : undefined}
           required

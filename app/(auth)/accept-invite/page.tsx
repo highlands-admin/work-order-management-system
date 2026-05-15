@@ -48,7 +48,7 @@ export default async function AcceptInvitePage({
 
   return (
     <AuthCard
-      title="Accept your invitation"
+      title="Accept Your Invitation"
       description={
         <>
           You have been invited to join as{' '}
