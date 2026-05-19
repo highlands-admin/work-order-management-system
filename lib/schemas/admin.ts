@@ -3,7 +3,6 @@ import * as z from 'zod'
 export const APP_ROLES = [
   'administrator',
   'requester',
-  'supervisor',
   'technician',
   'inspector',
 ] as const
@@ -13,7 +12,6 @@ export type AppRole = (typeof APP_ROLES)[number]
 export const ROLE_LABELS: Record<AppRole, string> = {
   administrator: 'Administrator',
   requester: 'Requester',
-  supervisor: 'Supervisor',
   technician: 'Technician',
   inspector: 'Inspector',
 }

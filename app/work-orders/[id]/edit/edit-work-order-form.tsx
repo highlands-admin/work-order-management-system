@@ -25,12 +25,14 @@ import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
+  STATUS_LABELS,
   WORK_ORDER_CATEGORIES,
   WORK_ORDER_PRIORITIES,
   PROPERTIES,
+  type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
-  type Property,
+  type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 
 import {
@@ -38,62 +40,76 @@ import {
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
 
-import { initialAuthState } from '../../(auth)/auth-state'
-import { createWorkOrderAction } from '../actions'
+import { initialAuthState } from '../../../(auth)/auth-state'
+import { updateWorkOrderAction } from '../../actions'
 
-type ReporterDefaults = {
-  name?: string
-  email?: string
-  phone?: string
+type WorkOrder = {
+  id: string
+  category: WorkOrderCategory
+  status: WorkOrderStatus
+  property: Property | null
+  unit_number: string | null
+  priority: WorkOrderPriority
+  due_at: string | null
+  description: string
+  resolution: string | null
+  assigned_to: string
+  reported_by_name: string | null
+  reported_by_email: string | null
+  reported_by_phone: string | null
 }
 
-export function NewWorkOrderForm({
-  reporterDefaults,
+export function EditWorkOrderForm({
+  workOrder,
+  allowedStatuses,
   assignableUsers,
 }: {
-  reporterDefaults?: ReporterDefaults
+  workOrder: WorkOrder
+  allowedStatuses: WorkOrderStatus[]
   assignableUsers: AssignableUser[]
 }) {
   const assigneeLabelById = new Map(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
-  const [state, action] = useActionState(
-    createWorkOrderAction,
-    initialAuthState
-  )
+  const statusLocked = allowedStatuses.length <= 1
+  const boundAction = updateWorkOrderAction.bind(null, workOrder.id)
+  const [state, action] = useActionState(boundAction, initialAuthState)
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
 
-  // Selects must be controlled so Base UI doesn't warn when state.values flips
-  // from undefined (first render) to a string (after a failed submission).
-  // Reset to the latest server values whenever a new action state arrives.
   const [storedState, setStoredState] = useState(state)
   const [categoryValue, setCategoryValue] = useState<string>(
-    state.values?.category ?? ''
+    state.values?.category ?? workOrder.category
   )
   const [priorityValue, setPriorityValue] = useState<string>(
-    state.values?.priority ?? ''
+    state.values?.priority ?? workOrder.priority
   )
   const [propertyValue, setPropertyValue] = useState<string>(
-    state.values?.property ?? ''
+    state.values?.property ?? workOrder.property ?? ''
+  )
+  const [statusValue, setStatusValue] = useState<string>(
+    state.values?.status ?? workOrder.status
   )
   const [assignedToValue, setAssignedToValue] = useState<string>(
-    state.values?.assignedTo ?? ''
+    state.values?.assignedTo ?? workOrder.assigned_to
   )
   if (storedState !== state) {
     setStoredState(state)
-    setCategoryValue(state.values?.category ?? '')
-    setPriorityValue(state.values?.priority ?? '')
-    setPropertyValue(state.values?.property ?? '')
-    setAssignedToValue(state.values?.assignedTo ?? '')
+    setCategoryValue(state.values?.category ?? workOrder.category)
+    setPriorityValue(state.values?.priority ?? workOrder.priority)
+    setPropertyValue(state.values?.property ?? workOrder.property ?? '')
+    setStatusValue(state.values?.status ?? workOrder.status)
+    setAssignedToValue(state.values?.assignedTo ?? workOrder.assigned_to)
   }
 
   const categoryError = getError('category')
   const priorityError = getError('priority')
   const propertyError = getError('property')
+  const statusError = getError('status')
   const assignedToError = getError('assignedTo')
   const unitNumberError = getError('unitNumber')
   const dueAtError = getError('dueAt')
   const descriptionError = getError('description')
+  const resolutionError = getError('resolution')
   const nameError = getError('reportedByName')
   const emailError = getError('reportedByEmail')
   const phoneError = getError('reportedByPhone')
@@ -185,7 +201,7 @@ export function NewWorkOrderForm({
       <FormSection
         id="assignment"
         title="Assignment"
-        description="Pick the person responsible for this work order."
+        description="Who is responsible for this work order."
       >
         <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field data-invalid={assignedToError ? 'true' : undefined}>
@@ -224,6 +240,70 @@ export function NewWorkOrderForm({
               </SelectContent>
             </Select>
             <FieldError>{assignedToError}</FieldError>
+          </Field>
+        </FieldGroup>
+      </FormSection>
+
+      <FormSection
+        id="status"
+        title="Status"
+        description={
+          statusLocked
+            ? workOrder.status === 'pending'
+              ? 'Awaiting administrator approval. Status will change once an admin reviews this submission.'
+              : workOrder.status === 'rejected'
+                ? 'This submission was rejected. Only an administrator can reopen it.'
+                : 'Status is locked for your role on this work order.'
+            : 'Where this ticket is in the workflow.'
+        }
+      >
+        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field data-invalid={statusError ? 'true' : undefined}>
+            <FieldLabel htmlFor="status">
+              Status {statusLocked ? null : <Required />}
+            </FieldLabel>
+            {statusLocked ? (
+              <>
+                <div
+                  id="status"
+                  className="flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
+                >
+                  {STATUS_LABELS[workOrder.status]}
+                </div>
+                <input type="hidden" name="status" value={workOrder.status} />
+              </>
+            ) : (
+              <Select
+                name="status"
+                value={statusValue}
+                onValueChange={(v) => {
+                  setStatusValue(typeof v === 'string' ? v : '')
+                  markEdited('status')
+                }}
+              >
+                <SelectTrigger
+                  id="status"
+                  className="w-full"
+                  aria-invalid={statusError ? true : undefined}
+                >
+                  <SelectValue placeholder="Select a status">
+                    {(value: string) =>
+                      value in STATUS_LABELS
+                        ? STATUS_LABELS[value as WorkOrderStatus]
+                        : null
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {allowedStatuses.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <FieldError>{statusError}</FieldError>
           </Field>
         </FieldGroup>
       </FormSection>
@@ -279,7 +359,7 @@ export function NewWorkOrderForm({
                 id="unitNumber"
                 name="unitNumber"
                 autoComplete="off"
-                defaultValue={state.values?.unitNumber}
+                defaultValue={state.values?.unitNumber ?? workOrder.unit_number ?? ''}
                 onChange={() => markEdited('unitNumber')}
                 aria-invalid={unitNumberError ? true : undefined}
                 placeholder="e.g. 2A"
@@ -304,10 +384,9 @@ export function NewWorkOrderForm({
               id="description"
               name="description"
               rows={5}
-              defaultValue={state.values?.description}
+              defaultValue={state.values?.description ?? workOrder.description}
               onChange={() => markEdited('description')}
               aria-invalid={descriptionError ? true : undefined}
-              placeholder="What needs to be done? Include anything a technician should know."
               required
             />
             <FieldError>{descriptionError}</FieldError>
@@ -320,11 +399,28 @@ export function NewWorkOrderForm({
             <DateTimePicker
               id="dueAt"
               name="dueAt"
+              value={state.values?.dueAt ?? workOrder.due_at ?? undefined}
               ariaInvalid={dueAtError ? true : undefined}
               onChange={() => markEdited('dueAt')}
               className="sm:max-w-sm"
             />
             <FieldError>{dueAtError}</FieldError>
+          </Field>
+
+          <Field data-invalid={resolutionError ? 'true' : undefined}>
+            <FieldLabel htmlFor="resolution">
+              Resolution <Optional />
+            </FieldLabel>
+            <Textarea
+              id="resolution"
+              name="resolution"
+              rows={4}
+              defaultValue={state.values?.resolution ?? workOrder.resolution ?? ''}
+              onChange={() => markEdited('resolution')}
+              aria-invalid={resolutionError ? true : undefined}
+              placeholder="What was done to resolve this ticket?"
+            />
+            <FieldError>{resolutionError}</FieldError>
           </Field>
         </FieldGroup>
       </FormSection>
@@ -332,7 +428,7 @@ export function NewWorkOrderForm({
       <FormSection
         id="reporter"
         title="Reporter"
-        description="Who is this being reported on behalf of? Leave blank if you are the reporter."
+        description="Who reported this issue."
       >
         <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           <Field data-invalid={nameError ? 'true' : undefined}>
@@ -345,7 +441,7 @@ export function NewWorkOrderForm({
               autoComplete="name"
               placeholder="e.g. Alex Doe"
               defaultValue={
-                state.values?.reportedByName ?? reporterDefaults?.name
+                state.values?.reportedByName ?? workOrder.reported_by_name ?? ''
               }
               onChange={() => markEdited('reportedByName')}
               aria-invalid={nameError ? true : undefined}
@@ -364,7 +460,9 @@ export function NewWorkOrderForm({
               autoComplete="email"
               placeholder="alex@example.com"
               defaultValue={
-                state.values?.reportedByEmail ?? reporterDefaults?.email
+                state.values?.reportedByEmail ??
+                workOrder.reported_by_email ??
+                ''
               }
               onChange={() => markEdited('reportedByEmail')}
               aria-invalid={emailError ? true : undefined}
@@ -383,7 +481,9 @@ export function NewWorkOrderForm({
               autoComplete="tel"
               placeholder="(555) 123-4567"
               defaultValue={
-                state.values?.reportedByPhone ?? reporterDefaults?.phone
+                state.values?.reportedByPhone ??
+                workOrder.reported_by_phone ??
+                ''
               }
               onChange={() => markEdited('reportedByPhone')}
               aria-invalid={phoneError ? true : undefined}
@@ -394,7 +494,7 @@ export function NewWorkOrderForm({
       </FormSection>
 
       <div className="flex items-center justify-end gap-3 pt-2">
-        <SubmitButton label="Create work order" pendingLabel="Creating..." />
+        <SubmitButton label="Save changes" pendingLabel="Saving..." />
       </div>
     </form>
   )
@@ -451,4 +551,3 @@ function Optional() {
     </span>
   )
 }
-

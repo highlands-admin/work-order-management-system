@@ -1,9 +1,11 @@
 'use client'
 
 import {
+  RiCheckDoubleLine,
   RiClipboardLine,
   RiFileAddLine,
   RiGroupLine,
+  RiInboxLine,
   RiMailAddLine,
   RiMailSendLine,
 } from '@remixicon/react'
@@ -30,10 +32,11 @@ type NavItem = {
   icon: ComponentType<{ className?: string }>
 }
 
-const FILER_ROLES = new Set(['administrator', 'supervisor', 'requester'])
+const FILER_ROLES = new Set(['administrator', 'requester'])
 
 const workOrderItems: NavItem[] = [
   { title: 'All Work Orders', href: '/work-orders', icon: RiClipboardLine },
+  { title: 'My Work Orders', href: '/work-orders/mine', icon: RiInboxLine },
 ]
 
 const newWorkOrderItem: NavItem = {
@@ -56,15 +59,37 @@ export function AppSidebar({
   const canFile = userRole ? FILER_ROLES.has(userRole) : false
   const isAdmin = userRole === 'administrator'
 
-  const workOrderNav = canFile
+  // Admins reach the queue from the Administration group ("Approval Queue").
+  // Requesters reach it from the Work Orders group ("Submissions"), since
+  // for them it's a personal tracking view.
+  const submissionsItem: NavItem = {
+    title: 'Submissions',
+    href: '/work-orders/submissions',
+    icon: RiCheckDoubleLine,
+  }
+
+  const workOrderNav = isAdmin
     ? [...workOrderItems, newWorkOrderItem]
-    : workOrderItems
+    : canFile
+      ? [...workOrderItems, newWorkOrderItem, submissionsItem]
+      : workOrderItems
+
+  const adminNav: NavItem[] = isAdmin
+    ? [
+        {
+          title: 'Approval Queue',
+          href: '/work-orders/submissions',
+          icon: RiCheckDoubleLine,
+        },
+        ...adminItems,
+      ]
+    : adminItems
 
   return (
     <Sidebar {...props}>
       <SidebarHeader>
         <Link
-          href="/"
+          href="/work-orders"
           className="font-heading px-2 py-1.5 text-base font-semibold"
         >
           Work Orders
@@ -86,7 +111,7 @@ export function AppSidebar({
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminItems.map((item) => (
+                {adminNav.map((item) => (
                   <NavMenuItem
                     key={item.href}
                     item={item}

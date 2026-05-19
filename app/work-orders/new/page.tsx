@@ -2,12 +2,13 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/server'
+import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 
 import { NewWorkOrderForm } from './new-work-order-form'
 
 export const metadata: Metadata = { title: 'New Work Order' }
 
-const FILER_ROLES = new Set(['administrator', 'supervisor', 'requester'])
+const FILER_ROLES = new Set(['administrator', 'requester'])
 
 export default async function NewWorkOrderPage() {
   const supabase = await createClient()
@@ -27,7 +28,7 @@ export default async function NewWorkOrderPage() {
   }
 
   // Prefill the reporter section for requesters who file their own tickets.
-  // Admins and supervisors typically file on behalf of someone else, so leave blank.
+  // Admins typically file on behalf of someone else, so leave blank.
   const reporterDefaults =
     claims.user_role === 'requester'
       ? {
@@ -42,6 +43,8 @@ export default async function NewWorkOrderPage() {
         }
       : undefined
 
+  const assignableUsers = await fetchAssignableUsers(supabase)
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div>
@@ -52,7 +55,10 @@ export default async function NewWorkOrderPage() {
           File a new work order. The team will see it as soon as you submit.
         </p>
       </div>
-      <NewWorkOrderForm reporterDefaults={reporterDefaults} />
+      <NewWorkOrderForm
+        reporterDefaults={reporterDefaults}
+        assignableUsers={assignableUsers}
+      />
     </div>
   )
 }

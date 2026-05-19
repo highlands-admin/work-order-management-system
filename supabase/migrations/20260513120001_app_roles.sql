@@ -1,15 +1,13 @@
 -- App role enum and user_roles table with RLS.
 -- Roles map to job functions in a work-order workflow:
---   administrator: full access, manages users and roles
---   requester:     files work orders
---   supervisor:    approves work orders
+--   administrator: full access, manages users and roles, approves work orders
+--   requester:     files work orders (submissions enter an admin approval queue)
 --   technician:    assigned to and performs the work
 --   inspector:     verifies completion and closes the ticket
 
 create type public.app_role as enum (
   'administrator',
   'requester',
-  'supervisor',
   'technician',
   'inspector'
 );

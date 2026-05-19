@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Sign in' }
 export default async function LoginPage() {
   const supabase = await createClient()
   const { data } = await supabase.auth.getClaims()
-  if (data?.claims) redirect('/')
+  if (data?.claims) redirect('/work-orders')
 
   return (
     <AuthCard

@@ -7,6 +7,7 @@ import { FormError } from '@/components/auth/form-error'
 import { SixDigitOtp } from '@/components/auth/six-digit-otp'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useAutoDismiss } from '@/lib/hooks/use-auto-dismiss'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 
 import { resendVerificationAction, verifyAction } from '../actions'
@@ -14,12 +15,34 @@ import { initialAuthState } from '../auth-state'
 
 export function VerifyForm({ email }: { email: string }) {
   const [state, action] = useActionState(verifyAction, initialAuthState)
+  const [resendState, resendAction] = useActionState(
+    resendVerificationAction,
+    initialAuthState
+  )
   const [token, setToken] = useState('')
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
   const tokenError = getError('token')
 
+  const resendSuccess =
+    resendState.status === 'success' ? resendState.message : null
+  const resendError =
+    resendState.status === 'error' ? resendState.message : null
+  const successVisible = useAutoDismiss(resendSuccess)
+  const errorVisible = useAutoDismiss(resendError)
+
   return (
     <div className="flex flex-col gap-4">
+      {resendSuccess && successVisible ? (
+        <Alert variant="success" aria-live="polite">
+          <AlertDescription>{resendSuccess}</AlertDescription>
+        </Alert>
+      ) : null}
+      {resendError && errorVisible ? (
+        <Alert variant="destructive" aria-live="polite">
+          <AlertDescription>{resendError}</AlertDescription>
+        </Alert>
+      ) : null}
+
       <form action={action} noValidate className="flex flex-col gap-4">
         <FormError state={state} />
 
@@ -35,7 +58,6 @@ export function VerifyForm({ email }: { email: string }) {
             }}
             invalid={Boolean(tokenError)}
             autoFocus
-            
           />
           {tokenError ? (
             <p className="text-xs text-destructive">{tokenError}</p>
@@ -49,34 +71,15 @@ export function VerifyForm({ email }: { email: string }) {
         />
       </form>
 
-      <ResendBlock email={email} />
-    </div>
-  )
-}
-
-function ResendBlock({ email }: { email: string }) {
-  const [state, action] = useActionState(
-    resendVerificationAction,
-    initialAuthState
-  )
-
-  return (
-    <div className="flex flex-col gap-3">
-      <form action={action} noValidate className="text-center text-sm text-muted-foreground">
+      <form
+        action={resendAction}
+        noValidate
+        className="text-center text-sm text-muted-foreground"
+      >
         <input type="hidden" name="email" value={email} />
         Did not receive a code?{' '}
         <ResendButton />
       </form>
-      {state.status === 'success' && state.message ? (
-        <Alert variant="success" aria-live="polite">
-          <AlertDescription>{state.message}</AlertDescription>
-        </Alert>
-      ) : null}
-      {state.status === 'error' && state.message ? (
-        <Alert variant="destructive" aria-live="polite">
-          <AlertDescription>{state.message}</AlertDescription>
-        </Alert>
-      ) : null}
     </div>
   )
 }

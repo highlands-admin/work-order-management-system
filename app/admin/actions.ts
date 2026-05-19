@@ -178,7 +178,7 @@ export async function resendInvitationAction(formData: FormData): Promise<void> 
   await sendInvitationEmail({
     to: invite.email as string,
     token,
-    role: invite.role as 'administrator' | 'requester' | 'supervisor' | 'technician' | 'inspector',
+    role: invite.role as 'administrator' | 'requester' | 'technician' | 'inspector',
     firstName: invite.first_name as string | null,
     invitedByName: inviterDisplay || null,
   })

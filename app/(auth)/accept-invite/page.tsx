@@ -19,7 +19,7 @@ export default async function AcceptInvitePage({
 
   const supabase = await createClient()
   const { data: claims } = await supabase.auth.getClaims()
-  if (claims?.claims) redirect('/')
+  if (claims?.claims) redirect('/work-orders')
 
   const { data: invites, error } = await supabase.rpc('invitation_by_token', {
     p_token: token,

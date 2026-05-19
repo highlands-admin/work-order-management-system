@@ -21,6 +21,7 @@ export function SubmitButton({
     <Button
       type="submit"
       disabled={pending || disabled}
+      className={cn(className)}
     >
       {pending ? pendingLabel : label}
     </Button>

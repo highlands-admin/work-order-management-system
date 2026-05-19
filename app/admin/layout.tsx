@@ -25,7 +25,7 @@ export default async function AdminLayout({
     | undefined
 
   if (!claims) redirect('/login')
-  if (claims.user_role !== 'administrator') redirect('/')
+  if (claims.user_role !== 'administrator') redirect('/work-orders')
 
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get('sidebar_state')?.value !== 'false'

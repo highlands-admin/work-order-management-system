@@ -18,8 +18,6 @@ export function VerifyResetForm({ email }: { email: string }) {
 
   return (
     <form action={action} noValidate className="flex flex-col gap-4">
-      <FormError state={state} />
-
       <input type="hidden" name="email" value={email} />
       <input type="hidden" name="token" value={token} />
 
@@ -43,6 +41,8 @@ export function VerifyResetForm({ email }: { email: string }) {
         pendingLabel="Verifying..."
         disabled={token.length < 6}
       />
+
+      <FormError state={state} />
     </form>
   )
 }

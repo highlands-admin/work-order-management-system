@@ -34,3 +34,40 @@ $$;
 
 revoke execute on function public.admin_list_users() from public;
 grant  execute on function public.admin_list_users() to authenticated;
+
+-- Lightweight directory used to populate the "Assignee" dropdown on the work
+-- order forms. Any authenticated user can read this so requesters can also
+-- assign their submissions. Returns email as a fallback label for users who
+-- haven't filled in a name yet (e.g., the bootstrap admin).
+create or replace function public.list_assignable_users()
+returns table (
+  user_id    uuid,
+  email      text,
+  first_name text,
+  last_name  text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    ur.user_id,
+    u.email,
+    (u.raw_user_meta_data ->> 'first_name'),
+    (u.raw_user_meta_data ->> 'last_name')
+  from public.user_roles ur
+  inner join auth.users u on u.id = ur.user_id
+  order by
+    coalesce(
+      nullif(trim(
+        coalesce(u.raw_user_meta_data ->> 'first_name', '')
+        || ' '
+        || coalesce(u.raw_user_meta_data ->> 'last_name', '')
+      ), ''),
+      u.email
+    );
+$$;
+
+revoke execute on function public.list_assignable_users() from public;
+grant  execute on function public.list_assignable_users() to authenticated;

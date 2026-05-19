@@ -111,7 +111,7 @@ export async function loginAction(
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  redirect('/work-orders')
 }
 
 export async function verifyAction(
@@ -140,7 +140,7 @@ export async function verifyAction(
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  redirect('/work-orders')
 }
 
 export async function resendVerificationAction(
@@ -249,7 +249,7 @@ export async function updatePasswordAction(
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  redirect('/work-orders')
 }
 
 export async function signOutAction(): Promise<void> {
