@@ -17,10 +17,12 @@ const otp = z
   .string()
   .regex(/^\d{6}$/, 'Enter the 6-digit code from your email')
 
-// Invitation tokens are generated as randomBytes(24).toString('hex') = 48 lowercase hex chars.
+// Shape-only guard. Real validity is decided by the DB lookup in invitation_by_token.
+// Generated tokens are 48 hex chars (randomBytes(24).toString('hex')); the bootstrap admin
+// migration uses a short sentinel, so we accept any URL-safe string of reasonable length.
 const inviteToken = z
   .string()
-  .regex(/^[a-f0-9]{48}$/, 'Invalid invitation token')
+  .regex(/^[A-Za-z0-9_-]{1,128}$/, 'Invalid invitation token')
 
 export const acceptInviteSchema = z
   .object({
