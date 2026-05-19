@@ -31,3 +31,4 @@ export function formatAssigneeLabel(user: AssignableUser): string {
     .join(' ')
   return name || user.email || user.user_id
 }
+
