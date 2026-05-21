@@ -86,16 +86,11 @@ export async function createWorkOrderAction(
     ? 'pending'
     : 'open'
 
-  // IT work orders span systems rather than physical sites, so the form
-  // hides the property / unit fields. Coerce them to null on the way to the
-  // database, mirroring the check constraint in the schema.
-  const isIT = parsed.data.category === 'it'
-
   const { error } = await supabase.from('work_orders').insert({
     category: parsed.data.category,
     priority: parsed.data.priority,
-    property: isIT ? null : (parsed.data.property ?? null),
-    unit_number: isIT ? null : (parsed.data.unitNumber ?? null),
+    property: parsed.data.property ?? null,
+    unit_number: parsed.data.unitNumber ?? null,
     due_at: parsed.data.dueAt ?? null,
     description: parsed.data.description,
     reported_by_name: parsed.data.reportedByName ?? null,
@@ -160,15 +155,13 @@ export async function updateWorkOrderAction(
     )
   }
 
-  const isIT = parsed.data.category === 'it'
-
   const { error } = await supabase
     .from('work_orders')
     .update({
       category: parsed.data.category,
       priority: parsed.data.priority,
-      property: isIT ? null : (parsed.data.property ?? null),
-      unit_number: isIT ? null : (parsed.data.unitNumber ?? null),
+      property: parsed.data.property ?? null,
+      unit_number: parsed.data.unitNumber ?? null,
       due_at: parsed.data.dueAt ?? null,
       description: parsed.data.description,
       reported_by_name: parsed.data.reportedByName ?? null,
