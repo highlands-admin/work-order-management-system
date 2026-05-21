@@ -308,67 +308,65 @@ export function EditWorkOrderForm({
         </FieldGroup>
       </FormSection>
 
-      {categoryValue === 'it' ? null : (
-        <FormSection
-          id="location"
-          title="Location"
-          description="Where is the work needed?"
-        >
-          <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <Field data-invalid={propertyError ? 'true' : undefined}>
-              <FieldLabel htmlFor="property">
-                Property <Required />
-              </FieldLabel>
-              <Select
-                name="property"
-                value={propertyValue}
-                onValueChange={(v) => {
-                  setPropertyValue(typeof v === 'string' ? v : '')
-                  markEdited('property')
-                }}
+      <FormSection
+        id="location"
+        title="Location"
+        description="Where is the work needed?"
+      >
+        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field data-invalid={propertyError ? 'true' : undefined}>
+            <FieldLabel htmlFor="property">
+              Property {categoryValue === 'it' ? <Optional /> : <Required />}
+            </FieldLabel>
+            <Select
+              name="property"
+              value={propertyValue}
+              onValueChange={(v) => {
+                setPropertyValue(typeof v === 'string' ? v : '')
+                markEdited('property')
+              }}
+            >
+              <SelectTrigger
+                id="property"
+                className="w-full"
+                aria-invalid={propertyError ? true : undefined}
               >
-                <SelectTrigger
-                  id="property"
-                  className="w-full"
-                  aria-invalid={propertyError ? true : undefined}
-                >
-                  <SelectValue placeholder="Select a property">
-                    {(value: string) =>
-                      value in PROPERTY_LABELS
-                        ? PROPERTY_LABELS[value as Property]
-                        : null
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {PROPERTIES.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {PROPERTY_LABELS[p]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldError>{propertyError}</FieldError>
-            </Field>
+                <SelectValue placeholder="Select a property">
+                  {(value: string) =>
+                    value in PROPERTY_LABELS
+                      ? PROPERTY_LABELS[value as Property]
+                      : null
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PROPERTIES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {PROPERTY_LABELS[p]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldError>{propertyError}</FieldError>
+          </Field>
 
-            <Field data-invalid={unitNumberError ? 'true' : undefined}>
-              <FieldLabel htmlFor="unitNumber">
-                Unit number <Optional />
-              </FieldLabel>
-              <Input
-                id="unitNumber"
-                name="unitNumber"
-                autoComplete="off"
-                defaultValue={state.values?.unitNumber ?? workOrder.unit_number ?? ''}
-                onChange={() => markEdited('unitNumber')}
-                aria-invalid={unitNumberError ? true : undefined}
-                placeholder="e.g. 2A"
-              />
-              <FieldError>{unitNumberError}</FieldError>
-            </Field>
-          </FieldGroup>
-        </FormSection>
-      )}
+          <Field data-invalid={unitNumberError ? 'true' : undefined}>
+            <FieldLabel htmlFor="unitNumber">
+              Unit number <Optional />
+            </FieldLabel>
+            <Input
+              id="unitNumber"
+              name="unitNumber"
+              autoComplete="off"
+              defaultValue={state.values?.unitNumber ?? workOrder.unit_number ?? ''}
+              onChange={() => markEdited('unitNumber')}
+              aria-invalid={unitNumberError ? true : undefined}
+              placeholder="e.g. 2A"
+            />
+            <FieldError>{unitNumberError}</FieldError>
+          </Field>
+        </FieldGroup>
+      </FormSection>
 
       <FormSection
         id="details"
