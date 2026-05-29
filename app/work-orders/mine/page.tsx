@@ -22,9 +22,11 @@ import {
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
 
+import { WorkOrderRow } from '../work-order-row'
+
 export const metadata: Metadata = { title: 'My Work Orders' }
 
-type WorkOrderRow = {
+type WorkOrderListItem = {
   id: string
   category: WorkOrderCategory
   status: WorkOrderStatus
@@ -73,7 +75,7 @@ export default async function MyWorkOrdersPage() {
     .order('created_at', { ascending: false })
     .limit(ROW_LIMIT)
 
-  const workOrders = (data ?? []) as WorkOrderRow[]
+  const workOrders = (data ?? []) as WorkOrderListItem[]
 
   return (
     <div className="flex flex-col gap-6">
@@ -131,7 +133,7 @@ export default async function MyWorkOrdersPage() {
             </TableHeader>
             <TableBody>
               {workOrders.map((wo) => (
-                <TableRow key={wo.id}>
+                <WorkOrderRow key={wo.id} href={`/work-orders/${wo.id}`}>
                   <TableCell className="px-4 py-3 text-muted-foreground">
                     {formatDate(wo.created_at)}
                   </TableCell>
@@ -169,13 +171,13 @@ export default async function MyWorkOrdersPage() {
                   </TableCell>
                   <TableCell className="px-4 py-3 text-right">
                     <Link
-                      href={`/work-orders/${wo.id}/edit`}
+                      href={`/work-orders/${wo.id}`}
                       className="font-medium text-foreground underline-offset-4 hover:underline"
                     >
-                      Open
+                      View
                     </Link>
                   </TableCell>
-                </TableRow>
+                </WorkOrderRow>
               ))}
             </TableBody>
           </Table>

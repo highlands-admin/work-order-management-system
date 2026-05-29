@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 
 import {
   APPROVAL_REQUIRED_ROLES,
+  addWorkOrderNoteSchema,
   createWorkOrderSchema,
   rejectWorkOrderSchema,
   transitionStatusSchema,
@@ -86,28 +87,51 @@ export async function createWorkOrderAction(
     ? 'pending'
     : 'open'
 
-  const { error } = await supabase.from('work_orders').insert({
-    category: parsed.data.category,
-    priority: parsed.data.priority,
-    property: parsed.data.property ?? null,
-    unit_number: parsed.data.unitNumber ?? null,
-    due_at: parsed.data.dueAt ?? null,
-    description: parsed.data.description,
-    reported_by_name: parsed.data.reportedByName ?? null,
-    reported_by_email: parsed.data.reportedByEmail ?? null,
-    reported_by_phone: parsed.data.reportedByPhone ?? null,
-    status: initialStatus,
-    assigned_to: parsed.data.assignedTo,
-    created_by: claims.sub,
-    updated_by: claims.sub,
-  })
+  const { data: workOrderData, error } = await supabase
+    .from('work_orders')
+    .insert({
+      category: parsed.data.category,
+      priority: parsed.data.priority,
+      property: parsed.data.property ?? null,
+      unit_number: parsed.data.unitNumber ?? null,
+      due_at: parsed.data.dueAt ?? null,
+      description: parsed.data.description,
+      reported_by_name: parsed.data.reportedByName ?? null,
+      reported_by_email: parsed.data.reportedByEmail ?? null,
+      reported_by_phone: parsed.data.reportedByPhone ?? null,
+      status: initialStatus,
+      assigned_to: parsed.data.assignedTo,
+      created_by: claims.sub,
+      updated_by: claims.sub,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     return formError(undefined, raw, error.message)
   }
 
+  // Insert any notes submitted alongside the form. Notes are optional and
+  // their failure must not block the work order creation, so errors are
+  // silently ignored here.
+  const noteValues = formData
+    .getAll('note')
+    .map((v) => String(v).trim())
+    .filter((v) => v.length > 0 && v.length <= 2000)
+
+  if (noteValues.length > 0) {
+    await supabase.from('work_order_notes').insert(
+      noteValues.map((body) => ({
+        work_order_id: workOrderData.id,
+        body,
+        created_by: claims.sub,
+      }))
+    )
+  }
+
   revalidatePath('/work-orders')
   redirect('/work-orders')
+
 }
 
 // Full edit for administrators and requesters. RLS and the
@@ -333,6 +357,44 @@ export async function rejectWorkOrderAction(
   revalidatePath('/work-orders/submissions')
   revalidatePath('/work-orders')
   return { status: 'success', message: 'Rejected.' }
+}
+
+// Adds a single note to an existing work order. Any authenticated user may
+// call this. The action does not redirect so the compose box stays visible.
+export async function addWorkOrderNoteAction(
+  workOrderId: string,
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const raw = { body: String(formData.get('body') ?? '') }
+  const parsed = addWorkOrderNoteSchema.safeParse(raw)
+  if (!parsed.success) {
+    return formError(z4FieldErrors(parsed.error), raw)
+  }
+
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as
+    | { sub?: string; user_role?: string }
+    | undefined
+
+  if (!claims?.sub) {
+    return formError(undefined, raw, 'You must be signed in to add a note.')
+  }
+
+  const { error } = await supabase.from('work_order_notes').insert({
+    work_order_id: workOrderId,
+    body: parsed.data.body,
+    created_by: claims.sub,
+  })
+
+  if (error) {
+    return formError(undefined, raw, error.message)
+  }
+
+  revalidatePath(`/work-orders/${workOrderId}`)
+  revalidatePath(`/work-orders/${workOrderId}/edit`)
+  return { status: 'success', message: 'Note added.' }
 }
 
 function z4FieldErrors(error: {

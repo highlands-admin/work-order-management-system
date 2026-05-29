@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useActionState, useState } from 'react'
 
 import { FormError } from '@/components/auth/form-error'
@@ -134,17 +135,25 @@ export function SubmissionCard({
             </span>
           ) : null}
         </div>
-        <time
-          className="shrink-0 text-xs text-muted-foreground tabular-nums"
-          dateTime={isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt}
-          title={formatExactDateTime(
-            isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt
-          )}
-        >
-          {isRejected
-            ? `Rejected ${formatRelativeTime(workOrder.rejectedAt ?? workOrder.createdAt)}`
-            : `Submitted ${formatRelativeTime(workOrder.createdAt)}`}
-        </time>
+        <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
+          <time
+            className="text-muted-foreground tabular-nums"
+            dateTime={isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt}
+            title={formatExactDateTime(
+              isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt
+            )}
+          >
+            {isRejected
+              ? `Rejected ${formatRelativeTime(workOrder.rejectedAt ?? workOrder.createdAt)}`
+              : `Submitted ${formatRelativeTime(workOrder.createdAt)}`}
+          </time>
+          <Link
+            href={`/work-orders/${workOrder.id}`}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            View details
+          </Link>
+        </div>
       </div>
 
       <p className="mt-5 whitespace-pre-line text-sm leading-6 text-foreground/90">

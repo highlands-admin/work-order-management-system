@@ -4,6 +4,8 @@ export const WORK_ORDER_CATEGORIES = [
   'maintenance',
   'it',
   'marketing',
+  'license',
+  'compliance',
 ] as const
 
 export type WorkOrderCategory = (typeof WORK_ORDER_CATEGORIES)[number]
@@ -12,6 +14,8 @@ export const CATEGORY_LABELS: Record<WorkOrderCategory, string> = {
   maintenance: 'Maintenance',
   it: 'IT',
   marketing: 'Marketing',
+  license: 'License',
+  compliance: 'Compliance',
 }
 
 export const WORK_ORDER_STATUSES = [
@@ -164,3 +168,13 @@ export const transitionStatusSchema = z.object({
 })
 
 export type TransitionStatusInput = z.infer<typeof transitionStatusSchema>
+
+export const addWorkOrderNoteSchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, 'Note cannot be empty')
+    .max(2000, 'Note is too long (max 2000 characters)'),
+})
+
+export type AddWorkOrderNoteInput = z.infer<typeof addWorkOrderNoteSchema>

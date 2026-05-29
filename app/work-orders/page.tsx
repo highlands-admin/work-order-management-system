@@ -27,10 +27,11 @@ import {
 } from '@/lib/work-orders/filters'
 
 import { FilterBar } from './filter-bar'
+import { WorkOrderRow } from './work-order-row'
 
 export const metadata: Metadata = { title: 'Work orders' }
 
-type WorkOrderRow = {
+type WorkOrderListItem = {
   id: string
   category: WorkOrderCategory
   status: WorkOrderStatus
@@ -131,7 +132,7 @@ export default async function WorkOrdersPage({
     | undefined)?.user_role
   const canFile = userRole ? FILER_ROLES.has(userRole) : false
   const { data, error } = queryResult
-  const workOrders = (data ?? []) as WorkOrderRow[]
+  const workOrders = (data ?? []) as WorkOrderListItem[]
   const filtersActive = hasActiveFilters(filters)
 
   return (
@@ -204,7 +205,7 @@ export default async function WorkOrdersPage({
             </TableHeader>
             <TableBody>
               {workOrders.map((wo) => (
-                <TableRow key={wo.id}>
+                <WorkOrderRow key={wo.id} href={`/work-orders/${wo.id}`}>
                   <TableCell className="px-4 py-3 text-muted-foreground">
                     {formatDate(wo.created_at)}
                   </TableCell>
@@ -242,13 +243,13 @@ export default async function WorkOrdersPage({
                   </TableCell>
                   <TableCell className="px-4 py-3 text-right">
                     <Link
-                      href={`/work-orders/${wo.id}/edit`}
+                      href={`/work-orders/${wo.id}`}
                       className="font-medium text-foreground underline-offset-4 hover:underline"
                     >
-                      Edit
+                      View
                     </Link>
                   </TableCell>
-                </TableRow>
+                </WorkOrderRow>
               ))}
             </TableBody>
           </Table>

@@ -63,6 +63,9 @@ export function NewWorkOrderForm({
   )
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
 
+  // Notes are kept in local state so they survive failed form submissions.
+  const [notes, setNotes] = useState<string[]>([])
+
   // Selects must be controlled so Base UI doesn't warn when state.values flips
   // from undefined (first render) to a string (after a failed submission).
   // Reset to the latest server values whenever a new action state arrives.
@@ -389,6 +392,54 @@ export function NewWorkOrderForm({
             <FieldError>{phoneError}</FieldError>
           </Field>
         </FieldGroup>
+      </FormSection>
+
+      <FormSection
+        id="notes"
+        title="Notes"
+        description="Optional notes for the team. Add context or instructions that should appear with the work order."
+      >
+        <div className="flex flex-col gap-3">
+          {notes.length > 0 ? (
+            <ul className="flex flex-col gap-3">
+              {notes.map((body, index) => (
+                <li key={index} className="flex items-start gap-2">
+                  <Textarea
+                    name="note"
+                    rows={3}
+                    value={body}
+                    onChange={(e) => {
+                      const next = [...notes]
+                      next[index] = e.target.value
+                      setNotes(next)
+                    }}
+                    placeholder="Write a note visible to everyone on this work order…"
+                    className="flex-1"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove note"
+                    onClick={() =>
+                      setNotes(notes.filter((_, i) => i !== index))
+                    }
+                    className="mt-1.5 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <span aria-hidden="true" className="text-lg leading-none">
+                      &times;
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setNotes([...notes, ''])}
+            className="self-start text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            + Add a note
+          </button>
+        </div>
       </FormSection>
 
       <div className="flex items-center justify-end gap-3 pt-2">
