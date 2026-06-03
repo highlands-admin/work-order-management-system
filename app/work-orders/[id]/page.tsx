@@ -6,9 +6,15 @@ import type { ReactNode } from 'react'
 import { buttonVariants } from '@/components/ui/button'
 import {
   CATEGORY_LABELS,
+  MARKETING_REQUEST_TYPE_LABELS,
+  MARKETING_SIZE_FORMAT_LABELS,
+  MARKETING_TARGET_AUDIENCE_LABELS,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
   STATUS_LABELS,
+  type MarketingRequestType,
+  type MarketingSizeFormat,
+  type MarketingTargetAudience,
   type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
@@ -59,6 +65,14 @@ type WorkOrderRow = {
   reported_by_name: string | null
   reported_by_email: string | null
   reported_by_phone: string | null
+  marketing_request_type: string | null
+  marketing_request_type_other: string | null
+  marketing_event_name: string | null
+  marketing_target_audience: string[] | null
+  marketing_target_audience_other: string | null
+  marketing_key_message: string | null
+  marketing_size_format: string[] | null
+  marketing_size_format_other: string | null
   rejected_reason: string | null
   rejected_at: string | null
   rejected_by: string | null
@@ -85,7 +99,7 @@ export default async function WorkOrderDetailPage({
     supabase
       .from('work_orders')
       .select(
-        'id, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, rejected_reason, rejected_at, rejected_by, created_at, updated_at'
+        'id, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, created_at, updated_at'
       )
       .eq('id', id)
       .maybeSingle<WorkOrderRow>(),
@@ -198,6 +212,43 @@ export default async function WorkOrderDetailPage({
         </dl>
       </Section>
 
+      {data.category === 'marketing' ? (
+        <Section title="Marketing">
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
+            <DetailItem label="Type of request">
+              {formatRequestType(
+                data.marketing_request_type,
+                data.marketing_request_type_other
+              )}
+            </DetailItem>
+            <DetailItem label="Name or title of event">
+              {data.marketing_event_name ?? <Empty />}
+            </DetailItem>
+            <DetailItem label="Target audience">
+              {formatAudience(
+                data.marketing_target_audience,
+                data.marketing_target_audience_other
+              )}
+            </DetailItem>
+            <DetailItem label="Size / format needed">
+              {formatSizeFormat(
+                data.marketing_size_format,
+                data.marketing_size_format_other
+              )}
+            </DetailItem>
+            <DetailItem label="Key message or theme">
+              {data.marketing_key_message ? (
+                <span className="whitespace-pre-line text-foreground/90">
+                  {data.marketing_key_message}
+                </span>
+              ) : (
+                <Empty />
+              )}
+            </DetailItem>
+          </dl>
+        </Section>
+      ) : null}
+
       {hasReporter ? (
         <Section title="Reporter">
           <dl className="grid grid-cols-1 gap-x-8 gap-y-4 text-sm sm:grid-cols-3">
@@ -293,6 +344,47 @@ function DetailItem({
 
 function Empty() {
   return <span className="text-muted-foreground">—</span>
+}
+
+function formatRequestType(
+  value: string | null,
+  other: string | null
+): ReactNode {
+  if (!value) return <Empty />
+  if (value === 'other') return other ?? <Empty />
+  return value in MARKETING_REQUEST_TYPE_LABELS
+    ? MARKETING_REQUEST_TYPE_LABELS[value as MarketingRequestType]
+    : value
+}
+
+function formatSizeFormat(
+  values: string[] | null,
+  other: string | null
+): ReactNode {
+  if (!values || values.length === 0) return <Empty />
+  const labels = values.map((v) =>
+    v === 'other'
+      ? (other ?? MARKETING_SIZE_FORMAT_LABELS.other)
+      : v in MARKETING_SIZE_FORMAT_LABELS
+        ? MARKETING_SIZE_FORMAT_LABELS[v as MarketingSizeFormat]
+        : v
+  )
+  return labels.join(', ')
+}
+
+function formatAudience(
+  values: string[] | null,
+  other: string | null
+): ReactNode {
+  if (!values || values.length === 0) return <Empty />
+  const labels = values.map((v) =>
+    v === 'other'
+      ? (other ?? MARKETING_TARGET_AUDIENCE_LABELS.other)
+      : v in MARKETING_TARGET_AUDIENCE_LABELS
+        ? MARKETING_TARGET_AUDIENCE_LABELS[v as MarketingTargetAudience]
+        : v
+  )
+  return labels.join(', ')
 }
 
 function formatUser(

@@ -92,6 +92,74 @@ export const PROPERTY_LABELS: Record<Property, string> = {
   forest_city: 'Forest City',
 }
 
+// Marketing-specific fields. These are collected only for the 'marketing'
+// category and are required when that category is selected. The 'other' values
+// reveal a free-text field that captures the detail the fixed options miss.
+
+export const MARKETING_REQUEST_TYPES = [
+  'event_flyer',
+  'monthly_special',
+  'informational_flyer',
+  'other',
+] as const
+
+export type MarketingRequestType = (typeof MARKETING_REQUEST_TYPES)[number]
+
+export const MARKETING_REQUEST_TYPE_LABELS: Record<MarketingRequestType, string> = {
+  event_flyer: 'Event Flyer',
+  monthly_special: 'Monthly Special',
+  informational_flyer: 'Informational Flyer',
+  other: 'Other',
+}
+
+export const MARKETING_TARGET_AUDIENCES = [
+  'residents',
+  'families',
+  'potential_residents',
+  'staff',
+  'community_public',
+  'other',
+] as const
+
+export type MarketingTargetAudience = (typeof MARKETING_TARGET_AUDIENCES)[number]
+
+export const MARKETING_TARGET_AUDIENCE_LABELS: Record<
+  MarketingTargetAudience,
+  string
+> = {
+  residents: 'Residents',
+  families: 'Families',
+  potential_residents: 'Potential Residents',
+  staff: 'Staff',
+  community_public: 'Community / Public',
+  other: 'Other',
+}
+
+export const MARKETING_SIZE_FORMATS = [
+  'letter',
+  'half_sheet',
+  'social_media_post',
+  'social_media_story',
+  'email',
+  'other',
+] as const
+
+export type MarketingSizeFormat = (typeof MARKETING_SIZE_FORMATS)[number]
+
+export const MARKETING_SIZE_FORMAT_LABELS: Record<MarketingSizeFormat, string> = {
+  letter: 'Letter (8.5 x 11)',
+  half_sheet: 'Half Sheet',
+  social_media_post: 'Social Media Post',
+  social_media_story: 'Social Media Story',
+  email: 'Email',
+  other: 'Other',
+}
+
+// Replaces the description placeholder when the marketing category is
+// selected, so requesters know what production details to include.
+export const MARKETING_DESCRIPTION_PLACEHOLDER =
+  'If it is an event, please list the time, location, and date of the event. It would help to know if a call to action should be included (e.g., RSVP, Call Today, Join Us, Learn More) and who the point of contact is, along with their information that should appear in this graphic.'
+
 const trimmedOptional = z
   .string()
   .trim()
@@ -107,6 +175,32 @@ const optionalProperty = z
   .optional()
   .transform((v) => (v && v.length > 0 ? v : undefined))
   .pipe(z.enum(PROPERTIES).optional())
+
+// Marketing selects arrive as a possibly empty string when the field is hidden
+// for non-marketing categories. Empty becomes undefined, then the enum check
+// runs. The superRefine below rejects undefined for marketing work orders.
+function optionalEnum<const T extends readonly [string, ...string[]]>(
+  values: T
+) {
+  return z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined))
+    .pipe(z.enum(values).optional())
+}
+
+// Marketing multi-selects arrive as an array (possibly empty) from the checkbox
+// group. Empty becomes undefined so the superRefine below can require at least
+// one value for marketing work orders.
+function optionalEnumArray<const T extends readonly [string, ...string[]]>(
+  values: T
+) {
+  return z
+    .array(z.enum(values))
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined))
+}
 
 const baseWorkOrderFields = {
   category: z.enum(WORK_ORDER_CATEGORIES, { message: 'Select a category' }),
@@ -127,6 +221,16 @@ const baseWorkOrderFields = {
     z.email('Enter a valid email address').optional()
   ),
   reportedByPhone: trimmedOptional.pipe(z.string().max(30).optional()),
+  marketingRequestType: optionalEnum(MARKETING_REQUEST_TYPES),
+  marketingRequestTypeOther: trimmedOptional.pipe(z.string().max(200).optional()),
+  marketingEventName: trimmedOptional.pipe(z.string().max(200).optional()),
+  marketingTargetAudience: optionalEnumArray(MARKETING_TARGET_AUDIENCES),
+  marketingTargetAudienceOther: trimmedOptional.pipe(
+    z.string().max(200).optional()
+  ),
+  marketingKeyMessage: trimmedOptional.pipe(z.string().max(2000).optional()),
+  marketingSizeFormat: optionalEnumArray(MARKETING_SIZE_FORMATS),
+  marketingSizeFormatOther: trimmedOptional.pipe(z.string().max(200).optional()),
 }
 
 function requirePropertyUnlessIT<
@@ -141,9 +245,94 @@ function requirePropertyUnlessIT<
   }
 }
 
+// Marketing work orders require their extra fields. The 'other' free-text
+// detail is required only when the matching 'other' option is chosen, so a
+// non-marketing work order that happens to carry stray marketing values still
+// validates.
+function requireMarketingFields<
+  T extends {
+    category: WorkOrderCategory
+    marketingRequestType?: MarketingRequestType
+    marketingRequestTypeOther?: string
+    marketingEventName?: string
+    marketingTargetAudience?: MarketingTargetAudience[]
+    marketingTargetAudienceOther?: string
+    marketingKeyMessage?: string
+    marketingSizeFormat?: MarketingSizeFormat[]
+    marketingSizeFormatOther?: string
+  }
+>(data: T, ctx: z.RefinementCtx) {
+  if (data.category === 'marketing') {
+    if (!data.marketingRequestType) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['marketingRequestType'],
+        message: 'Select a type of request',
+      })
+    }
+    if (!data.marketingEventName) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['marketingEventName'],
+        message: 'Enter a name or title (or NA)',
+      })
+    }
+    if (!data.marketingTargetAudience) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['marketingTargetAudience'],
+        message: 'Select at least one audience',
+      })
+    }
+    if (!data.marketingKeyMessage) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['marketingKeyMessage'],
+        message: 'Enter the key message or theme',
+      })
+    }
+    if (!data.marketingSizeFormat) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['marketingSizeFormat'],
+        message: 'Select a size or format',
+      })
+    }
+  }
+
+  if (data.marketingRequestType === 'other' && !data.marketingRequestTypeOther) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['marketingRequestTypeOther'],
+      message: 'Describe the type of request',
+    })
+  }
+  if (
+    data.marketingTargetAudience?.includes('other') &&
+    !data.marketingTargetAudienceOther
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['marketingTargetAudienceOther'],
+      message: 'Describe the other audience',
+    })
+  }
+  if (
+    data.marketingSizeFormat?.includes('other') &&
+    !data.marketingSizeFormatOther
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['marketingSizeFormatOther'],
+      message: 'Describe the size or format',
+    })
+  }
+}
+
 export const createWorkOrderSchema = z
   .object(baseWorkOrderFields)
   .superRefine(requirePropertyUnlessIT)
+  .superRefine(requireMarketingFields)
 
 export type CreateWorkOrderInput = z.infer<typeof createWorkOrderSchema>
 
@@ -157,6 +346,7 @@ export const updateWorkOrderSchema = z
     resolution: trimmedOptional.pipe(z.string().max(5000).optional()),
   })
   .superRefine(requirePropertyUnlessIT)
+  .superRefine(requireMarketingFields)
 
 export type UpdateWorkOrderInput = z.infer<typeof updateWorkOrderSchema>
 

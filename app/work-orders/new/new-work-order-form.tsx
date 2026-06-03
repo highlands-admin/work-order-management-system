@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
+  MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
   WORK_ORDER_CATEGORIES,
@@ -40,6 +41,10 @@ import {
 
 import { initialAuthState } from '../../(auth)/auth-state'
 import { createWorkOrderAction } from '../actions'
+import { MarketingFields, emptyMarketingDefaults } from '../marketing-fields'
+
+const DESCRIPTION_PLACEHOLDER =
+  'What needs to be done? Include anything a technician should know.'
 
 type ReporterDefaults = {
   name?: string
@@ -291,6 +296,21 @@ export function NewWorkOrderForm({
         </FieldGroup>
       </FormSection>
 
+      {categoryValue === 'marketing' ? (
+        <FormSection
+          id="marketing"
+          title="Marketing"
+          description="Details the design team needs for this marketing request."
+        >
+          <MarketingFields
+            state={state}
+            defaults={emptyMarketingDefaults}
+            markEdited={markEdited}
+            getError={getError}
+          />
+        </FormSection>
+      ) : null}
+
       <FormSection
         id="details"
         title="Details"
@@ -308,7 +328,11 @@ export function NewWorkOrderForm({
               defaultValue={state.values?.description}
               onChange={() => markEdited('description')}
               aria-invalid={descriptionError ? true : undefined}
-              placeholder="What needs to be done? Include anything a technician should know."
+              placeholder={
+                categoryValue === 'marketing'
+                  ? MARKETING_DESCRIPTION_PLACEHOLDER
+                  : DESCRIPTION_PLACEHOLDER
+              }
               required
             />
             <FieldError>{descriptionError}</FieldError>

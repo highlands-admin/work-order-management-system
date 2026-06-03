@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
+  MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
   STATUS_LABELS,
@@ -42,6 +43,7 @@ import {
 
 import { initialAuthState } from '../../../(auth)/auth-state'
 import { updateWorkOrderAction } from '../../actions'
+import { MarketingFields, type MarketingDefaults } from '../../marketing-fields'
 
 type WorkOrder = {
   id: string
@@ -57,6 +59,14 @@ type WorkOrder = {
   reported_by_name: string | null
   reported_by_email: string | null
   reported_by_phone: string | null
+  marketing_request_type: string | null
+  marketing_request_type_other: string | null
+  marketing_event_name: string | null
+  marketing_target_audience: string[] | null
+  marketing_target_audience_other: string | null
+  marketing_key_message: string | null
+  marketing_size_format: string[] | null
+  marketing_size_format_other: string | null
 }
 
 export function EditWorkOrderForm({
@@ -113,6 +123,17 @@ export function EditWorkOrderForm({
   const nameError = getError('reportedByName')
   const emailError = getError('reportedByEmail')
   const phoneError = getError('reportedByPhone')
+
+  const marketingDefaults: MarketingDefaults = {
+    requestType: workOrder.marketing_request_type ?? '',
+    requestTypeOther: workOrder.marketing_request_type_other ?? '',
+    eventName: workOrder.marketing_event_name ?? '',
+    targetAudience: workOrder.marketing_target_audience ?? [],
+    targetAudienceOther: workOrder.marketing_target_audience_other ?? '',
+    keyMessage: workOrder.marketing_key_message ?? '',
+    sizeFormat: workOrder.marketing_size_format ?? [],
+    sizeFormatOther: workOrder.marketing_size_format_other ?? '',
+  }
 
   return (
     <form action={action} noValidate className="flex flex-col gap-6">
@@ -368,6 +389,21 @@ export function EditWorkOrderForm({
         </FieldGroup>
       </FormSection>
 
+      {categoryValue === 'marketing' ? (
+        <FormSection
+          id="marketing"
+          title="Marketing"
+          description="Details the design team needs for this marketing request."
+        >
+          <MarketingFields
+            state={state}
+            defaults={marketingDefaults}
+            markEdited={markEdited}
+            getError={getError}
+          />
+        </FormSection>
+      ) : null}
+
       <FormSection
         id="details"
         title="Details"
@@ -385,6 +421,11 @@ export function EditWorkOrderForm({
               defaultValue={state.values?.description ?? workOrder.description}
               onChange={() => markEdited('description')}
               aria-invalid={descriptionError ? true : undefined}
+              placeholder={
+                categoryValue === 'marketing'
+                  ? MARKETING_DESCRIPTION_PLACEHOLDER
+                  : undefined
+              }
               required
             />
             <FieldError>{descriptionError}</FieldError>

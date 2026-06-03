@@ -42,6 +42,12 @@ export async function createWorkOrderAction(
   _prev: AuthState,
   formData: FormData
 ): Promise<AuthState> {
+  const marketingTargetAudience = formData
+    .getAll('marketingTargetAudience')
+    .map((v) => String(v))
+  const marketingSizeFormat = formData
+    .getAll('marketingSizeFormat')
+    .map((v) => String(v))
   const raw = {
     category: String(formData.get('category') ?? ''),
     priority: String(formData.get('priority') ?? ''),
@@ -53,11 +59,32 @@ export async function createWorkOrderAction(
     reportedByName: String(formData.get('reportedByName') ?? ''),
     reportedByEmail: String(formData.get('reportedByEmail') ?? ''),
     reportedByPhone: String(formData.get('reportedByPhone') ?? ''),
+    marketingRequestType: String(formData.get('marketingRequestType') ?? ''),
+    marketingRequestTypeOther: String(
+      formData.get('marketingRequestTypeOther') ?? ''
+    ),
+    marketingEventName: String(formData.get('marketingEventName') ?? ''),
+    marketingTargetAudience,
+    marketingTargetAudienceOther: String(
+      formData.get('marketingTargetAudienceOther') ?? ''
+    ),
+    marketingKeyMessage: String(formData.get('marketingKeyMessage') ?? ''),
+    marketingSizeFormat,
+    marketingSizeFormatOther: String(
+      formData.get('marketingSizeFormatOther') ?? ''
+    ),
+  }
+  // AuthState.values is a flat string map, so the multi-selects are echoed back
+  // as comma-joined strings for the form to re-hydrate on validation errors.
+  const values = {
+    ...raw,
+    marketingTargetAudience: marketingTargetAudience.join(','),
+    marketingSizeFormat: marketingSizeFormat.join(','),
   }
 
   const parsed = createWorkOrderSchema.safeParse(raw)
   if (!parsed.success) {
-    return formError(z4FieldErrors(parsed.error), raw)
+    return formError(z4FieldErrors(parsed.error), values)
   }
 
   const supabase = await createClient()
@@ -67,13 +94,13 @@ export async function createWorkOrderAction(
     | undefined
 
   if (!claims?.sub) {
-    return formError(undefined, raw, 'You must be signed in to file a work order.')
+    return formError(undefined, values, 'You must be signed in to file a work order.')
   }
 
   if (!FILER_ROLES.includes(claims.user_role as (typeof FILER_ROLES)[number])) {
     return formError(
       undefined,
-      raw,
+      values,
       'Your role is not permitted to create work orders.'
     )
   }
@@ -99,6 +126,16 @@ export async function createWorkOrderAction(
       reported_by_name: parsed.data.reportedByName ?? null,
       reported_by_email: parsed.data.reportedByEmail ?? null,
       reported_by_phone: parsed.data.reportedByPhone ?? null,
+      marketing_request_type: parsed.data.marketingRequestType ?? null,
+      marketing_request_type_other:
+        parsed.data.marketingRequestTypeOther ?? null,
+      marketing_event_name: parsed.data.marketingEventName ?? null,
+      marketing_target_audience: parsed.data.marketingTargetAudience ?? null,
+      marketing_target_audience_other:
+        parsed.data.marketingTargetAudienceOther ?? null,
+      marketing_key_message: parsed.data.marketingKeyMessage ?? null,
+      marketing_size_format: parsed.data.marketingSizeFormat ?? null,
+      marketing_size_format_other: parsed.data.marketingSizeFormatOther ?? null,
       status: initialStatus,
       assigned_to: parsed.data.assignedTo,
       created_by: claims.sub,
@@ -108,7 +145,7 @@ export async function createWorkOrderAction(
     .single()
 
   if (error) {
-    return formError(undefined, raw, error.message)
+    return formError(undefined, values, error.message)
   }
 
   // Insert any notes submitted alongside the form. Notes are optional and
@@ -141,6 +178,12 @@ export async function updateWorkOrderAction(
   _prev: AuthState,
   formData: FormData
 ): Promise<AuthState> {
+  const marketingTargetAudience = formData
+    .getAll('marketingTargetAudience')
+    .map((v) => String(v))
+  const marketingSizeFormat = formData
+    .getAll('marketingSizeFormat')
+    .map((v) => String(v))
   const raw = {
     category: String(formData.get('category') ?? ''),
     priority: String(formData.get('priority') ?? ''),
@@ -154,11 +197,30 @@ export async function updateWorkOrderAction(
     reportedByPhone: String(formData.get('reportedByPhone') ?? ''),
     status: String(formData.get('status') ?? ''),
     resolution: String(formData.get('resolution') ?? ''),
+    marketingRequestType: String(formData.get('marketingRequestType') ?? ''),
+    marketingRequestTypeOther: String(
+      formData.get('marketingRequestTypeOther') ?? ''
+    ),
+    marketingEventName: String(formData.get('marketingEventName') ?? ''),
+    marketingTargetAudience,
+    marketingTargetAudienceOther: String(
+      formData.get('marketingTargetAudienceOther') ?? ''
+    ),
+    marketingKeyMessage: String(formData.get('marketingKeyMessage') ?? ''),
+    marketingSizeFormat,
+    marketingSizeFormatOther: String(
+      formData.get('marketingSizeFormatOther') ?? ''
+    ),
+  }
+  const values = {
+    ...raw,
+    marketingTargetAudience: marketingTargetAudience.join(','),
+    marketingSizeFormat: marketingSizeFormat.join(','),
   }
 
   const parsed = updateWorkOrderSchema.safeParse(raw)
   if (!parsed.success) {
-    return formError(z4FieldErrors(parsed.error), raw)
+    return formError(z4FieldErrors(parsed.error), values)
   }
 
   const supabase = await createClient()
@@ -168,13 +230,13 @@ export async function updateWorkOrderAction(
     | undefined
 
   if (!claims?.sub) {
-    return formError(undefined, raw, 'You must be signed in to edit a work order.')
+    return formError(undefined, values, 'You must be signed in to edit a work order.')
   }
 
   if (!EDITOR_ROLES.includes(claims.user_role as EditorRole)) {
     return formError(
       undefined,
-      raw,
+      values,
       'Your role is not permitted to edit work orders.'
     )
   }
@@ -193,13 +255,23 @@ export async function updateWorkOrderAction(
       reported_by_phone: parsed.data.reportedByPhone ?? null,
       status: parsed.data.status,
       resolution: parsed.data.resolution ?? null,
+      marketing_request_type: parsed.data.marketingRequestType ?? null,
+      marketing_request_type_other:
+        parsed.data.marketingRequestTypeOther ?? null,
+      marketing_event_name: parsed.data.marketingEventName ?? null,
+      marketing_target_audience: parsed.data.marketingTargetAudience ?? null,
+      marketing_target_audience_other:
+        parsed.data.marketingTargetAudienceOther ?? null,
+      marketing_key_message: parsed.data.marketingKeyMessage ?? null,
+      marketing_size_format: parsed.data.marketingSizeFormat ?? null,
+      marketing_size_format_other: parsed.data.marketingSizeFormatOther ?? null,
       assigned_to: parsed.data.assignedTo,
       updated_by: claims.sub,
     })
     .eq('id', workOrderId)
 
   if (error) {
-    return formError(undefined, raw, error.message)
+    return formError(undefined, values, error.message)
   }
 
   revalidatePath('/work-orders')

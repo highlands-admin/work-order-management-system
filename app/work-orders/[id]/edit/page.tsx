@@ -39,6 +39,14 @@ type WorkOrderRow = {
   reported_by_name: string | null
   reported_by_email: string | null
   reported_by_phone: string | null
+  marketing_request_type: string | null
+  marketing_request_type_other: string | null
+  marketing_event_name: string | null
+  marketing_target_audience: string[] | null
+  marketing_target_audience_other: string | null
+  marketing_key_message: string | null
+  marketing_size_format: string[] | null
+  marketing_size_format_other: string | null
 }
 
 export default async function EditWorkOrderPage({
@@ -60,7 +68,7 @@ export default async function EditWorkOrderPage({
     supabase
       .from('work_orders')
       .select(
-        'id, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, reported_by_name, reported_by_email, reported_by_phone'
+        'id, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other'
       )
       .eq('id', id)
       .maybeSingle<WorkOrderRow>(),
