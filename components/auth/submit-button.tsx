@@ -20,6 +20,7 @@ export function SubmitButton({
   return (
     <Button
       type="submit"
+      size="cta"
       disabled={pending || disabled}
       className={cn(className)}
     >

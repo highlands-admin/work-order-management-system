@@ -49,6 +49,8 @@
 }
 
 :root {
+  /* Drives native UI (scrollbars, form controls, spinners) to match the theme. */
+  color-scheme: light;
   /* Near-white background with a faint cool tint and near-black ink keep the
      surface calm so the single teal accent reads clearly. */
   --background: oklch(0.994 0.001 197);
@@ -87,6 +89,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   /* Deep neutral with a faint cool tint, not pure black, for a softer modern
      dark surface. A brighter teal carries the accent against it. */
   --background: oklch(0.179 0.005 220);
@@ -147,5 +150,38 @@
   h3,
   h4 {
     @apply font-heading tracking-tight;
+  }
+
+  /* Theme the scrollbars off the design tokens so every scroll area, including
+     nested ones like the work order table, follows light/dark. color-scheme
+     alone does not reliably restyle nested overflow regions across browsers. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 35%, transparent)
+      transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: color-mix(
+      in oklch,
+      var(--muted-foreground) 35%,
+      transparent
+    );
+    border: 2px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(
+      in oklch,
+      var(--muted-foreground) 55%,
+      transparent
+    );
   }
 }
