@@ -25,7 +25,6 @@ import {
   MARKETING_SIZE_FORMAT_LABELS,
   MARKETING_TARGET_AUDIENCES,
   MARKETING_TARGET_AUDIENCE_LABELS,
-  type MarketingRequestType,
 } from '@/lib/schemas/work-order'
 
 import type { AuthState } from '../(auth)/auth-state'
@@ -132,6 +131,7 @@ export function MarketingFields({
         </FieldLabel>
         <Select
           name="marketingRequestType"
+          items={MARKETING_REQUEST_TYPE_LABELS}
           value={requestType}
           onValueChange={(v) => {
             setRequestType(typeof v === 'string' ? v : '')
@@ -143,13 +143,7 @@ export function MarketingFields({
             className="w-full sm:max-w-sm"
             aria-invalid={requestTypeError ? true : undefined}
           >
-            <SelectValue placeholder="Select a type of request">
-              {(value: string) =>
-                value in MARKETING_REQUEST_TYPE_LABELS
-                  ? MARKETING_REQUEST_TYPE_LABELS[value as MarketingRequestType]
-                  : null
-              }
-            </SelectValue>
+            <SelectValue placeholder="Select a type of request" />
           </SelectTrigger>
           <SelectContent>
             {MARKETING_REQUEST_TYPES.map((t) => (

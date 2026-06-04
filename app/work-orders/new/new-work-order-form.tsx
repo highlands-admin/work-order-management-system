@@ -29,9 +29,6 @@ import {
   WORK_ORDER_CATEGORIES,
   WORK_ORDER_PRIORITIES,
   PROPERTIES,
-  type WorkOrderCategory,
-  type WorkOrderPriority,
-  type Property,
 } from '@/lib/schemas/work-order'
 
 import {
@@ -59,7 +56,10 @@ export function NewWorkOrderForm({
   reporterDefaults?: ReporterDefaults
   assignableUsers: AssignableUser[]
 }) {
-  const assigneeLabelById = new Map(
+  // Value -> label maps let the Select render the chosen option's label (not the
+  // raw stored value) without the dropdown items being mounted, and still show
+  // the placeholder when nothing is selected.
+  const assigneeItems = Object.fromEntries(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
   const [state, action] = useActionState(
@@ -123,6 +123,7 @@ export function NewWorkOrderForm({
             </FieldLabel>
             <Select
               name="category"
+              items={CATEGORY_LABELS}
               value={categoryValue}
               onValueChange={(v) => {
                 setCategoryValue(typeof v === 'string' ? v : '')
@@ -134,13 +135,7 @@ export function NewWorkOrderForm({
                 className="w-full"
                 aria-invalid={categoryError ? true : undefined}
               >
-                <SelectValue placeholder="Select a category">
-                  {(value: string) =>
-                    value in CATEGORY_LABELS
-                      ? CATEGORY_LABELS[value as WorkOrderCategory]
-                      : null
-                  }
-                </SelectValue>
+                <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
                 {WORK_ORDER_CATEGORIES.map((c) => (
@@ -159,6 +154,7 @@ export function NewWorkOrderForm({
             </FieldLabel>
             <Select
               name="priority"
+              items={PRIORITY_LABELS}
               value={priorityValue}
               onValueChange={(v) => {
                 setPriorityValue(typeof v === 'string' ? v : '')
@@ -170,13 +166,7 @@ export function NewWorkOrderForm({
                 className="w-full"
                 aria-invalid={priorityError ? true : undefined}
               >
-                <SelectValue placeholder="Select a priority">
-                  {(value: string) =>
-                    value in PRIORITY_LABELS
-                      ? PRIORITY_LABELS[value as WorkOrderPriority]
-                      : null
-                  }
-                </SelectValue>
+                <SelectValue placeholder="Select a priority" />
               </SelectTrigger>
               <SelectContent>
                 {WORK_ORDER_PRIORITIES.map((p) => (
@@ -203,6 +193,7 @@ export function NewWorkOrderForm({
             </FieldLabel>
             <Select
               name="assignedTo"
+              items={assigneeItems}
               value={assignedToValue}
               onValueChange={(v) => {
                 setAssignedToValue(typeof v === 'string' ? v : '')
@@ -214,9 +205,7 @@ export function NewWorkOrderForm({
                 className="w-full"
                 aria-invalid={assignedToError ? true : undefined}
               >
-                <SelectValue placeholder="Select an assignee">
-                  {(value: string) => assigneeLabelById.get(value) ?? null}
-                </SelectValue>
+                <SelectValue placeholder="Select an assignee" />
               </SelectTrigger>
               <SelectContent>
                 {assignableUsers.length === 0 ? (
@@ -249,6 +238,7 @@ export function NewWorkOrderForm({
             </FieldLabel>
             <Select
               name="property"
+              items={PROPERTY_LABELS}
               value={propertyValue}
               onValueChange={(v) => {
                 setPropertyValue(typeof v === 'string' ? v : '')
@@ -260,13 +250,7 @@ export function NewWorkOrderForm({
                 className="w-full"
                 aria-invalid={propertyError ? true : undefined}
               >
-                <SelectValue placeholder="Select a property">
-                  {(value: string) =>
-                    value in PROPERTY_LABELS
-                      ? PROPERTY_LABELS[value as Property]
-                      : null
-                  }
-                </SelectValue>
+                <SelectValue placeholder="Select a property" />
               </SelectTrigger>
               <SelectContent>
                 {PROPERTIES.map((p) => (

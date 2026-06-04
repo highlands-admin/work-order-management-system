@@ -79,7 +79,9 @@ export function EditWorkOrderForm({
   allowedStatuses: WorkOrderStatus[]
   assignableUsers: AssignableUser[]
 }) {
-  const assigneeLabelById = new Map(
+  // Value -> label maps let each Select show the chosen option's label (not the
+  // raw stored value) without the dropdown items being mounted.
+  const assigneeItems = Object.fromEntries(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
   const statusLocked = allowedStatuses.length <= 1
@@ -153,6 +155,7 @@ export function EditWorkOrderForm({
             </FieldLabel>
             <Select
               name="category"
+              items={CATEGORY_LABELS}
               value={categoryValue}
               onValueChange={(v) => {
                 setCategoryValue(typeof v === 'string' ? v : '')
@@ -164,13 +167,7 @@ export function EditWorkOrderForm({
                 className="w-full"
                 aria-invalid={categoryError ? true : undefined}
               >
-                <SelectValue placeholder="Select a category">
-                  {(value: string) =>
-                    value in CATEGORY_LABELS
-                      ? CATEGORY_LABELS[value as WorkOrderCategory]
-                      : null
-                  }
-                </SelectValue>
+                <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
                 {WORK_ORDER_CATEGORIES.map((c) => (
@@ -189,6 +186,7 @@ export function EditWorkOrderForm({
             </FieldLabel>
             <Select
               name="priority"
+              items={PRIORITY_LABELS}
               value={priorityValue}
               onValueChange={(v) => {
                 setPriorityValue(typeof v === 'string' ? v : '')
@@ -200,13 +198,7 @@ export function EditWorkOrderForm({
                 className="w-full"
                 aria-invalid={priorityError ? true : undefined}
               >
-                <SelectValue placeholder="Select a priority">
-                  {(value: string) =>
-                    value in PRIORITY_LABELS
-                      ? PRIORITY_LABELS[value as WorkOrderPriority]
-                      : null
-                  }
-                </SelectValue>
+                <SelectValue placeholder="Select a priority" />
               </SelectTrigger>
               <SelectContent>
                 {WORK_ORDER_PRIORITIES.map((p) => (
@@ -233,6 +225,7 @@ export function EditWorkOrderForm({
             </FieldLabel>
             <Select
               name="assignedTo"
+              items={assigneeItems}
               value={assignedToValue}
               onValueChange={(v) => {
                 setAssignedToValue(typeof v === 'string' ? v : '')
@@ -244,9 +237,7 @@ export function EditWorkOrderForm({
                 className="w-full"
                 aria-invalid={assignedToError ? true : undefined}
               >
-                <SelectValue placeholder="Select an assignee">
-                  {(value: string) => assigneeLabelById.get(value) ?? null}
-                </SelectValue>
+                <SelectValue placeholder="Select an assignee" />
               </SelectTrigger>
               <SelectContent>
                 {assignableUsers.length === 0 ? (
@@ -298,6 +289,7 @@ export function EditWorkOrderForm({
             ) : (
               <Select
                 name="status"
+                items={STATUS_LABELS}
                 value={statusValue}
                 onValueChange={(v) => {
                   setStatusValue(typeof v === 'string' ? v : '')
@@ -309,13 +301,7 @@ export function EditWorkOrderForm({
                   className="w-full"
                   aria-invalid={statusError ? true : undefined}
                 >
-                  <SelectValue placeholder="Select a status">
-                    {(value: string) =>
-                      value in STATUS_LABELS
-                        ? STATUS_LABELS[value as WorkOrderStatus]
-                        : null
-                    }
-                  </SelectValue>
+                  <SelectValue placeholder="Select a status" />
                 </SelectTrigger>
                 <SelectContent>
                   {allowedStatuses.map((s) => (
@@ -343,6 +329,7 @@ export function EditWorkOrderForm({
             </FieldLabel>
             <Select
               name="property"
+              items={PROPERTY_LABELS}
               value={propertyValue}
               onValueChange={(v) => {
                 setPropertyValue(typeof v === 'string' ? v : '')
@@ -354,13 +341,7 @@ export function EditWorkOrderForm({
                 className="w-full"
                 aria-invalid={propertyError ? true : undefined}
               >
-                <SelectValue placeholder="Select a property">
-                  {(value: string) =>
-                    value in PROPERTY_LABELS
-                      ? PROPERTY_LABELS[value as Property]
-                      : null
-                  }
-                </SelectValue>
+                <SelectValue placeholder="Select a property" />
               </SelectTrigger>
               <SelectContent>
                 {PROPERTIES.map((p) => (
