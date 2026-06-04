@@ -1,0 +1,346 @@
+'use client'
+
+import {
+  RiArrowDownSLine,
+  RiArrowUpSLine,
+  RiExpandUpDownLine,
+} from '@remixicon/react'
+import { useEffect, useMemo, useState, type PointerEvent } from 'react'
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+} from '@/components/ui/table'
+import {
+  CATEGORY_LABELS,
+  PRIORITY_LABELS,
+  PROPERTY_LABELS,
+  STATUS_LABELS,
+  WORK_ORDER_PRIORITIES,
+  WORK_ORDER_STATUSES,
+  type Property,
+  type WorkOrderCategory,
+  type WorkOrderPriority,
+  type WorkOrderStatus,
+} from '@/lib/schemas/work-order'
+
+import { WorkOrderRow } from './work-order-row'
+
+export type WorkOrderListItem = {
+  id: string
+  work_order_code: string
+  title: string
+  category: WorkOrderCategory
+  status: WorkOrderStatus
+  property: Property | null
+  unit_number: string | null
+  priority: WorkOrderPriority
+  due_at: string | null
+  reported_by_name: string | null
+  created_at: string
+}
+
+const STATUS_COLOR: Record<WorkOrderStatus, string> = {
+  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  open: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
+  assigned: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
+  in_progress: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  done: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+  closed: 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700/30 dark:text-zinc-300',
+  rejected: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
+}
+
+const PRIORITY_COLOR: Record<WorkOrderPriority, string> = {
+  urgent: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
+  high: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  low: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-300',
+}
+
+type Column = {
+  key: string
+  label: string
+  width: number
+}
+
+// Default column widths in pixels. Users can drag the handles to resize.
+const COLUMNS: Column[] = [
+  { key: 'code', label: 'ID', width: 120 },
+  { key: 'title', label: 'Title', width: 380 },
+  { key: 'created', label: 'Created', width: 120 },
+  { key: 'category', label: 'Category', width: 120 },
+  { key: 'status', label: 'Status', width: 120 },
+  { key: 'priority', label: 'Priority', width: 110 },
+  { key: 'property', label: 'Property', width: 130 },
+  { key: 'unit', label: 'Unit', width: 90 },
+  { key: 'due', label: 'Due', width: 180 },
+  { key: 'reporter', label: 'Reported by', width: 180 },
+]
+
+const MIN_WIDTH = 60
+
+type SortDirection = 'asc' | 'desc'
+type SortState = { key: string; dir: SortDirection }
+
+// Extracts the comparable value for each column. Enum columns sort by their
+// canonical order (workflow progression for status, urgency for priority)
+// rather than alphabetically; text columns are lower-cased for a stable,
+// case-insensitive sort. Nullable columns return null and are pushed to the
+// end regardless of direction.
+const SORT_VALUE: Record<
+  string,
+  (wo: WorkOrderListItem) => number | string | null
+> = {
+  code: (wo) => Number.parseInt(wo.work_order_code.replace(/\D/g, ''), 10),
+  title: (wo) => wo.title.toLowerCase(),
+  created: (wo) => new Date(wo.created_at).getTime(),
+  category: (wo) => CATEGORY_LABELS[wo.category].toLowerCase(),
+  status: (wo) => WORK_ORDER_STATUSES.indexOf(wo.status),
+  priority: (wo) => WORK_ORDER_PRIORITIES.indexOf(wo.priority),
+  property: (wo) => (wo.property ? PROPERTY_LABELS[wo.property].toLowerCase() : null),
+  unit: (wo) => wo.unit_number?.toLowerCase() ?? null,
+  due: (wo) => (wo.due_at ? new Date(wo.due_at).getTime() : null),
+  reporter: (wo) => wo.reported_by_name?.toLowerCase() ?? null,
+}
+
+function compareValues(
+  a: number | string,
+  b: number | string
+): number {
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  return String(a).localeCompare(String(b), undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  })
+}
+
+type ResizeState = {
+  index: number
+  startX: number
+  startWidth: number
+}
+
+export function WorkOrdersTable({
+  workOrders,
+  emptyMessage,
+}: {
+  workOrders: WorkOrderListItem[]
+  emptyMessage: string
+}) {
+  const [widths, setWidths] = useState<number[]>(() =>
+    COLUMNS.map((c) => c.width)
+  )
+  const [resizing, setResizing] = useState<ResizeState | null>(null)
+  const [sort, setSort] = useState<SortState | null>(null)
+
+  // Sort the already-loaded rows on the client. The list is capped server-side,
+  // so this stays cheap and feels instant. Nulls always sort last; the
+  // ascending order is inverted for descending while keeping nulls at the end.
+  const sortedWorkOrders = useMemo(() => {
+    if (!sort) return workOrders
+    const getValue = SORT_VALUE[sort.key]
+    return [...workOrders].sort((a, b) => {
+      const av = getValue(a)
+      const bv = getValue(b)
+      if (av === null && bv === null) return 0
+      if (av === null) return 1
+      if (bv === null) return -1
+      const result = compareValues(av, bv)
+      return sort.dir === 'asc' ? result : -result
+    })
+  }, [workOrders, sort])
+
+  // Cycle a column through ascending, descending, then unsorted.
+  function toggleSort(key: string) {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: 'asc' }
+      if (prev.dir === 'asc') return { key, dir: 'desc' }
+      return null
+    })
+  }
+
+  // While a drag is active, track the pointer on the window so the cursor can
+  // leave the narrow handle without dropping the resize. Subscribing here (and
+  // tearing down on release) is the supported effect pattern; setWidths runs
+  // inside the event callback, not the effect body.
+  useEffect(() => {
+    if (!resizing) return
+
+    function onMove(event: globalThis.PointerEvent) {
+      const delta = event.clientX - resizing!.startX
+      const nextWidth = Math.max(MIN_WIDTH, resizing!.startWidth + delta)
+      setWidths((prev) => {
+        const next = [...prev]
+        next[resizing!.index] = nextWidth
+        return next
+      })
+    }
+
+    function onUp() {
+      setResizing(null)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [resizing])
+
+  function startResize(index: number, event: PointerEvent<HTMLSpanElement>) {
+    event.preventDefault()
+    setResizing({ index, startX: event.clientX, startWidth: widths[index] })
+  }
+
+  if (workOrders.length === 0) {
+    return (
+      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <p className="p-6 text-sm text-muted-foreground">{emptyMessage}</p>
+      </div>
+    )
+  }
+
+  const totalWidth = widths.reduce((sum, w) => sum + w, 0)
+
+  return (
+    <div
+      className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
+      style={resizing ? { userSelect: 'none', cursor: 'col-resize' } : undefined}
+    >
+      <Table className="table-fixed" style={{ width: totalWidth }}>
+        <colgroup>
+          {COLUMNS.map((col, i) => (
+            <col key={col.key} style={{ width: widths[i] }} />
+          ))}
+        </colgroup>
+        <TableHeader>
+          <tr className="border-b bg-muted/40">
+            {COLUMNS.map((col, i) => (
+              <th
+                key={col.key}
+                aria-sort={
+                  sort?.key === col.key
+                    ? sort.dir === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+                className="relative h-10 select-none px-4 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleSort(col.key)}
+                  className="group/sort flex w-full items-center gap-1 pr-2 text-left uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <span className="truncate">{col.label}</span>
+                  <SortIndicator
+                    active={sort?.key === col.key}
+                    dir={sort?.key === col.key ? sort.dir : undefined}
+                  />
+                </button>
+                {i < COLUMNS.length - 1 ? (
+                  <span
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label={`Resize ${col.label} column`}
+                    onPointerDown={(e) => startResize(i, e)}
+                    className="absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-stretch justify-center hover:bg-border/70 active:bg-border"
+                  >
+                    <span className="my-2 w-px bg-border" aria-hidden="true" />
+                  </span>
+                ) : null}
+              </th>
+            ))}
+          </tr>
+        </TableHeader>
+        <TableBody>
+          {sortedWorkOrders.map((wo) => (
+            <WorkOrderRow key={wo.id} href={`/work-orders/${wo.id}`}>
+              <TableCell className="truncate px-4 py-3 font-medium tabular-nums text-muted-foreground">
+                {wo.work_order_code}
+              </TableCell>
+              <TableCell className="truncate px-4 py-3 font-medium">
+                {wo.title}
+              </TableCell>
+              <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                {formatDate(wo.created_at)}
+              </TableCell>
+              <TableCell className="truncate px-4 py-3">
+                {CATEGORY_LABELS[wo.category]}
+              </TableCell>
+              <TableCell className="truncate px-4 py-3">
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[wo.status]}`}
+                >
+                  {STATUS_LABELS[wo.status]}
+                </span>
+              </TableCell>
+              <TableCell className="truncate px-4 py-3">
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLOR[wo.priority]}`}
+                >
+                  {PRIORITY_LABELS[wo.priority]}
+                </span>
+              </TableCell>
+              <TableCell className="truncate px-4 py-3">
+                {wo.property ? PROPERTY_LABELS[wo.property] : '—'}
+              </TableCell>
+              <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                {wo.unit_number ?? '—'}
+              </TableCell>
+              <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                {wo.due_at ? formatDateTime(wo.due_at) : '—'}
+              </TableCell>
+              <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                {wo.reported_by_name ?? '—'}
+              </TableCell>
+            </WorkOrderRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+function SortIndicator({
+  active,
+  dir,
+}: {
+  active: boolean
+  dir?: SortDirection
+}) {
+  if (active && dir === 'asc') {
+    return <RiArrowUpSLine className="size-4 shrink-0 text-foreground" aria-hidden="true" />
+  }
+  if (active && dir === 'desc') {
+    return <RiArrowDownSLine className="size-4 shrink-0 text-foreground" aria-hidden="true" />
+  }
+  // Unsorted: a muted hint that the column is sortable, emphasized on hover.
+  return (
+    <RiExpandUpDownLine
+      className="size-4 shrink-0 text-muted-foreground/40 group-hover/sort:text-muted-foreground"
+      aria-hidden="true"
+    />
+  )
+}
+
+function formatDate(value: string): string {
+  return new Date(value).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
