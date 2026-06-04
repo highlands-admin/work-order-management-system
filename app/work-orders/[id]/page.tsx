@@ -27,6 +27,8 @@ import {
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
 
+import { NotesSection, type NoteRow } from '../notes-section'
+
 export const metadata: Metadata = { title: 'Work Order' }
 
 const EDITOR_ROLES = new Set(['administrator', 'requester'])
@@ -97,16 +99,23 @@ export default async function WorkOrderDetailPage({
 
   if (!claims) redirect('/login')
 
-  const [{ data, error }, assignableUsers] = await Promise.all([
-    supabase
-      .from('work_orders')
-      .select(
-        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, created_at, updated_at'
-      )
-      .eq('id', id)
-      .maybeSingle<WorkOrderRow>(),
-    fetchAssignableUsers(supabase),
-  ])
+  const [{ data, error }, assignableUsers, { data: notesData }] =
+    await Promise.all([
+      supabase
+        .from('work_orders')
+        .select(
+          'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, created_at, updated_at'
+        )
+        .eq('id', id)
+        .maybeSingle<WorkOrderRow>(),
+      fetchAssignableUsers(supabase),
+      supabase
+        .from('work_order_notes')
+        .select('id, body, created_by, created_at, updated_at')
+        .eq('work_order_id', id)
+        .order('created_at', { ascending: true })
+        .returns<NoteRow[]>(),
+    ])
 
   if (error) {
     return (
@@ -121,6 +130,11 @@ export default async function WorkOrderDetailPage({
 
   const userById = new Map<string, AssignableUser>(
     assignableUsers.map((u) => [u.user_id, u])
+  )
+  // Plain object label map for the (client) notes section, which needs a
+  // serializable prop across the Server/Client boundary.
+  const userLabelById: Record<string, string> = Object.fromEntries(
+    assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
   const role = claims.user_role
   const canEdit = role ? EDITOR_ROLES.has(role) : false
@@ -313,6 +327,14 @@ export default async function WorkOrderDetailPage({
           </dl>
         </Section>
       ) : null}
+
+      <NotesSection
+        workOrderId={data.id}
+        notes={notesData ?? []}
+        userById={userLabelById}
+        currentUserId={claims.sub ?? ''}
+        canModerate={role === 'administrator'}
+      />
     </div>
   )
 }

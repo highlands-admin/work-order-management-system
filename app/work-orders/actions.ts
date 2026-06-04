@@ -473,6 +473,71 @@ export async function addWorkOrderNoteAction(
   return { status: 'success', message: 'Note added.' }
 }
 
+// Edits a note's body. RLS restricts this to the note's author, and a trigger
+// keeps every other column immutable, so only the text can change.
+export async function updateWorkOrderNoteAction(
+  noteId: string,
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const raw = { body: String(formData.get('body') ?? '') }
+  const parsed = addWorkOrderNoteSchema.safeParse(raw)
+  if (!parsed.success) {
+    return formError(z4FieldErrors(parsed.error), raw)
+  }
+
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as { sub?: string } | undefined
+
+  if (!claims?.sub) {
+    return formError(undefined, raw, 'You must be signed in to edit a note.')
+  }
+
+  const { data, error } = await supabase
+    .from('work_order_notes')
+    .update({ body: parsed.data.body })
+    .eq('id', noteId)
+    .select('work_order_id')
+    .single()
+
+  if (error) {
+    return formError(undefined, raw, error.message)
+  }
+
+  revalidatePath(`/work-orders/${data.work_order_id}`)
+  return { status: 'success', message: 'Note updated.' }
+}
+
+// Deletes a note. RLS restricts this to the note's author or an administrator.
+export async function deleteWorkOrderNoteAction(
+  noteId: string,
+  _prev: AuthState,
+  _formData: FormData
+): Promise<AuthState> {
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as { sub?: string } | undefined
+
+  if (!claims?.sub) {
+    return formError(undefined, {}, 'You must be signed in to delete a note.')
+  }
+
+  const { data, error } = await supabase
+    .from('work_order_notes')
+    .delete()
+    .eq('id', noteId)
+    .select('work_order_id')
+    .single()
+
+  if (error) {
+    return formError(undefined, {}, error.message)
+  }
+
+  revalidatePath(`/work-orders/${data.work_order_id}`)
+  return { status: 'success', message: 'Note deleted.' }
+}
+
 function z4FieldErrors(error: {
   issues: { path: PropertyKey[]; message: string }[]
 }): Record<string, string[]> {

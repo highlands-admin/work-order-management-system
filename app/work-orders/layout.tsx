@@ -36,13 +36,13 @@ export default async function WorkOrdersLayout({
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur-sm supports-[backdrop-filter]:bg-background/65">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mx-1 h-5" />
+          <Separator orientation="vertical" className="mx-1" />
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {claims.email}
             </span>
             <ThemeToggle />
-            <Separator orientation="vertical" className="mx-1 hidden h-5 sm:block" />
+            <Separator orientation="vertical" className="mx-1 hidden sm:block" />
             <form action={signOutAction}>
               <Button type="submit" size="sm" variant="outline">
                 Sign out

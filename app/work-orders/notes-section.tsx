@@ -1,18 +1,41 @@
 'use client'
 
+import { RiDeleteBinLine, RiPencilLine } from '@remixicon/react'
 import { useActionState, useEffect, useRef, useState } from 'react'
 
 import { SubmitButton } from '@/components/auth/submit-button'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+
 import type { AuthState } from '../(auth)/auth-state'
 import { initialAuthState } from '../(auth)/auth-state'
-import { addWorkOrderNoteAction } from './actions'
+import {
+  addWorkOrderNoteAction,
+  deleteWorkOrderNoteAction,
+  updateWorkOrderNoteAction,
+} from './actions'
 
 export type NoteRow = {
   id: string
   body: string
   created_by: string
   created_at: string
+  updated_at: string
 }
+
+const NOTE_TEXTAREA_CLASS = [
+  'w-full resize-none rounded-md border bg-background px-3 py-2 text-sm',
+  'placeholder:text-muted-foreground/60',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+].join(' ')
 
 // userById maps a user UUID to a display label (full name or email fallback).
 // It is a plain object so it serializes across the Server/Client boundary.
@@ -20,10 +43,14 @@ export function NotesSection({
   workOrderId,
   notes,
   userById,
+  currentUserId,
+  canModerate,
 }: {
   workOrderId: string | null
   notes: NoteRow[]
   userById: Record<string, string>
+  currentUserId: string
+  canModerate: boolean
 }) {
   const disabled = workOrderId === null
 
@@ -82,6 +109,8 @@ export function NotesSection({
               key={note.id}
               note={note}
               authorLabel={userById[note.created_by] ?? note.created_by.slice(0, 8)}
+              canEdit={note.created_by === currentUserId}
+              canDelete={note.created_by === currentUserId || canModerate}
             />
           ))
         )}
@@ -108,12 +137,9 @@ export function NotesSection({
                   rows={3}
                   placeholder="Write a note visible to everyone on this work order..."
                   aria-invalid={bodyError ? true : undefined}
-                  className={[
-                    'w-full resize-none rounded-md border bg-background px-3 py-2 text-sm',
-                    'placeholder:text-muted-foreground/60',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    bodyError ? 'border-destructive' : 'border-input',
-                  ].join(' ')}
+                  className={`${NOTE_TEXTAREA_CLASS} ${
+                    bodyError ? 'border-destructive' : 'border-input'
+                  }`}
                 />
                 {bodyError ? (
                   <p className="text-xs text-destructive">{bodyError}</p>
@@ -129,7 +155,7 @@ export function NotesSection({
               </div>
 
               <div className="flex justify-end">
-                <SubmitButton label="Add note" pendingLabel="Adding…" />
+                <SubmitButton label="Add note" pendingLabel="Adding…" size="sm" />
               </div>
             </form>
           )}
@@ -142,10 +168,37 @@ export function NotesSection({
 function NoteItem({
   note,
   authorLabel,
+  canEdit,
+  canDelete,
 }: {
   note: NoteRow
   authorLabel: string
+  canEdit: boolean
+  canDelete: boolean
 }) {
+  const [editing, setEditing] = useState(false)
+
+  const editAction = updateWorkOrderNoteAction.bind(null, note.id)
+  const [editState, runEdit] = useActionState<AuthState, FormData>(
+    editAction,
+    initialAuthState
+  )
+  const deleteAction = deleteWorkOrderNoteAction.bind(null, note.id)
+  const [deleteState, runDelete] = useActionState<AuthState, FormData>(
+    deleteAction,
+    initialAuthState
+  )
+
+  // Leave edit mode once the save succeeds. The ref guard keeps this from
+  // looping on unrelated re-renders.
+  const prevEditRef = useRef<AuthState>(initialAuthState)
+  useEffect(() => {
+    if (prevEditRef.current !== editState && editState.status === 'success') {
+      setEditing(false)
+    }
+    prevEditRef.current = editState
+  }, [editState])
+
   const initials = authorLabel
     .split(' ')
     .slice(0, 2)
@@ -159,9 +212,16 @@ function NoteItem({
     hour: 'numeric',
     minute: '2-digit',
   })
+  const wasEdited = note.updated_at !== note.created_at
+
+  const editBodyError = editState.fieldErrors?.body?.[0]
+  const editFormError =
+    editState.status === 'error' && !editBodyError ? editState.message : undefined
+  const deleteError =
+    deleteState.status === 'error' ? deleteState.message : undefined
 
   return (
-    <article className="flex gap-4 px-6 py-5">
+    <article className="group flex gap-4 px-6 py-5">
       {/* Author avatar */}
       <div
         aria-hidden="true"
@@ -170,7 +230,7 @@ function NoteItem({
         {initials || '?'}
       </div>
 
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
           <span className="font-medium">{authorLabel}</span>
           <time
@@ -179,13 +239,105 @@ function NoteItem({
           >
             {formattedDate}
           </time>
+          {wasEdited ? (
+            <span className="text-xs text-muted-foreground/70">(edited)</span>
+          ) : null}
+
+          {(canEdit || canDelete) && !editing ? (
+            <span className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+              {/* focus-within keeps the actions reachable for keyboard users. */}
+              {canEdit ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Edit note"
+                  title="Edit note"
+                  onClick={() => setEditing(true)}
+                >
+                  <RiPencilLine />
+                </Button>
+              ) : null}
+              {canDelete ? (
+                <AlertDialog>
+                  <AlertDialogTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label="Delete note"
+                        title="Delete note"
+                        className="text-muted-foreground hover:text-destructive"
+                      />
+                    }
+                  >
+                    <RiDeleteBinLine />
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogTitle>Delete note?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This permanently removes the note. This action cannot be
+                      undone.
+                    </AlertDialogDescription>
+                    {deleteError ? (
+                      <p className="text-sm text-destructive">{deleteError}</p>
+                    ) : null}
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <form action={runDelete}>
+                        <SubmitButton
+                          label="Delete"
+                          pendingLabel="Deleting…"
+                          size="sm"
+                          className="w-full bg-destructive text-white shadow-destructive/20 hover:bg-destructive/90 sm:w-auto"
+                        />
+                      </form>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : null}
+            </span>
+          ) : null}
         </div>
-        <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">
-          {note.body}
-        </p>
+
+        {editing ? (
+          <form action={runEdit} noValidate className="mt-1 flex flex-col gap-2">
+            <textarea
+              name="body"
+              rows={3}
+              defaultValue={note.body}
+              autoFocus
+              aria-invalid={editBodyError ? true : undefined}
+              className={`${NOTE_TEXTAREA_CLASS} ${
+                editBodyError ? 'border-destructive' : 'border-input'
+              }`}
+            />
+            {editBodyError ? (
+              <p className="text-xs text-destructive">{editBodyError}</p>
+            ) : null}
+            {editFormError ? (
+              <p className="text-xs text-destructive">{editFormError}</p>
+            ) : null}
+            <div className="flex items-center gap-2">
+              <SubmitButton label="Save" pendingLabel="Saving…" size="sm" />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">
+            {note.body}
+          </p>
+        )}
+
       </div>
     </article>
   )
 }
-
-

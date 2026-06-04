@@ -12,14 +12,10 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
-import {
-  fetchAssignableUsers,
-  formatAssigneeLabel,
-} from '@/lib/work-orders/assignable-users'
+import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 
 import { EditWorkOrderForm } from './edit-work-order-form'
 import { TransitionStatusForm } from './transition-status-form'
-import { NotesSection, type NoteRow } from '../../notes-section'
 
 export const metadata: Metadata = { title: 'Edit Work Order' }
 
@@ -66,7 +62,7 @@ export default async function EditWorkOrderPage({
 
   if (!claims) redirect('/login')
 
-  const [{ data, error }, assignableUsers, { data: notesData }] = await Promise.all([
+  const [{ data, error }, assignableUsers] = await Promise.all([
     supabase
       .from('work_orders')
       .select(
@@ -75,12 +71,6 @@ export default async function EditWorkOrderPage({
       .eq('id', id)
       .maybeSingle<WorkOrderRow>(),
     fetchAssignableUsers(supabase),
-    supabase
-      .from('work_order_notes')
-      .select('id, body, created_by, created_at')
-      .eq('work_order_id', id)
-      .order('created_at', { ascending: true })
-      .returns<NoteRow[]>(),
   ])
 
   if (error) {
@@ -99,11 +89,6 @@ export default async function EditWorkOrderPage({
   const isAdmin = role === 'administrator'
   const isTechnician = role === 'technician'
   const isInspector = role === 'inspector'
-
-  // Build a serializable UUID -> display label map for the notes section.
-  const userById: Record<string, string> = Object.fromEntries(
-    assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
-  )
 
   // Approval transitions are admin-only. Non-admin editors get a filtered
   // status list so the UI matches what the database trigger enforces.
@@ -158,12 +143,6 @@ export default async function EditWorkOrderPage({
           </p>
         </div>
       )}
-
-      <NotesSection
-        workOrderId={data.id}
-        notes={notesData ?? []}
-        userById={userById}
-      />
     </div>
   )
 }
