@@ -1,8 +1,10 @@
+import { RiAddLine } from '@remixicon/react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { buttonVariants } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
+import { cn } from '@/lib/utils'
 import {
   hasActiveFilters,
   parseWorkOrderFilters,
@@ -99,8 +101,12 @@ export default async function WorkOrdersPage({
         {canFile ? (
           <Link
             href="/work-orders/new"
-            className={buttonVariants({ size: 'sm' })}
+            className={cn(
+              buttonVariants({ size: 'lg' }),
+              'h-11 gap-2 rounded-xl px-5 text-sm font-semibold'
+            )}
           >
+            <RiAddLine className="size-5" />
             New work order
           </Link>
         ) : null}
