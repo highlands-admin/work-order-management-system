@@ -12,10 +12,12 @@ import { SubmissionCard, type SubmissionCardWorkOrder } from './submission-card'
 export const metadata: Metadata = { title: 'Submissions' }
 
 const SUBMISSION_COLUMNS =
-  'id, status, category, property, unit_number, priority, due_at, description, reported_by_name, reported_by_email, reported_by_phone, rejected_reason, rejected_at, created_at'
+  'id, work_order_code, title, status, category, property, unit_number, priority, due_at, description, reported_by_name, reported_by_email, reported_by_phone, rejected_reason, rejected_at, created_at'
 
 type SubmissionRow = {
   id: string
+  work_order_code: string
+  title: string
   status: 'pending' | 'rejected'
   category: WorkOrderCategory
   property: Property | null
@@ -34,6 +36,8 @@ type SubmissionRow = {
 function toCardData(row: SubmissionRow): SubmissionCardWorkOrder {
   return {
     id: row.id,
+    workOrderCode: row.work_order_code,
+    title: row.title,
     status: row.status,
     category: row.category,
     priority: row.priority,

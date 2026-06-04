@@ -33,13 +33,14 @@ export const metadata: Metadata = { title: 'Work orders' }
 
 type WorkOrderListItem = {
   id: string
+  work_order_code: string
+  title: string
   category: WorkOrderCategory
   status: WorkOrderStatus
   property: Property | null
   unit_number: string | null
   priority: WorkOrderPriority
   due_at: string | null
-  description: string
   reported_by_name: string | null
   created_at: string
 }
@@ -86,7 +87,7 @@ export default async function WorkOrdersPage({
   let query = supabase
     .from('work_orders')
     .select(
-      'id, category, status, property, unit_number, priority, due_at, description, reported_by_name, created_at'
+      'id, work_order_code, title, category, status, property, unit_number, priority, due_at, reported_by_name, created_at'
     )
     .not('status', 'in', '(pending,rejected)')
     .order('created_at', { ascending: false })
@@ -116,7 +117,7 @@ export default async function WorkOrdersPage({
   const safeQ = sanitizeSearchTerm(filters.q)
   if (safeQ) {
     query = query.or(
-      `description.ilike.*${safeQ}*,unit_number.ilike.*${safeQ}*,reported_by_name.ilike.*${safeQ}*`
+      `work_order_code.ilike.*${safeQ}*,title.ilike.*${safeQ}*,description.ilike.*${safeQ}*,unit_number.ilike.*${safeQ}*,reported_by_name.ilike.*${safeQ}*`
     )
   }
 
@@ -172,6 +173,12 @@ export default async function WorkOrdersPage({
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  ID
+                </TableHead>
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                  Title
+                </TableHead>
+                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
                   Created
                 </TableHead>
                 <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
@@ -190,9 +197,6 @@ export default async function WorkOrdersPage({
                   Unit
                 </TableHead>
                 <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
-                  Description
-                </TableHead>
-                <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
                   Due
                 </TableHead>
                 <TableHead className="px-4 text-xs uppercase tracking-wide text-muted-foreground">
@@ -206,6 +210,12 @@ export default async function WorkOrdersPage({
             <TableBody>
               {workOrders.map((wo) => (
                 <WorkOrderRow key={wo.id} href={`/work-orders/${wo.id}`}>
+                  <TableCell className="px-4 py-3 font-medium tabular-nums text-muted-foreground">
+                    {wo.work_order_code}
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate px-4 py-3 font-medium">
+                    {wo.title}
+                  </TableCell>
                   <TableCell className="px-4 py-3 text-muted-foreground">
                     {formatDate(wo.created_at)}
                   </TableCell>
@@ -231,9 +241,6 @@ export default async function WorkOrdersPage({
                   </TableCell>
                   <TableCell className="px-4 py-3 text-muted-foreground">
                     {wo.unit_number ?? '—'}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate px-4 py-3">
-                    {wo.description}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-muted-foreground">
                     {wo.due_at ? formatDateTime(wo.due_at) : '—'}

@@ -95,6 +95,7 @@ export function NewWorkOrderForm({
     setAssignedToValue(state.values?.assignedTo ?? '')
   }
 
+  const titleError = getError('title')
   const categoryError = getError('category')
   const priorityError = getError('priority')
   const propertyError = getError('property')
@@ -317,6 +318,24 @@ export function NewWorkOrderForm({
         description="What needs to happen, and by when."
       >
         <FieldGroup className="flex flex-col gap-5">
+          <Field data-invalid={titleError ? 'true' : undefined}>
+            <FieldLabel htmlFor="title">
+              Title <Required />
+            </FieldLabel>
+            <Input
+              id="title"
+              name="title"
+              autoComplete="off"
+              defaultValue={state.values?.title}
+              onChange={() => markEdited('title')}
+              aria-invalid={titleError ? true : undefined}
+              placeholder="A short, descriptive name for this work order"
+              maxLength={120}
+              required
+            />
+            <FieldError>{titleError}</FieldError>
+          </Field>
+
           <Field data-invalid={descriptionError ? 'true' : undefined}>
             <FieldLabel htmlFor="description">
               Description <Required />

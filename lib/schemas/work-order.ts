@@ -203,6 +203,11 @@ function optionalEnumArray<const T extends readonly [string, ...string[]]>(
 }
 
 const baseWorkOrderFields = {
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Title is required')
+    .max(120, 'Title is too long'),
   category: z.enum(WORK_ORDER_CATEGORIES, { message: 'Select a category' }),
   priority: z.enum(WORK_ORDER_PRIORITIES, { message: 'Select a priority' }),
   property: optionalProperty,

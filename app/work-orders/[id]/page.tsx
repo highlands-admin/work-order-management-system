@@ -51,6 +51,8 @@ const PRIORITY_COLOR: Record<WorkOrderPriority, string> = {
 
 type WorkOrderRow = {
   id: string
+  work_order_code: string
+  title: string
   category: WorkOrderCategory
   status: WorkOrderStatus
   property: Property | null
@@ -99,7 +101,7 @@ export default async function WorkOrderDetailPage({
     supabase
       .from('work_orders')
       .select(
-        'id, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, created_at, updated_at'
+        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, created_at, updated_at'
       )
       .eq('id', id)
       .maybeSingle<WorkOrderRow>(),
@@ -147,8 +149,11 @@ export default async function WorkOrderDetailPage({
           ) : null}
         </div>
         <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="font-heading text-2xl font-semibold whitespace-pre-line">
-            {data.description}
+          <span className="text-sm font-medium tabular-nums text-muted-foreground">
+            {data.work_order_code}
+          </span>
+          <h1 className="font-heading text-2xl font-semibold">
+            {data.title}
           </h1>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span
@@ -167,6 +172,12 @@ export default async function WorkOrderDetailPage({
           </div>
         </div>
       </div>
+
+      <Section title="Description">
+        <p className="whitespace-pre-line text-sm leading-6 text-foreground/90">
+          {data.description}
+        </p>
+      </Section>
 
       {data.resolution ? (
         <Section title="Resolution">

@@ -34,6 +34,8 @@ type SubmissionStatus = 'pending' | 'rejected'
 
 export type SubmissionCardWorkOrder = {
   id: string
+  workOrderCode: string
+  title: string
   status: SubmissionStatus
   category: WorkOrderCategory
   priority: WorkOrderPriority
@@ -108,6 +110,12 @@ export function SubmissionCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium tabular-nums text-muted-foreground">
+            {workOrder.workOrderCode}
+          </span>
+          <span className="text-muted-foreground/40" aria-hidden="true">
+            •
+          </span>
           <span
             className={cn(
               'size-2 shrink-0 rounded-full',
@@ -156,7 +164,10 @@ export function SubmissionCard({
         </div>
       </div>
 
-      <p className="mt-5 whitespace-pre-line text-sm leading-6 text-foreground/90">
+      <h3 className="mt-5 font-heading text-base font-semibold tracking-tight">
+        {workOrder.title}
+      </h3>
+      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-foreground/90">
         {workOrder.description}
       </p>
 

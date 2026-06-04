@@ -27,6 +27,8 @@ const EDITOR_ROLES = new Set(['administrator', 'requester'])
 
 type WorkOrderRow = {
   id: string
+  work_order_code: string
+  title: string
   category: WorkOrderCategory
   status: WorkOrderStatus
   property: Property | null
@@ -68,7 +70,7 @@ export default async function EditWorkOrderPage({
     supabase
       .from('work_orders')
       .select(
-        'id, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other'
+        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other'
       )
       .eq('id', id)
       .maybeSingle<WorkOrderRow>(),
@@ -123,7 +125,10 @@ export default async function EditWorkOrderPage({
             Edit Work Order
           </h1>
           <p className="text-sm text-muted-foreground">
-            Currently <strong>{STATUS_LABELS[data.status]}</strong>.
+            <span className="font-medium tabular-nums text-foreground">
+              {data.work_order_code}
+            </span>{' '}
+            · Currently <strong>{STATUS_LABELS[data.status]}</strong>.
           </p>
         </div>
         <Link

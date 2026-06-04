@@ -47,6 +47,7 @@ import { MarketingFields, type MarketingDefaults } from '../../marketing-fields'
 
 type WorkOrder = {
   id: string
+  title: string
   category: WorkOrderCategory
   status: WorkOrderStatus
   property: Property | null
@@ -111,6 +112,7 @@ export function EditWorkOrderForm({
     setAssignedToValue(state.values?.assignedTo ?? workOrder.assigned_to)
   }
 
+  const titleError = getError('title')
   const categoryError = getError('category')
   const priorityError = getError('priority')
   const propertyError = getError('property')
@@ -410,6 +412,24 @@ export function EditWorkOrderForm({
         description="What needs to happen, and by when."
       >
         <FieldGroup className="flex flex-col gap-5">
+          <Field data-invalid={titleError ? 'true' : undefined}>
+            <FieldLabel htmlFor="title">
+              Title <Required />
+            </FieldLabel>
+            <Input
+              id="title"
+              name="title"
+              autoComplete="off"
+              defaultValue={state.values?.title ?? workOrder.title}
+              onChange={() => markEdited('title')}
+              aria-invalid={titleError ? true : undefined}
+              placeholder="A short, descriptive name for this work order"
+              maxLength={120}
+              required
+            />
+            <FieldError>{titleError}</FieldError>
+          </Field>
+
           <Field data-invalid={descriptionError ? 'true' : undefined}>
             <FieldLabel htmlFor="description">
               Description <Required />

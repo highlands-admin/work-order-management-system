@@ -49,6 +49,7 @@ export async function createWorkOrderAction(
     .getAll('marketingSizeFormat')
     .map((v) => String(v))
   const raw = {
+    title: String(formData.get('title') ?? ''),
     category: String(formData.get('category') ?? ''),
     priority: String(formData.get('priority') ?? ''),
     property: String(formData.get('property') ?? ''),
@@ -117,6 +118,7 @@ export async function createWorkOrderAction(
   const { data: workOrderData, error } = await supabase
     .from('work_orders')
     .insert({
+      title: parsed.data.title,
       category: parsed.data.category,
       priority: parsed.data.priority,
       property: parsed.data.property ?? null,
@@ -185,6 +187,7 @@ export async function updateWorkOrderAction(
     .getAll('marketingSizeFormat')
     .map((v) => String(v))
   const raw = {
+    title: String(formData.get('title') ?? ''),
     category: String(formData.get('category') ?? ''),
     priority: String(formData.get('priority') ?? ''),
     property: String(formData.get('property') ?? ''),
@@ -244,6 +247,7 @@ export async function updateWorkOrderAction(
   const { error } = await supabase
     .from('work_orders')
     .update({
+      title: parsed.data.title,
       category: parsed.data.category,
       priority: parsed.data.priority,
       property: parsed.data.property ?? null,
