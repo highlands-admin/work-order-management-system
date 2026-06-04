@@ -40,6 +40,16 @@ export const STATUS_LABELS: Record<WorkOrderStatus, string> = {
   rejected: 'Rejected',
 }
 
+// Statuses an editor may move a work order between once it is approved and in
+// the main table. Pending and rejected belong to the submission/approval flow,
+// and assigned is not part of the editor's manual workflow.
+export const MAIN_TABLE_STATUSES = [
+  'open',
+  'in_progress',
+  'done',
+  'closed',
+] as const satisfies readonly WorkOrderStatus[]
+
 // Roles whose submissions need administrator approval before joining the
 // main work-order flow. Admins bypass this and create work orders directly.
 export const APPROVAL_REQUIRED_ROLES = new Set(['requester'] as const)

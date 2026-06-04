@@ -14,7 +14,7 @@ import { transitionWorkOrderStatusAction } from '../../actions'
 
 const TECHNICIAN_TRANSITIONS: Partial<Record<WorkOrderStatus, WorkOrderStatus>> =
   {
-    assigned: 'in_progress',
+    open: 'in_progress',
     in_progress: 'done',
   }
 

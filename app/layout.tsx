@@ -23,10 +23,10 @@ export const metadata: Metadata = {
   description: "Work Order Management System for Senior Living Communities.",
 };
 
-// Applied before paint so the saved (or system) theme never flashes the wrong
-// colors on load. Mirrors the toggle: an explicit choice in localStorage wins,
-// otherwise fall back to the OS preference.
-const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}}catch(e){}})();`;
+// Applied before paint so the theme never flashes the wrong colors on load.
+// Dark is the default view: it is applied unless the user has explicitly chosen
+// light (persisted by the toggle). If storage is unavailable, default to dark.
+const themeScript = `(function(){try{if(localStorage.getItem('theme')!=='light'){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.classList.add('dark');}})();`;
 
 export default function RootLayout({
   children,

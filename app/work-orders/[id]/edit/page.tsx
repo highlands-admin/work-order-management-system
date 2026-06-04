@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { buttonVariants } from '@/components/ui/button'
 import {
+  MAIN_TABLE_STATUSES,
   STATUS_LABELS,
   WORK_ORDER_STATUSES,
   type Property,
@@ -90,17 +91,19 @@ export default async function EditWorkOrderPage({
   const isTechnician = role === 'technician'
   const isInspector = role === 'inspector'
 
-  // Approval transitions are admin-only. Non-admin editors get a filtered
-  // status list so the UI matches what the database trigger enforces.
-  const allowedStatuses: WorkOrderStatus[] = isAdmin
-    ? [...WORK_ORDER_STATUSES]
-    : data.status === 'pending'
-      ? ['pending']
-      : data.status === 'rejected'
-        ? ['rejected']
-        : WORK_ORDER_STATUSES.filter(
-            (s) => s !== 'pending' && s !== 'rejected'
-          )
+  // Once a work order is approved and in the main table, every editor may only
+  // move it between the main workflow statuses: Open, In Progress, Done, and
+  // Closed. Pending and rejected belong to the submission/approval flow, which
+  // is out of the main table: admins keep the full set there to manage
+  // approvals, and non-admin editors are locked to the current state.
+  const isApproved = data.status !== 'pending' && data.status !== 'rejected'
+  const allowedStatuses: WorkOrderStatus[] = isApproved
+    ? [...MAIN_TABLE_STATUSES]
+    : isAdmin
+      ? [...WORK_ORDER_STATUSES]
+      : data.status === 'pending'
+        ? ['pending']
+        : ['rejected']
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">

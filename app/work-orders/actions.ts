@@ -23,7 +23,7 @@ type EditorRole = (typeof EDITOR_ROLES)[number]
 
 // What status changes each restricted role is allowed to make.
 const TECHNICIAN_TRANSITIONS: Record<string, WorkOrderStatus> = {
-  assigned: 'in_progress',
+  open: 'in_progress',
   in_progress: 'done',
 }
 const INSPECTOR_TRANSITIONS: Record<string, WorkOrderStatus> = {
@@ -283,7 +283,7 @@ export async function updateWorkOrderAction(
   redirect('/work-orders')
 }
 
-// Status-only update for technicians (assigned -> in_progress -> done) and
+// Status-only update for technicians (open -> in_progress -> done) and
 // inspectors (done -> closed). The action picks the target status from the
 // caller's role plus the work order's current status, so the form only needs
 // to submit a single action without selecting a target.
