@@ -121,7 +121,7 @@ export default async function EditWorkOrderPage({
         </div>
         <Link
           href="/work-orders"
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          className={buttonVariants({ variant: 'outline', size: 'lg' })}
         >
           Back to list
         </Link>

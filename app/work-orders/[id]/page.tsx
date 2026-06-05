@@ -148,14 +148,14 @@ export default async function WorkOrderDetailPage({
         <div className="flex items-center gap-2 sm:order-last sm:shrink-0">
           <Link
             href="/work-orders"
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            className={buttonVariants({ variant: 'outline', size: 'lg' })}
           >
             Back to list
           </Link>
           {canEdit || canTransition ? (
             <Link
               href={`/work-orders/${data.id}/edit`}
-              className={buttonVariants({ size: 'sm' })}
+              className={buttonVariants({ size: 'lg' })}
             >
               {canEdit ? 'Edit' : 'Update status'}
             </Link>
