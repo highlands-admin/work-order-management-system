@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: 'Invite member' }
 
 export default function InvitePage() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold">Invite a member</h1>
         <p className="text-sm text-muted-foreground">

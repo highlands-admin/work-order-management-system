@@ -98,7 +98,11 @@ export function InviteForm() {
         </Field>
       </div>
 
-      <SubmitButton label="Send invitation" pendingLabel="Sending..." />
+      <SubmitButton
+        label="Send invitation"
+        pendingLabel="Sending..."
+        className="self-end"
+      />
     </form>
   )
 }
