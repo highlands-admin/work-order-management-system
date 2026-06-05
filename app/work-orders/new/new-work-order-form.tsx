@@ -1,9 +1,17 @@
 'use client'
 
-import { useActionState, useState, type ReactNode } from 'react'
+import { RiCheckLine } from '@remixicon/react'
+import {
+  useActionState,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react'
 
 import { FormError } from '@/components/auth/form-error'
 import { SubmitButton } from '@/components/auth/submit-button'
+import { Button } from '@/components/ui/button'
 import { DateTimePicker } from '@/components/ui/date-time-picker'
 import {
   Field,
@@ -30,6 +38,7 @@ import {
   WORK_ORDER_PRIORITIES,
   PROPERTIES,
 } from '@/lib/schemas/work-order'
+import { cn } from '@/lib/utils'
 
 import {
   formatAssigneeLabel,
@@ -42,6 +51,34 @@ import { MarketingFields, emptyMarketingDefaults } from '../marketing-fields'
 
 const DESCRIPTION_PLACEHOLDER =
   'What needs to be done? Include anything a technician should know.'
+
+// Each step lists the field names it owns, so a server-side validation error can
+// send the user back to the step that contains the offending field.
+const STEPS = [
+  { title: 'Basics', fields: ['title', 'category', 'priority'] },
+  {
+    title: 'Details',
+    fields: [
+      'description',
+      'dueAt',
+      'marketingRequestType',
+      'marketingRequestTypeOther',
+      'marketingEventName',
+      'marketingTargetAudience',
+      'marketingTargetAudienceOther',
+      'marketingKeyMessage',
+      'marketingSizeFormat',
+      'marketingSizeFormatOther',
+    ],
+  },
+  { title: 'Location', fields: ['property', 'unitNumber', 'assignedTo'] },
+  {
+    title: 'Reporter',
+    fields: ['reportedByName', 'reportedByEmail', 'reportedByPhone'],
+  },
+] as const
+
+const LAST_STEP = STEPS.length - 1
 
 type ReporterDefaults = {
   name?: string
@@ -70,6 +107,11 @@ export function NewWorkOrderForm({
 
   // Notes are kept in local state so they survive failed form submissions.
   const [notes, setNotes] = useState<string[]>([])
+  const [step, setStep] = useState(0)
+  // Client-side validation errors for the current step. Merged with server
+  // errors for display, and cleared as the user edits each field.
+  const [stepErrors, setStepErrors] = useState<Record<string, string>>({})
+  const formRef = useRef<HTMLFormElement>(null)
 
   // Selects must be controlled so Base UI doesn't warn when state.values flips
   // from undefined (first render) to a string (after a failed submission).
@@ -89,386 +131,598 @@ export function NewWorkOrderForm({
   )
   if (storedState !== state) {
     setStoredState(state)
+    setStepErrors({})
     setCategoryValue(state.values?.category ?? '')
     setPriorityValue(state.values?.priority ?? '')
     setPropertyValue(state.values?.property ?? '')
     setAssignedToValue(state.values?.assignedTo ?? '')
+    // After a failed submit, jump to the first step that has an error so the
+    // user sees what needs fixing.
+    if (state.status === 'error' && state.fieldErrors) {
+      const fieldErrors = state.fieldErrors
+      const errorStep = STEPS.findIndex((s) =>
+        s.fields.some((f) => fieldErrors[f])
+      )
+      if (errorStep >= 0) setStep(errorStep)
+    }
   }
 
-  const titleError = getError('title')
-  const categoryError = getError('category')
-  const priorityError = getError('priority')
-  const propertyError = getError('property')
-  const assignedToError = getError('assignedTo')
-  const unitNumberError = getError('unitNumber')
-  const dueAtError = getError('dueAt')
-  const descriptionError = getError('description')
-  const nameError = getError('reportedByName')
-  const emailError = getError('reportedByEmail')
-  const phoneError = getError('reportedByPhone')
+  // Required-field checks for one step. Returns a map of field -> message. The
+  // server still re-validates everything on submit; this just gates navigation.
+  function validateStep(index: number, fd: FormData): Record<string, string> {
+    const errors: Record<string, string> = {}
+    const val = (name: string) => String(fd.get(name) ?? '').trim()
+
+    if (index === 0) {
+      if (!val('title')) errors.title = 'Title is required'
+      if (!val('category')) errors.category = 'Select a category'
+      if (!val('priority')) errors.priority = 'Select a priority'
+    } else if (index === 1) {
+      if (!val('description')) errors.description = 'Description is required'
+      if (categoryValue === 'marketing') {
+        const requestType = val('marketingRequestType')
+        if (!requestType) {
+          errors.marketingRequestType = 'Select a type of request'
+        } else if (requestType === 'other' && !val('marketingRequestTypeOther')) {
+          errors.marketingRequestTypeOther = 'Describe the type of request'
+        }
+        if (!val('marketingEventName')) {
+          errors.marketingEventName = 'Enter a name or title (or NA)'
+        }
+        const audience = fd.getAll('marketingTargetAudience').map(String)
+        if (audience.length === 0) {
+          errors.marketingTargetAudience = 'Select at least one audience'
+        } else if (
+          audience.includes('other') &&
+          !val('marketingTargetAudienceOther')
+        ) {
+          errors.marketingTargetAudienceOther = 'Describe the other audience'
+        }
+        if (!val('marketingKeyMessage')) {
+          errors.marketingKeyMessage = 'Enter the key message or theme'
+        }
+        const sizeFormat = fd.getAll('marketingSizeFormat').map(String)
+        if (sizeFormat.length === 0) {
+          errors.marketingSizeFormat = 'Select a size or format'
+        } else if (
+          sizeFormat.includes('other') &&
+          !val('marketingSizeFormatOther')
+        ) {
+          errors.marketingSizeFormatOther = 'Describe the size or format'
+        }
+      }
+    } else if (index === 2) {
+      if (categoryValue !== 'it' && !val('property')) {
+        errors.property = 'Select a property'
+      }
+    }
+
+    return errors
+  }
+
+  function goToStep(target: number) {
+    // Going back (or to the current step) is always allowed.
+    if (target <= step) {
+      setStepErrors({})
+      setStep(target)
+      return
+    }
+    // Going forward requires the current step to be valid.
+    const form = formRef.current
+    if (!form) return
+    const errors = validateStep(step, new FormData(form))
+    if (Object.keys(errors).length > 0) {
+      setStepErrors(errors)
+      return
+    }
+    setStepErrors({})
+    setStep(Math.min(step + 1, LAST_STEP))
+  }
+
+  // Merge client step errors with server errors for display.
+  function fieldError(name: string): string | undefined {
+    return stepErrors[name] ?? getError(name)
+  }
+
+  // Clear a field's client error as soon as it's edited, and defer server-error
+  // hiding to the existing hook.
+  function editField(name: string) {
+    markEdited(name)
+    setStepErrors((prev) => {
+      if (!(name in prev)) return prev
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
+  }
+
+  const titleError = fieldError('title')
+  const categoryError = fieldError('category')
+  const priorityError = fieldError('priority')
+  const propertyError = fieldError('property')
+  const assignedToError = fieldError('assignedTo')
+  const unitNumberError = fieldError('unitNumber')
+  const dueAtError = fieldError('dueAt')
+  const descriptionError = fieldError('description')
+  const nameError = fieldError('reportedByName')
+  const emailError = fieldError('reportedByEmail')
+  const phoneError = fieldError('reportedByPhone')
+
+  // Steps are kept mounted (hidden, not unmounted) so every field is still
+  // submitted in the single Server Action call. Enter on a non-final step would
+  // otherwise submit early, so suppress it outside of textareas / the last step.
+  function handleKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    if (
+      event.key === 'Enter' &&
+      step < LAST_STEP &&
+      (event.target as HTMLElement).tagName !== 'TEXTAREA'
+    ) {
+      event.preventDefault()
+    }
+  }
 
   return (
-    <form action={action} noValidate className="flex flex-col gap-6">
+    <form
+      ref={formRef}
+      action={action}
+      noValidate
+      onKeyDown={handleKeyDown}
+      className="flex flex-col gap-6"
+    >
+      <StepIndicator current={step} onSelect={goToStep} />
+
       <FormError state={state} />
 
-      <FormSection
-        id="issue"
-        title="Issue"
-        description="What kind of problem is this, and how urgent?"
-      >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field data-invalid={categoryError ? 'true' : undefined}>
-            <FieldLabel htmlFor="category">
-              Category <Required />
-            </FieldLabel>
-            <Select
-              name="category"
-              items={CATEGORY_LABELS}
-              value={categoryValue}
-              onValueChange={(v) => {
-                setCategoryValue(typeof v === 'string' ? v : '')
-                markEdited('category')
-              }}
-            >
-              <SelectTrigger
-                id="category"
-                className="w-full"
-                aria-invalid={categoryError ? true : undefined}
-              >
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {WORK_ORDER_CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {CATEGORY_LABELS[c]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{categoryError}</FieldError>
-          </Field>
-
-          <Field data-invalid={priorityError ? 'true' : undefined}>
-            <FieldLabel htmlFor="priority">
-              Priority <Required />
-            </FieldLabel>
-            <Select
-              name="priority"
-              items={PRIORITY_LABELS}
-              value={priorityValue}
-              onValueChange={(v) => {
-                setPriorityValue(typeof v === 'string' ? v : '')
-                markEdited('priority')
-              }}
-            >
-              <SelectTrigger
-                id="priority"
-                className="w-full"
-                aria-invalid={priorityError ? true : undefined}
-              >
-                <SelectValue placeholder="Select a priority" />
-              </SelectTrigger>
-              <SelectContent>
-                {WORK_ORDER_PRIORITIES.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {PRIORITY_LABELS[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{priorityError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
-
-      <FormSection
-        id="assignment"
-        title="Assignment"
-        description="Pick the person responsible for this work order."
-      >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field data-invalid={assignedToError ? 'true' : undefined}>
-            <FieldLabel htmlFor="assignedTo">
-              Assignee <Optional />
-            </FieldLabel>
-            <Select
-              name="assignedTo"
-              items={assigneeItems}
-              value={assignedToValue}
-              onValueChange={(v) => {
-                setAssignedToValue(typeof v === 'string' ? v : '')
-                markEdited('assignedTo')
-              }}
-            >
-              <SelectTrigger
-                id="assignedTo"
-                className="w-full"
-                aria-invalid={assignedToError ? true : undefined}
-              >
-                <SelectValue placeholder="Unassigned" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={null}>Unassigned</SelectItem>
-                {assignableUsers.map((u) => (
-                  <SelectItem key={u.user_id} value={u.user_id}>
-                    {formatAssigneeLabel(u)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{assignedToError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
-
-      <FormSection
-        id="location"
-        title="Location"
-        description="Where is the work needed?"
-      >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field data-invalid={propertyError ? 'true' : undefined}>
-            <FieldLabel htmlFor="property">
-              Property {categoryValue === 'it' ? <Optional /> : <Required />}
-            </FieldLabel>
-            <Select
-              name="property"
-              items={PROPERTY_LABELS}
-              value={propertyValue}
-              onValueChange={(v) => {
-                setPropertyValue(typeof v === 'string' ? v : '')
-                markEdited('property')
-              }}
-            >
-              <SelectTrigger
-                id="property"
-                className="w-full"
-                aria-invalid={propertyError ? true : undefined}
-              >
-                <SelectValue placeholder="Select a property" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROPERTIES.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {PROPERTY_LABELS[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{propertyError}</FieldError>
-          </Field>
-
-          <Field data-invalid={unitNumberError ? 'true' : undefined}>
-            <FieldLabel htmlFor="unitNumber">
-              Unit number <Optional />
-            </FieldLabel>
-            <Input
-              id="unitNumber"
-              name="unitNumber"
-              autoComplete="off"
-              defaultValue={state.values?.unitNumber}
-              onChange={() => markEdited('unitNumber')}
-              aria-invalid={unitNumberError ? true : undefined}
-              placeholder="e.g. 2A"
-            />
-            <FieldError>{unitNumberError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
-
-      {categoryValue === 'marketing' ? (
+      {/* Step 1 — Basics */}
+      <StepPanel active={step === 0}>
         <FormSection
-          id="marketing"
-          title="Marketing"
-          description="Details the design team needs for this marketing request."
+          id="basics"
+          title="Basics"
+          description="Name the request, and tell us its type and urgency."
         >
-          <MarketingFields
-            state={state}
-            defaults={emptyMarketingDefaults}
-            markEdited={markEdited}
-            getError={getError}
-          />
-        </FormSection>
-      ) : null}
+          <FieldGroup className="flex flex-col gap-5">
+            <Field data-invalid={titleError ? 'true' : undefined}>
+              <FieldLabel htmlFor="title">
+                Title <Required />
+              </FieldLabel>
+              <Input
+                id="title"
+                name="title"
+                autoComplete="off"
+                defaultValue={state.values?.title}
+                onChange={() => editField('title')}
+                aria-invalid={titleError ? true : undefined}
+                placeholder="A short, descriptive name for this work order"
+                maxLength={120}
+                required
+              />
+              <FieldError>{titleError}</FieldError>
+            </Field>
 
-      <FormSection
-        id="details"
-        title="Details"
-        description="What needs to happen, and by when."
-      >
-        <FieldGroup className="flex flex-col gap-5">
-          <Field data-invalid={titleError ? 'true' : undefined}>
-            <FieldLabel htmlFor="title">
-              Title <Required />
-            </FieldLabel>
-            <Input
-              id="title"
-              name="title"
-              autoComplete="off"
-              defaultValue={state.values?.title}
-              onChange={() => markEdited('title')}
-              aria-invalid={titleError ? true : undefined}
-              placeholder="A short, descriptive name for this work order"
-              maxLength={120}
-              required
-            />
-            <FieldError>{titleError}</FieldError>
-          </Field>
-
-          <Field data-invalid={descriptionError ? 'true' : undefined}>
-            <FieldLabel htmlFor="description">
-              Description <Required />
-            </FieldLabel>
-            <Textarea
-              id="description"
-              name="description"
-              rows={5}
-              defaultValue={state.values?.description}
-              onChange={() => markEdited('description')}
-              aria-invalid={descriptionError ? true : undefined}
-              placeholder={
-                categoryValue === 'marketing'
-                  ? MARKETING_DESCRIPTION_PLACEHOLDER
-                  : DESCRIPTION_PLACEHOLDER
-              }
-              required
-            />
-            <FieldError>{descriptionError}</FieldError>
-          </Field>
-
-          <Field data-invalid={dueAtError ? 'true' : undefined}>
-            <FieldLabel htmlFor="dueAt">
-              Due date and time <Optional />
-            </FieldLabel>
-            <DateTimePicker
-              id="dueAt"
-              name="dueAt"
-              ariaInvalid={dueAtError ? true : undefined}
-              onChange={() => markEdited('dueAt')}
-              className="sm:max-w-sm"
-            />
-            <FieldError>{dueAtError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
-
-      <FormSection
-        id="reporter"
-        title="Reporter"
-        description="Who is this being reported on behalf of? Leave blank if you are the reporter."
-      >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          <Field data-invalid={nameError ? 'true' : undefined}>
-            <FieldLabel htmlFor="reportedByName">
-              Name <Optional />
-            </FieldLabel>
-            <Input
-              id="reportedByName"
-              name="reportedByName"
-              autoComplete="name"
-              placeholder="e.g. Alex Doe"
-              defaultValue={
-                state.values?.reportedByName ?? reporterDefaults?.name
-              }
-              onChange={() => markEdited('reportedByName')}
-              aria-invalid={nameError ? true : undefined}
-            />
-            <FieldError>{nameError}</FieldError>
-          </Field>
-
-          <Field data-invalid={emailError ? 'true' : undefined}>
-            <FieldLabel htmlFor="reportedByEmail">
-              Email <Optional />
-            </FieldLabel>
-            <Input
-              id="reportedByEmail"
-              name="reportedByEmail"
-              type="email"
-              autoComplete="email"
-              placeholder="alex@example.com"
-              defaultValue={
-                state.values?.reportedByEmail ?? reporterDefaults?.email
-              }
-              onChange={() => markEdited('reportedByEmail')}
-              aria-invalid={emailError ? true : undefined}
-            />
-            <FieldError>{emailError}</FieldError>
-          </Field>
-
-          <Field data-invalid={phoneError ? 'true' : undefined}>
-            <FieldLabel htmlFor="reportedByPhone">
-              Phone <Optional />
-            </FieldLabel>
-            <Input
-              id="reportedByPhone"
-              name="reportedByPhone"
-              type="tel"
-              autoComplete="tel"
-              placeholder="(555) 123-4567"
-              defaultValue={
-                state.values?.reportedByPhone ?? reporterDefaults?.phone
-              }
-              onChange={() => markEdited('reportedByPhone')}
-              aria-invalid={phoneError ? true : undefined}
-            />
-            <FieldError>{phoneError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
-
-      <FormSection
-        id="notes"
-        title="Notes"
-        description="Optional notes for the team. Add context or instructions that should appear with the work order."
-      >
-        <div className="flex flex-col gap-3">
-          {notes.length > 0 ? (
-            <ul className="flex flex-col gap-3">
-              {notes.map((body, index) => (
-                <li key={index} className="flex items-start gap-2">
-                  <Textarea
-                    name="note"
-                    rows={3}
-                    value={body}
-                    onChange={(e) => {
-                      const next = [...notes]
-                      next[index] = e.target.value
-                      setNotes(next)
-                    }}
-                    placeholder="Write a note visible to everyone on this work order…"
-                    className="flex-1"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Remove note"
-                    onClick={() =>
-                      setNotes(notes.filter((_, i) => i !== index))
-                    }
-                    className="mt-1.5 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <Field data-invalid={categoryError ? 'true' : undefined}>
+                <FieldLabel htmlFor="category">
+                  Category <Required />
+                </FieldLabel>
+                <Select
+                  name="category"
+                  items={CATEGORY_LABELS}
+                  value={categoryValue}
+                  onValueChange={(v) => {
+                    setCategoryValue(typeof v === 'string' ? v : '')
+                    editField('category')
+                  }}
+                >
+                  <SelectTrigger
+                    id="category"
+                    className="w-full"
+                    aria-invalid={categoryError ? true : undefined}
                   >
-                    <span aria-hidden="true" className="text-lg leading-none">
-                      &times;
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setNotes([...notes, ''])}
-            className="self-start text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            + Add a note
-          </button>
-        </div>
-      </FormSection>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WORK_ORDER_CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {CATEGORY_LABELS[c]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{categoryError}</FieldError>
+              </Field>
 
-      <div className="flex items-center justify-end gap-3 pt-2">
-        <SubmitButton label="Create work order" pendingLabel="Creating..." />
+              <Field data-invalid={priorityError ? 'true' : undefined}>
+                <FieldLabel htmlFor="priority">
+                  Priority <Required />
+                </FieldLabel>
+                <Select
+                  name="priority"
+                  items={PRIORITY_LABELS}
+                  value={priorityValue}
+                  onValueChange={(v) => {
+                    setPriorityValue(typeof v === 'string' ? v : '')
+                    editField('priority')
+                  }}
+                >
+                  <SelectTrigger
+                    id="priority"
+                    className="w-full"
+                    aria-invalid={priorityError ? true : undefined}
+                  >
+                    <SelectValue placeholder="Select a priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WORK_ORDER_PRIORITIES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {PRIORITY_LABELS[p]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{priorityError}</FieldError>
+              </Field>
+            </div>
+          </FieldGroup>
+        </FormSection>
+      </StepPanel>
+
+      {/* Step 2 — Details */}
+      <StepPanel active={step === 1}>
+        <FormSection
+          id="details"
+          title="Details"
+          description="What needs to happen, and by when."
+        >
+          <FieldGroup className="flex flex-col gap-5">
+            <Field data-invalid={descriptionError ? 'true' : undefined}>
+              <FieldLabel htmlFor="description">
+                Description <Required />
+              </FieldLabel>
+              <Textarea
+                id="description"
+                name="description"
+                rows={5}
+                defaultValue={state.values?.description}
+                onChange={() => editField('description')}
+                aria-invalid={descriptionError ? true : undefined}
+                placeholder={
+                  categoryValue === 'marketing'
+                    ? MARKETING_DESCRIPTION_PLACEHOLDER
+                    : DESCRIPTION_PLACEHOLDER
+                }
+                required
+              />
+              <FieldError>{descriptionError}</FieldError>
+            </Field>
+
+            <Field data-invalid={dueAtError ? 'true' : undefined}>
+              <FieldLabel htmlFor="dueAt">
+                Due date and time <Optional />
+              </FieldLabel>
+              <DateTimePicker
+                id="dueAt"
+                name="dueAt"
+                ariaInvalid={dueAtError ? true : undefined}
+                onChange={() => editField('dueAt')}
+                className="sm:max-w-sm"
+              />
+              <FieldError>{dueAtError}</FieldError>
+            </Field>
+          </FieldGroup>
+        </FormSection>
+
+        {categoryValue === 'marketing' ? (
+          <FormSection
+            id="marketing"
+            title="Marketing brief"
+            description="Details the design team needs for this marketing request."
+          >
+            <MarketingFields
+              state={state}
+              defaults={emptyMarketingDefaults}
+              markEdited={editField}
+              getError={fieldError}
+            />
+          </FormSection>
+        ) : null}
+      </StepPanel>
+
+      {/* Step 3 — Location & assignment */}
+      <StepPanel active={step === 2}>
+        <FormSection
+          id="location"
+          title="Location & assignment"
+          description="Where is the work needed, and who owns it?"
+        >
+          <FieldGroup className="flex flex-col gap-5">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <Field data-invalid={propertyError ? 'true' : undefined}>
+                <FieldLabel htmlFor="property">
+                  Property {categoryValue === 'it' ? <Optional /> : <Required />}
+                </FieldLabel>
+                <Select
+                  name="property"
+                  items={PROPERTY_LABELS}
+                  value={propertyValue}
+                  onValueChange={(v) => {
+                    setPropertyValue(typeof v === 'string' ? v : '')
+                    editField('property')
+                  }}
+                >
+                  <SelectTrigger
+                    id="property"
+                    className="w-full"
+                    aria-invalid={propertyError ? true : undefined}
+                  >
+                    <SelectValue placeholder="Select a property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROPERTIES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {PROPERTY_LABELS[p]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{propertyError}</FieldError>
+              </Field>
+
+              <Field data-invalid={unitNumberError ? 'true' : undefined}>
+                <FieldLabel htmlFor="unitNumber">
+                  Unit number <Optional />
+                </FieldLabel>
+                <Input
+                  id="unitNumber"
+                  name="unitNumber"
+                  autoComplete="off"
+                  defaultValue={state.values?.unitNumber}
+                  onChange={() => editField('unitNumber')}
+                  aria-invalid={unitNumberError ? true : undefined}
+                  placeholder="e.g. 2A"
+                />
+                <FieldError>{unitNumberError}</FieldError>
+              </Field>
+            </div>
+
+            <Field data-invalid={assignedToError ? 'true' : undefined}>
+              <FieldLabel htmlFor="assignedTo">
+                Assignee <Optional />
+              </FieldLabel>
+              <Select
+                name="assignedTo"
+                items={assigneeItems}
+                value={assignedToValue}
+                onValueChange={(v) => {
+                  setAssignedToValue(typeof v === 'string' ? v : '')
+                  editField('assignedTo')
+                }}
+              >
+                <SelectTrigger
+                  id="assignedTo"
+                  className="w-full sm:max-w-sm"
+                  aria-invalid={assignedToError ? true : undefined}
+                >
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={null}>Unassigned</SelectItem>
+                  {assignableUsers.map((u) => (
+                    <SelectItem key={u.user_id} value={u.user_id}>
+                      {formatAssigneeLabel(u)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldError>{assignedToError}</FieldError>
+            </Field>
+          </FieldGroup>
+        </FormSection>
+      </StepPanel>
+
+      {/* Step 4 — Reporter & notes */}
+      <StepPanel active={step === 3}>
+        <FormSection
+          id="reporter"
+          title="Reporter"
+          description="Who is this being reported on behalf of? Leave blank if you are the reporter."
+        >
+          <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <Field data-invalid={nameError ? 'true' : undefined}>
+              <FieldLabel htmlFor="reportedByName">
+                Name <Optional />
+              </FieldLabel>
+              <Input
+                id="reportedByName"
+                name="reportedByName"
+                autoComplete="name"
+                placeholder="e.g. Alex Doe"
+                defaultValue={
+                  state.values?.reportedByName ?? reporterDefaults?.name
+                }
+                onChange={() => editField('reportedByName')}
+                aria-invalid={nameError ? true : undefined}
+              />
+              <FieldError>{nameError}</FieldError>
+            </Field>
+
+            <Field data-invalid={emailError ? 'true' : undefined}>
+              <FieldLabel htmlFor="reportedByEmail">
+                Email <Optional />
+              </FieldLabel>
+              <Input
+                id="reportedByEmail"
+                name="reportedByEmail"
+                type="email"
+                autoComplete="email"
+                placeholder="alex@example.com"
+                defaultValue={
+                  state.values?.reportedByEmail ?? reporterDefaults?.email
+                }
+                onChange={() => editField('reportedByEmail')}
+                aria-invalid={emailError ? true : undefined}
+              />
+              <FieldError>{emailError}</FieldError>
+            </Field>
+
+            <Field data-invalid={phoneError ? 'true' : undefined}>
+              <FieldLabel htmlFor="reportedByPhone">
+                Phone <Optional />
+              </FieldLabel>
+              <Input
+                id="reportedByPhone"
+                name="reportedByPhone"
+                type="tel"
+                autoComplete="tel"
+                placeholder="(555) 123-4567"
+                defaultValue={
+                  state.values?.reportedByPhone ?? reporterDefaults?.phone
+                }
+                onChange={() => editField('reportedByPhone')}
+                aria-invalid={phoneError ? true : undefined}
+              />
+              <FieldError>{phoneError}</FieldError>
+            </Field>
+          </FieldGroup>
+        </FormSection>
+
+        <FormSection
+          id="notes"
+          title="Notes"
+          description="Optional notes for the team. Add context or instructions that should appear with the work order."
+        >
+          <div className="flex flex-col gap-3">
+            {notes.length > 0 ? (
+              <ul className="flex flex-col gap-3">
+                {notes.map((body, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <Textarea
+                      name="note"
+                      rows={3}
+                      value={body}
+                      onChange={(e) => {
+                        const next = [...notes]
+                        next[index] = e.target.value
+                        setNotes(next)
+                      }}
+                      placeholder="Write a note visible to everyone on this work order…"
+                      className="flex-1"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove note"
+                      onClick={() =>
+                        setNotes(notes.filter((_, i) => i !== index))
+                      }
+                      className="mt-1.5 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <span aria-hidden="true" className="text-lg leading-none">
+                        &times;
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setNotes([...notes, ''])}
+              className="self-start text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              + Add a note
+            </button>
+          </div>
+        </FormSection>
+      </StepPanel>
+
+      {/* Navigation */}
+      <div className="flex items-center justify-between gap-3 pt-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          onClick={() => goToStep(step - 1)}
+          className={step === 0 ? 'invisible' : undefined}
+        >
+          Back
+        </Button>
+        {step < LAST_STEP ? (
+          <Button type="button" size="lg" onClick={() => goToStep(step + 1)}>
+            Continue
+          </Button>
+        ) : (
+          <SubmitButton label="Create work order" pendingLabel="Creating..." />
+        )}
       </div>
     </form>
   )
+}
+
+function StepIndicator({
+  current,
+  onSelect,
+}: {
+  current: number
+  onSelect: (step: number) => void
+}) {
+  return (
+    <nav
+      aria-label="Progress"
+      className="flex flex-wrap items-center gap-x-2 gap-y-2"
+    >
+      {STEPS.map((s, i) => {
+        const isCurrent = i === current
+        const isComplete = i < current
+        // Forward steps are locked until the current step passes validation.
+        const isLocked = i > current
+        return (
+          <button
+            key={s.title}
+            type="button"
+            onClick={() => onSelect(i)}
+            disabled={isLocked}
+            aria-current={isCurrent ? 'step' : undefined}
+            className={cn(
+              'flex items-center gap-2 rounded-full py-1.5 pr-3.5 pl-1.5 text-sm transition-colors',
+              isCurrent
+                ? 'bg-primary/10 text-foreground'
+                : isLocked
+                  ? 'text-muted-foreground/50'
+                  : 'text-muted-foreground hover:bg-muted'
+            )}
+          >
+            <span
+              className={cn(
+                'flex size-6 items-center justify-center rounded-full text-xs font-semibold',
+                isCurrent
+                  ? 'bg-primary text-primary-foreground'
+                  : isComplete
+                    ? 'bg-primary/20 text-primary'
+                    : 'bg-muted text-muted-foreground'
+              )}
+            >
+              {isComplete ? (
+                <RiCheckLine className="size-3.5" aria-hidden="true" />
+              ) : (
+                i + 1
+              )}
+            </span>
+            <span className="font-medium">{s.title}</span>
+          </button>
+        )
+      })}
+    </nav>
+  )
+}
+
+function StepPanel({
+  active,
+  children,
+}: {
+  active: boolean
+  children: ReactNode
+}) {
+  // Hidden (not unmounted) so all fields stay in the form and submit together.
+  return <div className={active ? 'flex flex-col gap-6' : 'hidden'}>{children}</div>
 }
 
 function FormSection({
@@ -522,4 +776,3 @@ function Optional() {
     </span>
   )
 }
-
