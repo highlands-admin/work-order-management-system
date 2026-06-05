@@ -282,10 +282,16 @@ export default async function WorkOrderDetailPage({
             currentUserId={claims.sub ?? ''}
             canModerate={role === 'administrator'}
           />
+
+          <ActivityFeed
+            events={activityData ?? []}
+            userLabelById={userLabelById}
+          />
         </div>
 
-        {/* Sidebar: scannable metadata */}
-        <aside className="flex flex-col gap-6">
+        {/* Sidebar: scannable metadata. Sticky so the short panel stays in view
+            beside the long content instead of leaving a dead gap. */}
+        <aside className="flex flex-col gap-6 lg:sticky lg:top-20 lg:self-start">
           <Section title="Details">
             <dl className="flex flex-col gap-4 text-sm">
               <DetailItem label="Property">
@@ -356,11 +362,6 @@ export default async function WorkOrderDetailPage({
 
         </aside>
       </div>
-
-      <ActivityFeed
-        events={activityData ?? []}
-        userLabelById={userLabelById}
-      />
     </div>
   )
 }

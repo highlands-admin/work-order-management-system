@@ -102,7 +102,7 @@ export function ActivityFeed({
                   </span>
                   <time
                     dateTime={event.created_at}
-                    className="text-xs text-muted-foreground"
+                    className="ml-auto shrink-0 pl-3 text-xs text-muted-foreground"
                   >
                     {formatDateTime(event.created_at)}
                   </time>
@@ -132,22 +132,25 @@ function ActivityBody({
     const entries = Object.entries(changes)
     if (entries.length === 0) return null
     return (
-      <ul className="flex flex-col gap-1 text-sm text-foreground/90">
+      <ul className="flex flex-col gap-1.5 text-sm text-foreground/90">
         {entries.map(([field, change]) => (
-          <li key={field} className="flex flex-wrap items-baseline gap-x-1.5">
+          <li
+            key={field}
+            className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5"
+          >
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {FIELD_LABELS[field] ?? field}
             </span>
             {LONG_FIELDS.has(field) ? (
               <span className="text-muted-foreground">updated</span>
             ) : (
-              <>
+              <span className="flex flex-wrap items-baseline justify-end gap-x-1.5 text-right">
                 <ValueChip>{formatValue(field, change.from, userLabelById)}</ValueChip>
                 <span aria-hidden="true" className="text-muted-foreground">
                   →
                 </span>
                 <ValueChip>{formatValue(field, change.to, userLabelById)}</ValueChip>
-              </>
+              </span>
             )}
           </li>
         ))}
