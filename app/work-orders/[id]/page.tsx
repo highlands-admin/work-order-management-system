@@ -30,6 +30,7 @@ import {
 } from '@/lib/work-orders/assignable-users'
 
 import { NotesSection, type NoteRow } from '../notes-section'
+import { ActivityFeed, type ActivityEvent } from './activity-feed'
 
 export const metadata: Metadata = { title: 'Work Order' }
 
@@ -101,7 +102,7 @@ export default async function WorkOrderDetailPage({
 
   if (!claims) redirect('/login')
 
-  const [{ data, error }, assignableUsers, { data: notesData }] =
+  const [{ data, error }, assignableUsers, { data: notesData }, { data: activityData }] =
     await Promise.all([
       supabase
         .from('work_orders')
@@ -117,6 +118,12 @@ export default async function WorkOrderDetailPage({
         .eq('work_order_id', id)
         .order('created_at', { ascending: true })
         .returns<NoteRow[]>(),
+      supabase
+        .from('work_order_activity')
+        .select('id, actor_id, action, details, created_at')
+        .eq('work_order_id', id)
+        .order('created_at', { ascending: false })
+        .returns<ActivityEvent[]>(),
     ])
 
   if (error) {
@@ -347,26 +354,13 @@ export default async function WorkOrderDetailPage({
             </Section>
           ) : null}
 
-          <Section title="Activity">
-            <dl className="flex flex-col gap-4 text-sm">
-              <DetailItem label="Created">
-                {formatDateTime(data.created_at)}
-                <span className="text-muted-foreground">
-                  {' · '}
-                  {formatUser(data.created_by, userById)}
-                </span>
-              </DetailItem>
-              <DetailItem label="Last updated">
-                {formatDateTime(data.updated_at)}
-                <span className="text-muted-foreground">
-                  {' · '}
-                  {formatUser(data.updated_by, userById)}
-                </span>
-              </DetailItem>
-            </dl>
-          </Section>
         </aside>
       </div>
+
+      <ActivityFeed
+        events={activityData ?? []}
+        userLabelById={userLabelById}
+      />
     </div>
   )
 }
