@@ -34,7 +34,7 @@ type WorkOrderRow = {
   due_at: string | null
   description: string
   resolution: string | null
-  assigned_to: string
+  assigned_to: string | null
   reported_by_name: string | null
   reported_by_email: string | null
   reported_by_phone: string | null

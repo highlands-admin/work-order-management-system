@@ -139,7 +139,7 @@ export async function createWorkOrderAction(
       marketing_size_format: parsed.data.marketingSizeFormat ?? null,
       marketing_size_format_other: parsed.data.marketingSizeFormatOther ?? null,
       status: initialStatus,
-      assigned_to: parsed.data.assignedTo,
+      assigned_to: parsed.data.assignedTo ?? null,
       created_by: claims.sub,
       updated_by: claims.sub,
     })
@@ -269,7 +269,7 @@ export async function updateWorkOrderAction(
       marketing_key_message: parsed.data.marketingKeyMessage ?? null,
       marketing_size_format: parsed.data.marketingSizeFormat ?? null,
       marketing_size_format_other: parsed.data.marketingSizeFormatOther ?? null,
-      assigned_to: parsed.data.assignedTo,
+      assigned_to: parsed.data.assignedTo ?? null,
       updated_by: claims.sub,
     })
     .eq('id', workOrderId)

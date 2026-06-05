@@ -21,7 +21,6 @@ export const CATEGORY_LABELS: Record<WorkOrderCategory, string> = {
 export const WORK_ORDER_STATUSES = [
   'pending',
   'open',
-  'assigned',
   'in_progress',
   'done',
   'closed',
@@ -33,7 +32,6 @@ export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number]
 export const STATUS_LABELS: Record<WorkOrderStatus, string> = {
   pending: 'Pending',
   open: 'Open',
-  assigned: 'Assigned',
   in_progress: 'In Progress',
   done: 'Done',
   closed: 'Closed',
@@ -230,7 +228,12 @@ const baseWorkOrderFields = {
     .trim()
     .min(1, 'Description is required')
     .max(5000, 'Description is too long'),
-  assignedTo: z.uuid({ message: 'Select an assignee' }),
+  assignedTo: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined))
+    .pipe(z.uuid({ message: 'Select a valid assignee' }).optional()),
   reportedByName: trimmedOptional.pipe(z.string().max(100).optional()),
   reportedByEmail: trimmedOptional.pipe(
     z.email('Enter a valid email address').optional()
@@ -352,8 +355,8 @@ export const createWorkOrderSchema = z
 export type CreateWorkOrderInput = z.infer<typeof createWorkOrderSchema>
 
 // Editors (admin / requester) may change any field, including status and
-// resolution. Inputs share the create shape; status and resolution are
-// appended.
+// resolution. Inputs share the create shape (assignee included, which is
+// optional); status and resolution are appended.
 export const updateWorkOrderSchema = z
   .object({
     ...baseWorkOrderFields,

@@ -37,7 +37,6 @@ const TRANSITION_ROLES = new Set(['technician', 'inspector'])
 const STATUS_COLOR: Record<WorkOrderStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
   open: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
-  assigned: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
   in_progress: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
   done: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
   closed: 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700/30 dark:text-zinc-300',
@@ -63,7 +62,7 @@ type WorkOrderRow = {
   due_at: string | null
   description: string
   resolution: string | null
-  assigned_to: string
+  assigned_to: string | null
   created_by: string
   updated_by: string
   reported_by_name: string | null
@@ -214,7 +213,11 @@ export default async function WorkOrderDetailPage({
             {data.due_at ? formatDateTime(data.due_at) : <Empty />}
           </DetailItem>
           <DetailItem label="Assigned to">
-            {formatUser(data.assigned_to, userById)}
+            {data.assigned_to ? (
+              formatUser(data.assigned_to, userById)
+            ) : (
+              <span className="text-muted-foreground">Unassigned</span>
+            )}
           </DetailItem>
         </dl>
 

@@ -56,7 +56,7 @@ type WorkOrder = {
   due_at: string | null
   description: string
   resolution: string | null
-  assigned_to: string
+  assigned_to: string | null
   reported_by_name: string | null
   reported_by_email: string | null
   reported_by_phone: string | null
@@ -103,7 +103,7 @@ export function EditWorkOrderForm({
     state.values?.status ?? workOrder.status
   )
   const [assignedToValue, setAssignedToValue] = useState<string>(
-    state.values?.assignedTo ?? workOrder.assigned_to
+    state.values?.assignedTo ?? workOrder.assigned_to ?? ''
   )
   if (storedState !== state) {
     setStoredState(state)
@@ -111,7 +111,7 @@ export function EditWorkOrderForm({
     setPriorityValue(state.values?.priority ?? workOrder.priority)
     setPropertyValue(state.values?.property ?? workOrder.property ?? '')
     setStatusValue(state.values?.status ?? workOrder.status)
-    setAssignedToValue(state.values?.assignedTo ?? workOrder.assigned_to)
+    setAssignedToValue(state.values?.assignedTo ?? workOrder.assigned_to ?? '')
   }
 
   const titleError = getError('title')
@@ -221,7 +221,7 @@ export function EditWorkOrderForm({
         <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field data-invalid={assignedToError ? 'true' : undefined}>
             <FieldLabel htmlFor="assignedTo">
-              Assignee <Required />
+              Assignee <Optional />
             </FieldLabel>
             <Select
               name="assignedTo"
@@ -237,20 +237,15 @@ export function EditWorkOrderForm({
                 className="w-full"
                 aria-invalid={assignedToError ? true : undefined}
               >
-                <SelectValue placeholder="Select an assignee" />
+                <SelectValue placeholder="Unassigned" />
               </SelectTrigger>
               <SelectContent>
-                {assignableUsers.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">
-                    No users available to assign.
-                  </div>
-                ) : (
-                  assignableUsers.map((u) => (
-                    <SelectItem key={u.user_id} value={u.user_id}>
-                      {formatAssigneeLabel(u)}
-                    </SelectItem>
-                  ))
-                )}
+                <SelectItem value={null}>Unassigned</SelectItem>
+                {assignableUsers.map((u) => (
+                  <SelectItem key={u.user_id} value={u.user_id}>
+                    {formatAssigneeLabel(u)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <FieldError>{assignedToError}</FieldError>
