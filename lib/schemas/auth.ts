@@ -39,6 +39,23 @@ export const acceptInviteSchema = z
 
 export type AcceptInviteInput = z.infer<typeof acceptInviteSchema>
 
+// Public self-signup. The account is created with email confirmation, and the
+// signup trigger assigns the default 'requester' role.
+export const signUpSchema = z
+  .object({
+    email,
+    firstName: z.string().trim().min(1, 'First name is required').max(50),
+    lastName: z.string().trim().min(1, 'Last name is required').max(50),
+    password,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+
+export type SignUpInput = z.infer<typeof signUpSchema>
+
 export const loginSchema = z.object({
   email,
   password: z.string().min(1, 'Password is required'),

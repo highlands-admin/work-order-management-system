@@ -44,6 +44,7 @@ export async function updateSession(request: NextRequest) {
 
   const publicAuthRoutes = [
     '/login',
+    '/signup',
     '/accept-invite',
     '/verify',
     '/forgot-password',

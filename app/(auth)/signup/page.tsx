@@ -5,32 +5,32 @@ import { redirect } from 'next/navigation'
 import { AuthCard } from '@/components/auth/auth-card'
 import { createClient } from '@/lib/supabase/server'
 
-import { LoginForm } from './login-form'
+import { SignUpForm } from './signup-form'
 
-export const metadata: Metadata = { title: 'Sign in' }
+export const metadata: Metadata = { title: 'Sign up' }
 
-export default async function LoginPage() {
+export default async function SignUpPage() {
   const supabase = await createClient()
   const { data } = await supabase.auth.getClaims()
   if (data?.claims) redirect('/work-orders')
 
   return (
     <AuthCard
-      title="Sign in"
-      description="Enter your email and password to access your account."
+      title="Create your account"
+      description="Sign up to file and track work orders."
       footer={
         <>
-          Don&apos;t have an account?{' '}
+          Already have an account?{' '}
           <Link
-            href="/signup"
+            href="/login"
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
-            Sign up
+            Sign in
           </Link>
         </>
       }
     >
-      <LoginForm />
+      <SignUpForm />
     </AuthCard>
   )
 }

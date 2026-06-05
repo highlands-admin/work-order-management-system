@@ -8,6 +8,7 @@ import {
   acceptInviteSchema,
   forgotPasswordSchema,
   loginSchema,
+  signUpSchema,
   updatePasswordSchema,
   verifySchema,
 } from '@/lib/schemas/auth'
@@ -81,6 +82,52 @@ export async function acceptInviteAction(
   }
 
   redirect(`/verify?email=${encodeURIComponent(invite.email)}`)
+}
+
+// Public self-signup. Anyone may create an account; the database signup trigger
+// assigns the default 'requester' role (invitations still override the role for
+// elevated access). Mirrors the invite flow: create the account, then verify the
+// emailed OTP on /verify.
+export async function signUpAction(
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const raw = {
+    email: String(formData.get('email') ?? ''),
+    firstName: String(formData.get('firstName') ?? ''),
+    lastName: String(formData.get('lastName') ?? ''),
+    password: String(formData.get('password') ?? ''),
+    confirmPassword: String(formData.get('confirmPassword') ?? ''),
+  }
+
+  const parsed = signUpSchema.safeParse(raw)
+  // Never echo the password fields back to the client.
+  const safeValues = {
+    email: raw.email,
+    firstName: raw.firstName,
+    lastName: raw.lastName,
+  }
+  if (!parsed.success) {
+    return formError(z4FieldErrors(parsed.error), safeValues)
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      data: {
+        first_name: parsed.data.firstName,
+        last_name: parsed.data.lastName,
+      },
+    },
+  })
+
+  if (error) {
+    return formError(undefined, safeValues, error.message)
+  }
+
+  redirect(`/verify?email=${encodeURIComponent(parsed.data.email)}`)
 }
 
 export async function loginAction(
