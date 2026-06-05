@@ -24,6 +24,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar'
 
 type NavItem = {
@@ -56,6 +57,7 @@ export function AppSidebar({
   ...props
 }: { userRole: string | undefined } & ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
+  const { isMobile, setOpenMobile } = useSidebar()
   const canFile = userRole ? FILER_ROLES.has(userRole) : false
   const isAdmin = userRole === 'administrator'
 
@@ -90,6 +92,9 @@ export function AppSidebar({
       <SidebarHeader>
         <Link
           href="/work-orders"
+          onClick={() => {
+            if (isMobile) setOpenMobile(false)
+          }}
           className="font-heading px-2 py-1.5 text-base font-semibold"
         >
           Work Orders
@@ -135,6 +140,7 @@ function NavMenuItem({
   item: NavItem
   pathname: string
 }) {
+  const { isMobile, setOpenMobile } = useSidebar()
   const Icon = item.icon
   // Exact match on /work-orders avoids highlighting the list when on /work-orders/new.
   const isActive =
@@ -142,7 +148,18 @@ function NavMenuItem({
     (item.href !== '/work-orders' && pathname.startsWith(`${item.href}/`))
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton isActive={isActive} render={<Link href={item.href} />}>
+      <SidebarMenuButton
+        isActive={isActive}
+        render={
+          <Link
+            href={item.href}
+            onClick={() => {
+              // On mobile the sidebar is an overlay sheet; close it on navigation.
+              if (isMobile) setOpenMobile(false)
+            }}
+          />
+        }
+      >
         <Icon className="size-4" />
         <span>{item.title}</span>
       </SidebarMenuButton>
