@@ -27,21 +27,15 @@ export default async function NewWorkOrderPage() {
     redirect('/work-orders')
   }
 
-  // Prefill the reporter section for requesters who file their own tickets.
-  // Admins typically file on behalf of someone else, so leave blank.
-  const reporterDefaults =
-    claims.user_role === 'requester'
-      ? {
-          name:
-            [
-              claims.user_metadata?.first_name,
-              claims.user_metadata?.last_name,
-            ]
-              .filter(Boolean)
-              .join(' ') || undefined,
-          email: claims.email,
-        }
-      : undefined
+  // Default the reporter to whoever is creating the work order. The fields stay
+  // editable, so a filer can change them to report on someone else's behalf.
+  const reporterDefaults = {
+    name:
+      [claims.user_metadata?.first_name, claims.user_metadata?.last_name]
+        .filter(Boolean)
+        .join(' ') || undefined,
+    email: claims.email,
+  }
 
   const assignableUsers = await fetchAssignableUsers(supabase)
 

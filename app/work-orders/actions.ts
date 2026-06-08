@@ -4,6 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import {
+  sendWorkOrderAssignmentEmail,
+  type AssignmentWorkOrder,
+} from '@/lib/email/send-assignment-notification'
+import {
   APPROVAL_REQUIRED_ROLES,
   addWorkOrderNoteSchema,
   createWorkOrderSchema,
@@ -13,8 +17,48 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
+import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 
 import type { AuthState } from '../(auth)/auth-state'
+
+type ActorClaims = {
+  sub?: string
+  user_role?: string
+  email?: string
+  user_metadata?: { first_name?: string; last_name?: string }
+}
+
+// Display name for the person performing the action, for the "assigned by" line.
+function actorName(claims: ActorClaims | undefined): string | null {
+  const name = [claims?.user_metadata?.first_name, claims?.user_metadata?.last_name]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ')
+  return name || claims?.email || null
+}
+
+// Emails the assignee that a work order is now theirs. Never throws: a failed
+// notification must not fail the work order create/update it follows.
+async function notifyAssignee(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  assigneeId: string,
+  assignedByName: string | null,
+  workOrder: AssignmentWorkOrder
+): Promise<void> {
+  try {
+    const users = await fetchAssignableUsers(supabase)
+    const assignee = users.find((u) => u.user_id === assigneeId)
+    if (!assignee?.email) return
+    await sendWorkOrderAssignmentEmail({
+      to: assignee.email,
+      assigneeFirstName: assignee.first_name,
+      assignedByName,
+      workOrder,
+    })
+  } catch (error) {
+    console.error('Failed to send assignment notification', error)
+  }
+}
 
 const FILER_ROLES = ['administrator', 'requester'] as const
 const EDITOR_ROLES = ['administrator', 'requester'] as const
@@ -90,9 +134,7 @@ export async function createWorkOrderAction(
 
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
-  const claims = claimsData?.claims as
-    | { sub?: string; user_role?: string }
-    | undefined
+  const claims = claimsData?.claims as ActorClaims | undefined
 
   if (!claims?.sub) {
     return formError(undefined, values, 'You must be signed in to file a work order.')
@@ -143,7 +185,7 @@ export async function createWorkOrderAction(
       created_by: claims.sub,
       updated_by: claims.sub,
     })
-    .select('id')
+    .select('id, work_order_code')
     .single()
 
   if (error) {
@@ -166,6 +208,24 @@ export async function createWorkOrderAction(
         created_by: claims.sub,
       }))
     )
+  }
+
+  // Notify the assignee (unless they assigned it to themselves).
+  if (parsed.data.assignedTo && parsed.data.assignedTo !== claims.sub) {
+    await notifyAssignee(supabase, parsed.data.assignedTo, actorName(claims), {
+      id: workOrderData.id,
+      code: workOrderData.work_order_code,
+      title: parsed.data.title,
+      category: parsed.data.category,
+      priority: parsed.data.priority,
+      status: initialStatus,
+      property: parsed.data.property ?? null,
+      unitNumber: parsed.data.unitNumber ?? null,
+      dueAt: parsed.data.dueAt ?? null,
+      description: parsed.data.description,
+      reporterName: parsed.data.reportedByName ?? null,
+      reporterEmail: parsed.data.reportedByEmail ?? null,
+    })
   }
 
   revalidatePath('/work-orders')
@@ -228,9 +288,7 @@ export async function updateWorkOrderAction(
 
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
-  const claims = claimsData?.claims as
-    | { sub?: string; user_role?: string }
-    | undefined
+  const claims = claimsData?.claims as ActorClaims | undefined
 
   if (!claims?.sub) {
     return formError(undefined, values, 'You must be signed in to edit a work order.')
@@ -243,6 +301,14 @@ export async function updateWorkOrderAction(
       'Your role is not permitted to edit work orders.'
     )
   }
+
+  // Read the current assignee (and code) first so we can tell whether this edit
+  // reassigns the work order and only then notify.
+  const { data: existing } = await supabase
+    .from('work_orders')
+    .select('assigned_to, work_order_code')
+    .eq('id', workOrderId)
+    .maybeSingle<{ assigned_to: string | null; work_order_code: string }>()
 
   const { error } = await supabase
     .from('work_orders')
@@ -276,6 +342,30 @@ export async function updateWorkOrderAction(
 
   if (error) {
     return formError(undefined, values, error.message)
+  }
+
+  // Notify the assignee only when the assignee actually changed to someone new
+  // (and not the editor themselves).
+  const newAssignee = parsed.data.assignedTo
+  if (
+    newAssignee &&
+    newAssignee !== existing?.assigned_to &&
+    newAssignee !== claims.sub
+  ) {
+    await notifyAssignee(supabase, newAssignee, actorName(claims), {
+      id: workOrderId,
+      code: existing?.work_order_code ?? '',
+      title: parsed.data.title,
+      category: parsed.data.category,
+      priority: parsed.data.priority,
+      status: parsed.data.status,
+      property: parsed.data.property ?? null,
+      unitNumber: parsed.data.unitNumber ?? null,
+      dueAt: parsed.data.dueAt ?? null,
+      description: parsed.data.description,
+      reporterName: parsed.data.reportedByName ?? null,
+      reporterEmail: parsed.data.reportedByEmail ?? null,
+    })
   }
 
   revalidatePath('/work-orders')
