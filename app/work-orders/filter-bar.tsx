@@ -25,6 +25,7 @@ import {
   hasActiveFilters,
   parseWorkOrderFilters,
   toSearchParams,
+  UNASSIGNED,
   withFilter,
   type WorkOrderFilters,
 } from '@/lib/work-orders/filters'
@@ -46,11 +47,26 @@ const PROPERTY_OPTIONS: Option<Property>[] = PROPERTIES.map((v) => ({
   label: PROPERTY_LABELS[v],
 }))
 
-export function FilterBar() {
+export function FilterBar({
+  assigneeOptions,
+}: {
+  assigneeOptions: Option<string>[]
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+
+  // "Unassigned" is always offered, ahead of the user list.
+  const assigneeFilterOptions = useMemo<Option<string>[]>(
+    () => [{ value: UNASSIGNED, label: 'Unassigned' }, ...assigneeOptions],
+    [assigneeOptions]
+  )
+  const assigneeLabels = useMemo(
+    () =>
+      Object.fromEntries(assigneeFilterOptions.map((o) => [o.value, o.label])),
+    [assigneeFilterOptions]
+  )
 
   // The URL is the source of truth for the table, but we keep an optimistic
   // local copy so the filter UI updates the instant a user clicks rather
@@ -121,6 +137,12 @@ export function FilterBar() {
           selected={filters.properties}
           onChange={(v) => commit(withFilter(filters, 'properties', v))}
         />
+        <MultiSelectFilter
+          label="Assignee"
+          options={assigneeFilterOptions}
+          selected={filters.assignees}
+          onChange={(v) => commit(withFilter(filters, 'assignees', v))}
+        />
 
         <DateRangeFilter
           label="Due date"
@@ -164,6 +186,7 @@ export function FilterBar() {
       <ActiveFilterChips
         filters={filters}
         onChange={commit}
+        assigneeLabels={assigneeLabels}
       />
     </div>
   )
@@ -228,9 +251,11 @@ function SearchInput({
 function ActiveFilterChips({
   filters,
   onChange,
+  assigneeLabels,
 }: {
   filters: WorkOrderFilters
   onChange: (next: WorkOrderFilters) => void
+  assigneeLabels: Record<string, string>
 }) {
   const chips: { key: string; label: string; remove: () => void }[] = []
 
@@ -286,6 +311,20 @@ function ActiveFilterChips({
             filters,
             'properties',
             filters.properties.filter((v) => v !== p)
+          )
+        ),
+    })
+  }
+  for (const a of filters.assignees) {
+    chips.push({
+      key: `assignee-${a}`,
+      label: `Assignee: ${assigneeLabels[a] ?? 'Unknown'}`,
+      remove: () =>
+        onChange(
+          withFilter(
+            filters,
+            'assignees',
+            filters.assignees.filter((v) => v !== a)
           )
         ),
     })

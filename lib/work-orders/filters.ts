@@ -19,6 +19,7 @@ export type WorkOrderFilters = {
   priorities: WorkOrderPriority[]
   categories: WorkOrderCategory[]
   properties: Property[]
+  assignees: string[]
   q: string
   dueFrom: string | null
   dueTo: string | null
@@ -31,6 +32,7 @@ export const EMPTY_FILTERS: WorkOrderFilters = {
   priorities: [],
   categories: [],
   properties: [],
+  assignees: [],
   q: '',
   dueFrom: null,
   dueTo: null,
@@ -44,6 +46,7 @@ export const PARAM = {
   priority: 'priority',
   category: 'category',
   property: 'property',
+  assignee: 'assignee',
   q: 'q',
   dueFrom: 'dueFrom',
   dueTo: 'dueTo',
@@ -82,6 +85,31 @@ function readCsv<T extends string>(
   return out
 }
 
+// Sentinel value for the "no assignee" filter option (distinct from any UUID).
+export const UNASSIGNED = 'unassigned'
+
+// Assignees are user UUIDs (a dynamic set, so there's no enum to validate
+// against), plus the UNASSIGNED sentinel. Keep only those, deduped, so a
+// malformed value can't reach the query.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function readAssigneeCsv(source: RawSearchParams, key: string): string[] {
+  const raw = readString(source, key)
+  if (!raw) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const part of raw.split(',')) {
+    const trimmed = part.trim().toLowerCase()
+    if (
+      (trimmed === UNASSIGNED || UUID.test(trimmed)) &&
+      !seen.has(trimmed)
+    ) {
+      seen.add(trimmed)
+      out.push(trimmed)
+    }
+  }
+  return out
+}
+
 // Accept only YYYY-MM-DD so a malformed string can't reach the database query
 // and so the date inputs round-trip predictably.
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -100,6 +128,7 @@ export function parseWorkOrderFilters(
     priorities: readCsv(source, PARAM.priority, WORK_ORDER_PRIORITIES),
     categories: readCsv(source, PARAM.category, WORK_ORDER_CATEGORIES),
     properties: readCsv(source, PARAM.property, PROPERTIES),
+    assignees: readAssigneeCsv(source, PARAM.assignee),
     q: readString(source, PARAM.q).slice(0, 200),
     dueFrom: readDate(source, PARAM.dueFrom),
     dueTo: readDate(source, PARAM.dueTo),
@@ -119,6 +148,8 @@ export function toSearchParams(filters: WorkOrderFilters): URLSearchParams {
     params.set(PARAM.category, filters.categories.join(','))
   if (filters.properties.length)
     params.set(PARAM.property, filters.properties.join(','))
+  if (filters.assignees.length)
+    params.set(PARAM.assignee, filters.assignees.join(','))
   if (filters.q) params.set(PARAM.q, filters.q)
   if (filters.dueFrom) params.set(PARAM.dueFrom, filters.dueFrom)
   if (filters.dueTo) params.set(PARAM.dueTo, filters.dueTo)
@@ -133,6 +164,7 @@ export function hasActiveFilters(filters: WorkOrderFilters): boolean {
     filters.priorities.length > 0 ||
     filters.categories.length > 0 ||
     filters.properties.length > 0 ||
+    filters.assignees.length > 0 ||
     filters.q.length > 0 ||
     filters.dueFrom !== null ||
     filters.dueTo !== null ||

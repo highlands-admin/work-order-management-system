@@ -35,7 +35,7 @@ export type WorkOrderListItem = {
   category: WorkOrderCategory
   status: WorkOrderStatus
   property: Property | null
-  unit_number: string | null
+  assigned_to: string | null
   priority: WorkOrderPriority
   due_at: string | null
   reported_by_name: string | null
@@ -67,14 +67,14 @@ type Column = {
 // Default column widths in pixels. Users can drag the handles to resize.
 const COLUMNS: Column[] = [
   { key: 'code', label: 'ID', width: 120 },
-  { key: 'title', label: 'Title', width: 380 },
-  { key: 'created', label: 'Created', width: 120 },
-  { key: 'category', label: 'Category', width: 120 },
+  { key: 'title', label: 'Title', width: 200 },
+  { key: 'category', label: 'Category', width: 130 },
   { key: 'status', label: 'Status', width: 120 },
-  { key: 'priority', label: 'Priority', width: 110 },
+  { key: 'priority', label: 'Priority', width: 130 },
   { key: 'property', label: 'Property', width: 130 },
-  { key: 'unit', label: 'Unit', width: 90 },
+  { key: 'created', label: 'Created', width: 120 },
   { key: 'due', label: 'Due', width: 180 },
+  { key: 'assignee', label: 'Assignee', width: 160 },
   { key: 'reporter', label: 'Reported by', width: 180 },
 ]
 
@@ -99,7 +99,6 @@ const SORT_VALUE: Record<
   status: (wo) => WORK_ORDER_STATUSES.indexOf(wo.status),
   priority: (wo) => WORK_ORDER_PRIORITIES.indexOf(wo.priority),
   property: (wo) => (wo.property ? PROPERTY_LABELS[wo.property].toLowerCase() : null),
-  unit: (wo) => wo.unit_number?.toLowerCase() ?? null,
   due: (wo) => (wo.due_at ? new Date(wo.due_at).getTime() : null),
   reporter: (wo) => wo.reported_by_name?.toLowerCase() ?? null,
 }
@@ -124,10 +123,17 @@ type ResizeState = {
 export function WorkOrdersTable({
   workOrders,
   emptyMessage,
+  userLabelById,
 }: {
   workOrders: WorkOrderListItem[]
   emptyMessage: string
+  userLabelById: Record<string, string>
 }) {
+  // The assignee label lives outside the row, so resolve it here.
+  function assigneeLabel(assignedTo: string | null): string | null {
+    if (!assignedTo) return null
+    return userLabelById[assignedTo] ?? assignedTo.slice(0, 8)
+  }
   const [widths, setWidths] = useState<number[]>(() =>
     COLUMNS.map((c) => c.width)
   )
@@ -139,7 +145,14 @@ export function WorkOrdersTable({
   // ascending order is inverted for descending while keeping nulls at the end.
   const sortedWorkOrders = useMemo(() => {
     if (!sort) return workOrders
-    const getValue = SORT_VALUE[sort.key]
+    const getValue = (wo: WorkOrderListItem): number | string | null => {
+      if (sort.key === 'assignee') {
+        return wo.assigned_to
+          ? (userLabelById[wo.assigned_to] ?? wo.assigned_to).toLowerCase()
+          : null
+      }
+      return SORT_VALUE[sort.key](wo)
+    }
     return [...workOrders].sort((a, b) => {
       const av = getValue(a)
       const bv = getValue(b)
@@ -149,7 +162,7 @@ export function WorkOrdersTable({
       const result = compareValues(av, bv)
       return sort.dir === 'asc' ? result : -result
     })
-  }, [workOrders, sort])
+  }, [workOrders, sort, userLabelById])
 
   // Cycle a column through ascending, descending, then unsorted.
   function toggleSort(key: string) {
@@ -264,9 +277,6 @@ export function WorkOrdersTable({
               <TableCell className="truncate px-4 py-3 font-medium">
                 {wo.title}
               </TableCell>
-              <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                {formatDate(wo.created_at)}
-              </TableCell>
               <TableCell className="truncate px-4 py-3">
                 {CATEGORY_LABELS[wo.category]}
               </TableCell>
@@ -288,10 +298,17 @@ export function WorkOrdersTable({
                 {wo.property ? PROPERTY_LABELS[wo.property] : '—'}
               </TableCell>
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                {wo.unit_number ?? '—'}
+                {formatDate(wo.created_at)}
               </TableCell>
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {wo.due_at ? formatDateTime(wo.due_at) : '—'}
+              </TableCell>
+              <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                {wo.assigned_to ? (
+                  assigneeLabel(wo.assigned_to)
+                ) : (
+                  <span className="text-muted-foreground/70">Unassigned</span>
+                )}
               </TableCell>
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {wo.reported_by_name ?? '—'}

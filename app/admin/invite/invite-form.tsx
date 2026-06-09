@@ -101,7 +101,8 @@ export function InviteForm() {
       <SubmitButton
         label="Send invitation"
         pendingLabel="Sending..."
-        className="self-end"
+        size="lg"
+        className="w-full"
       />
     </form>
   )

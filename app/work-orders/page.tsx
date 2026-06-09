@@ -5,8 +5,13 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
 import {
+  fetchAssignableUsers,
+  formatAssigneeLabel,
+} from '@/lib/work-orders/assignable-users'
+import {
   hasActiveFilters,
   parseWorkOrderFilters,
+  UNASSIGNED,
 } from '@/lib/work-orders/filters'
 
 import { FilterBar } from './filter-bar'
@@ -39,7 +44,7 @@ export default async function WorkOrdersPage({
   let query = supabase
     .from('work_orders')
     .select(
-      'id, work_order_code, title, category, status, property, unit_number, priority, due_at, reported_by_name, created_at'
+      'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, created_at'
     )
     .not('status', 'in', '(pending,rejected)')
     .order('created_at', { ascending: false })
@@ -52,6 +57,17 @@ export default async function WorkOrdersPage({
     query = query.in('category', filters.categories)
   if (filters.properties.length)
     query = query.in('property', filters.properties)
+  if (filters.assignees.length) {
+    const includeUnassigned = filters.assignees.includes(UNASSIGNED)
+    const ids = filters.assignees.filter((a) => a !== UNASSIGNED)
+    if (includeUnassigned && ids.length) {
+      query = query.or(`assigned_to.is.null,assigned_to.in.(${ids.join(',')})`)
+    } else if (includeUnassigned) {
+      query = query.is('assigned_to', null)
+    } else {
+      query = query.in('assigned_to', ids)
+    }
+  }
 
   if (filters.dueFrom) {
     query = query.gte('due_at', `${filters.dueFrom}T00:00:00.000Z`)
@@ -76,9 +92,10 @@ export default async function WorkOrdersPage({
   // Fan out the JWT claims read and the table query in parallel. Auth
   // succeeded earlier in the layout, so we don't need claims before issuing
   // the table query - RLS independently enforces who can see what.
-  const [claimsResult, queryResult] = await Promise.all([
+  const [claimsResult, queryResult, assignableUsers] = await Promise.all([
     supabase.auth.getClaims(),
     query,
+    fetchAssignableUsers(supabase),
   ])
   const userRole = (claimsResult.data?.claims as
     | { user_role?: string }
@@ -86,6 +103,13 @@ export default async function WorkOrdersPage({
   const canFile = userRole ? FILER_ROLES.has(userRole) : false
   const { data, error } = queryResult
   const workOrders = (data ?? []) as WorkOrderListItem[]
+  const userLabelById: Record<string, string> = Object.fromEntries(
+    assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
+  )
+  const assigneeOptions = assignableUsers.map((u) => ({
+    value: u.user_id,
+    label: formatAssigneeLabel(u),
+  }))
   const filtersActive = hasActiveFilters(filters)
 
   return (
@@ -108,7 +132,7 @@ export default async function WorkOrdersPage({
         ) : null}
       </div>
 
-      <FilterBar />
+      <FilterBar assigneeOptions={assigneeOptions} />
 
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>
@@ -116,6 +140,7 @@ export default async function WorkOrdersPage({
 
       <WorkOrdersTable
         workOrders={workOrders}
+        userLabelById={userLabelById}
         emptyMessage={
           filtersActive
             ? 'No work orders match these filters.'

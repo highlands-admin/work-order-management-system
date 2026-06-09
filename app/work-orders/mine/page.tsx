@@ -2,6 +2,10 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/server'
+import {
+  fetchAssignableUsers,
+  formatAssigneeLabel,
+} from '@/lib/work-orders/assignable-users'
 
 import { WorkOrdersTable, type WorkOrderListItem } from '../work-orders-table'
 
@@ -16,17 +20,23 @@ export default async function MyWorkOrdersPage() {
 
   if (!claims?.sub) redirect('/login')
 
-  const { data, error } = await supabase
-    .from('work_orders')
-    .select(
-      'id, work_order_code, title, category, status, property, unit_number, priority, due_at, reported_by_name, created_at'
-    )
-    .eq('assigned_to', claims.sub)
-    .not('status', 'in', '(pending,rejected)')
-    .order('created_at', { ascending: false })
-    .limit(ROW_LIMIT)
+  const [{ data, error }, assignableUsers] = await Promise.all([
+    supabase
+      .from('work_orders')
+      .select(
+        'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, created_at'
+      )
+      .eq('assigned_to', claims.sub)
+      .not('status', 'in', '(pending,rejected)')
+      .order('created_at', { ascending: false })
+      .limit(ROW_LIMIT),
+    fetchAssignableUsers(supabase),
+  ])
 
   const workOrders = (data ?? []) as WorkOrderListItem[]
+  const userLabelById: Record<string, string> = Object.fromEntries(
+    assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -43,6 +53,7 @@ export default async function MyWorkOrdersPage() {
 
       <WorkOrdersTable
         workOrders={workOrders}
+        userLabelById={userLabelById}
         emptyMessage="You don't have any work orders assigned yet."
       />
     </div>
