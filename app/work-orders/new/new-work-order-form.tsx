@@ -31,12 +31,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
+  MARKETING_BRIEF_EXEMPT_REQUEST_TYPES,
   MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
   WORK_ORDER_CATEGORIES,
   WORK_ORDER_PRIORITIES,
   PROPERTIES,
+  type MarketingRequestType,
 } from '@/lib/schemas/work-order'
 import { cn } from '@/lib/utils'
 
@@ -166,29 +168,37 @@ export function NewWorkOrderForm({
         } else if (requestType === 'other' && !val('marketingRequestTypeOther')) {
           errors.marketingRequestTypeOther = 'Describe the type of request'
         }
-        if (!val('marketingEventName')) {
-          errors.marketingEventName = 'Enter a name or title (or NA)'
-        }
-        const audience = fd.getAll('marketingTargetAudience').map(String)
-        if (audience.length === 0) {
-          errors.marketingTargetAudience = 'Select at least one audience'
-        } else if (
-          audience.includes('other') &&
-          !val('marketingTargetAudienceOther')
-        ) {
-          errors.marketingTargetAudienceOther = 'Describe the other audience'
-        }
-        if (!val('marketingKeyMessage')) {
-          errors.marketingKeyMessage = 'Enter the key message or theme'
-        }
-        const sizeFormat = fd.getAll('marketingSizeFormat').map(String)
-        if (sizeFormat.length === 0) {
-          errors.marketingSizeFormat = 'Select a size or format'
-        } else if (
-          sizeFormat.includes('other') &&
-          !val('marketingSizeFormatOther')
-        ) {
-          errors.marketingSizeFormatOther = 'Describe the size or format'
+        // Business cards skip the rest of the brief; everything else requires it.
+        const needsBrief =
+          !requestType ||
+          !MARKETING_BRIEF_EXEMPT_REQUEST_TYPES.has(
+            requestType as MarketingRequestType
+          )
+        if (needsBrief) {
+          if (!val('marketingEventName')) {
+            errors.marketingEventName = 'Enter a name or title (or NA)'
+          }
+          const audience = fd.getAll('marketingTargetAudience').map(String)
+          if (audience.length === 0) {
+            errors.marketingTargetAudience = 'Select at least one audience'
+          } else if (
+            audience.includes('other') &&
+            !val('marketingTargetAudienceOther')
+          ) {
+            errors.marketingTargetAudienceOther = 'Describe the other audience'
+          }
+          if (!val('marketingKeyMessage')) {
+            errors.marketingKeyMessage = 'Enter the key message or theme'
+          }
+          const sizeFormat = fd.getAll('marketingSizeFormat').map(String)
+          if (sizeFormat.length === 0) {
+            errors.marketingSizeFormat = 'Select a size or format'
+          } else if (
+            sizeFormat.includes('other') &&
+            !val('marketingSizeFormatOther')
+          ) {
+            errors.marketingSizeFormatOther = 'Describe the size or format'
+          }
         }
       }
     } else if (index === 2) {

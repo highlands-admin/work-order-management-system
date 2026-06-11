@@ -221,30 +221,36 @@ export default async function WorkOrderDetailPage({
                     data.marketing_request_type_other
                   )}
                 </DetailItem>
-                <DetailItem label="Name or title of event">
-                  {data.marketing_event_name ?? <Empty />}
-                </DetailItem>
-                <DetailItem label="Target audience">
-                  {formatAudience(
-                    data.marketing_target_audience,
-                    data.marketing_target_audience_other
-                  )}
-                </DetailItem>
-                <DetailItem label="Size / format needed">
-                  {formatSizeFormat(
-                    data.marketing_size_format,
-                    data.marketing_size_format_other
-                  )}
-                </DetailItem>
-                <DetailItem label="Key message or theme">
-                  {data.marketing_key_message ? (
-                    <span className="whitespace-pre-line text-foreground/90">
-                      {data.marketing_key_message}
-                    </span>
-                  ) : (
-                    <Empty />
-                  )}
-                </DetailItem>
+                {/* A business card carries only the request type; the rest of
+                    the brief is not collected, so those rows are omitted. */}
+                {data.marketing_request_type !== 'business_card' ? (
+                  <>
+                    <DetailItem label="Name or title of event">
+                      {data.marketing_event_name ?? <Empty />}
+                    </DetailItem>
+                    <DetailItem label="Target audience">
+                      {formatAudience(
+                        data.marketing_target_audience,
+                        data.marketing_target_audience_other
+                      )}
+                    </DetailItem>
+                    <DetailItem label="Size / format needed">
+                      {formatSizeFormat(
+                        data.marketing_size_format,
+                        data.marketing_size_format_other
+                      )}
+                    </DetailItem>
+                    <DetailItem label="Key message or theme">
+                      {data.marketing_key_message ? (
+                        <span className="whitespace-pre-line text-foreground/90">
+                          {data.marketing_key_message}
+                        </span>
+                      ) : (
+                        <Empty />
+                      )}
+                    </DetailItem>
+                  </>
+                ) : null}
               </dl>
             </Section>
           ) : null}

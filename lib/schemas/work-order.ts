@@ -108,6 +108,7 @@ export const MARKETING_REQUEST_TYPES = [
   'event_flyer',
   'monthly_special',
   'informational_flyer',
+  'business_card',
   'other',
 ] as const
 
@@ -117,8 +118,16 @@ export const MARKETING_REQUEST_TYPE_LABELS: Record<MarketingRequestType, string>
   event_flyer: 'Event Flyer',
   monthly_special: 'Monthly Special',
   informational_flyer: 'Informational Flyer',
+  business_card: 'Business Card',
   other: 'Other',
 }
+
+// A business card needs only the request type. The rest of the marketing brief
+// (event name, audience, key message, size/format) is hidden in the form and
+// skipped in validation for this request type.
+export const MARKETING_BRIEF_EXEMPT_REQUEST_TYPES = new Set<MarketingRequestType>(
+  ['business_card']
+)
 
 export const MARKETING_TARGET_AUDIENCES = [
   'residents',
@@ -288,33 +297,41 @@ function requireMarketingFields<
         message: 'Select a type of request',
       })
     }
-    if (!data.marketingEventName) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['marketingEventName'],
-        message: 'Enter a name or title (or NA)',
-      })
-    }
-    if (!data.marketingTargetAudience) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['marketingTargetAudience'],
-        message: 'Select at least one audience',
-      })
-    }
-    if (!data.marketingKeyMessage) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['marketingKeyMessage'],
-        message: 'Enter the key message or theme',
-      })
-    }
-    if (!data.marketingSizeFormat) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['marketingSizeFormat'],
-        message: 'Select a size or format',
-      })
+
+    // Business cards skip the rest of the brief; everything else requires it.
+    const needsBrief =
+      !data.marketingRequestType ||
+      !MARKETING_BRIEF_EXEMPT_REQUEST_TYPES.has(data.marketingRequestType)
+
+    if (needsBrief) {
+      if (!data.marketingEventName) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['marketingEventName'],
+          message: 'Enter a name or title (or NA)',
+        })
+      }
+      if (!data.marketingTargetAudience) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['marketingTargetAudience'],
+          message: 'Select at least one audience',
+        })
+      }
+      if (!data.marketingKeyMessage) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['marketingKeyMessage'],
+          message: 'Enter the key message or theme',
+        })
+      }
+      if (!data.marketingSizeFormat) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['marketingSizeFormat'],
+          message: 'Select a size or format',
+        })
+      }
     }
   }
 

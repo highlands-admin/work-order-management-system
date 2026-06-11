@@ -123,6 +123,11 @@ export function MarketingFields({
     markEdited('marketingSizeFormat')
   }
 
+  // A business card needs only the request type, so the rest of the brief is
+  // hidden. The hidden inputs are unmounted, so their values are not submitted
+  // and the server skips validating them for this request type.
+  const isBusinessCard = requestType === 'business_card'
+
   return (
     <FieldGroup className="flex flex-col gap-5">
       <Field data-invalid={requestTypeError ? 'true' : undefined}>
@@ -177,129 +182,136 @@ export function MarketingFields({
         </Field>
       ) : null}
 
-      <Field data-invalid={eventNameError ? 'true' : undefined}>
-        <FieldLabel htmlFor="marketingEventName">
-          Name or title of event <Required />
-        </FieldLabel>
-        <Input
-          id="marketingEventName"
-          name="marketingEventName"
-          autoComplete="off"
-          defaultValue={state.values?.marketingEventName ?? defaults.eventName}
-          onChange={() => markEdited('marketingEventName')}
-          aria-invalid={eventNameError ? true : undefined}
-          placeholder="If this is not for an event, you may enter NA."
-        />
-        <FieldError>{eventNameError}</FieldError>
-      </Field>
+      {!isBusinessCard ? (
+        <>
+          <Field data-invalid={eventNameError ? 'true' : undefined}>
+            <FieldLabel htmlFor="marketingEventName">
+              Name or title of event <Required />
+            </FieldLabel>
+            <Input
+              id="marketingEventName"
+              name="marketingEventName"
+              autoComplete="off"
+              defaultValue={state.values?.marketingEventName ?? defaults.eventName}
+              onChange={() => markEdited('marketingEventName')}
+              aria-invalid={eventNameError ? true : undefined}
+              placeholder="If this is not for an event, you may enter NA."
+            />
+            <FieldError>{eventNameError}</FieldError>
+          </Field>
 
-      <Field data-invalid={audienceError ? 'true' : undefined}>
-        <FieldLabel>
-          Target audience <Required />
-        </FieldLabel>
-        <FieldDescription>Select all that apply.</FieldDescription>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {MARKETING_TARGET_AUDIENCES.map((a) => (
-            <label
-              key={a}
-              className="flex items-center gap-2 text-sm text-foreground"
-            >
-              <input
-                type="checkbox"
-                name="marketingTargetAudience"
-                value={a}
-                checked={audience.includes(a)}
-                onChange={(e) => toggleAudience(a, e.target.checked)}
-                className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring"
+          <Field data-invalid={audienceError ? 'true' : undefined}>
+            <FieldLabel>
+              Target audience <Required />
+            </FieldLabel>
+            <FieldDescription>Select all that apply.</FieldDescription>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {MARKETING_TARGET_AUDIENCES.map((a) => (
+                <label
+                  key={a}
+                  className="flex items-center gap-2 text-sm text-foreground"
+                >
+                  <input
+                    type="checkbox"
+                    name="marketingTargetAudience"
+                    value={a}
+                    checked={audience.includes(a)}
+                    onChange={(e) => toggleAudience(a, e.target.checked)}
+                    className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring"
+                  />
+                  {MARKETING_TARGET_AUDIENCE_LABELS[a]}
+                </label>
+              ))}
+            </div>
+            <FieldError>{audienceError}</FieldError>
+          </Field>
+
+          {audience.includes('other') ? (
+            <Field data-invalid={audienceOtherError ? 'true' : undefined}>
+              <FieldLabel htmlFor="marketingTargetAudienceOther">
+                Other audience <Required />
+              </FieldLabel>
+              <Input
+                id="marketingTargetAudienceOther"
+                name="marketingTargetAudienceOther"
+                autoComplete="off"
+                defaultValue={
+                  state.values?.marketingTargetAudienceOther ??
+                  defaults.targetAudienceOther
+                }
+                onChange={() => markEdited('marketingTargetAudienceOther')}
+                aria-invalid={audienceOtherError ? true : undefined}
+                placeholder="Describe the other audience"
               />
-              {MARKETING_TARGET_AUDIENCE_LABELS[a]}
-            </label>
-          ))}
-        </div>
-        <FieldError>{audienceError}</FieldError>
-      </Field>
+              <FieldError>{audienceOtherError}</FieldError>
+            </Field>
+          ) : null}
 
-      {audience.includes('other') ? (
-        <Field data-invalid={audienceOtherError ? 'true' : undefined}>
-          <FieldLabel htmlFor="marketingTargetAudienceOther">
-            Other audience <Required />
-          </FieldLabel>
-          <Input
-            id="marketingTargetAudienceOther"
-            name="marketingTargetAudienceOther"
-            autoComplete="off"
-            defaultValue={
-              state.values?.marketingTargetAudienceOther ??
-              defaults.targetAudienceOther
-            }
-            onChange={() => markEdited('marketingTargetAudienceOther')}
-            aria-invalid={audienceOtherError ? true : undefined}
-            placeholder="Describe the other audience"
-          />
-          <FieldError>{audienceOtherError}</FieldError>
-        </Field>
-      ) : null}
+          <Field data-invalid={keyMessageError ? 'true' : undefined}>
+            <FieldLabel htmlFor="marketingKeyMessage">
+              Key message or theme <Required />
+            </FieldLabel>
+            <Textarea
+              id="marketingKeyMessage"
+              name="marketingKeyMessage"
+              rows={3}
+              defaultValue={
+                state.values?.marketingKeyMessage ?? defaults.keyMessage
+              }
+              onChange={() => markEdited('marketingKeyMessage')}
+              aria-invalid={keyMessageError ? true : undefined}
+              placeholder="What is the main takeaway?"
+            />
+            <FieldError>{keyMessageError}</FieldError>
+          </Field>
 
-      <Field data-invalid={keyMessageError ? 'true' : undefined}>
-        <FieldLabel htmlFor="marketingKeyMessage">
-          Key message or theme <Required />
-        </FieldLabel>
-        <Textarea
-          id="marketingKeyMessage"
-          name="marketingKeyMessage"
-          rows={3}
-          defaultValue={state.values?.marketingKeyMessage ?? defaults.keyMessage}
-          onChange={() => markEdited('marketingKeyMessage')}
-          aria-invalid={keyMessageError ? true : undefined}
-          placeholder="What is the main takeaway?"
-        />
-        <FieldError>{keyMessageError}</FieldError>
-      </Field>
+          <Field data-invalid={sizeFormatError ? 'true' : undefined}>
+            <FieldLabel>
+              Size / format needed <Required />
+            </FieldLabel>
+            <FieldDescription>Select all that apply.</FieldDescription>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {MARKETING_SIZE_FORMATS.map((s) => (
+                <label
+                  key={s}
+                  className="flex items-center gap-2 text-sm text-foreground"
+                >
+                  <input
+                    type="checkbox"
+                    name="marketingSizeFormat"
+                    value={s}
+                    checked={sizeFormats.includes(s)}
+                    onChange={(e) => toggleSizeFormat(s, e.target.checked)}
+                    className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring"
+                  />
+                  {MARKETING_SIZE_FORMAT_LABELS[s]}
+                </label>
+              ))}
+            </div>
+            <FieldError>{sizeFormatError}</FieldError>
+          </Field>
 
-      <Field data-invalid={sizeFormatError ? 'true' : undefined}>
-        <FieldLabel>
-          Size / format needed <Required />
-        </FieldLabel>
-        <FieldDescription>Select all that apply.</FieldDescription>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {MARKETING_SIZE_FORMATS.map((s) => (
-            <label
-              key={s}
-              className="flex items-center gap-2 text-sm text-foreground"
-            >
-              <input
-                type="checkbox"
-                name="marketingSizeFormat"
-                value={s}
-                checked={sizeFormats.includes(s)}
-                onChange={(e) => toggleSizeFormat(s, e.target.checked)}
-                className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring"
+          {sizeFormats.includes('other') ? (
+            <Field data-invalid={sizeFormatOtherError ? 'true' : undefined}>
+              <FieldLabel htmlFor="marketingSizeFormatOther">
+                Other size / format <Required />
+              </FieldLabel>
+              <Input
+                id="marketingSizeFormatOther"
+                name="marketingSizeFormatOther"
+                autoComplete="off"
+                defaultValue={
+                  state.values?.marketingSizeFormatOther ??
+                  defaults.sizeFormatOther
+                }
+                onChange={() => markEdited('marketingSizeFormatOther')}
+                aria-invalid={sizeFormatOtherError ? true : undefined}
+                placeholder="Describe the size or format"
               />
-              {MARKETING_SIZE_FORMAT_LABELS[s]}
-            </label>
-          ))}
-        </div>
-        <FieldError>{sizeFormatError}</FieldError>
-      </Field>
-
-      {sizeFormats.includes('other') ? (
-        <Field data-invalid={sizeFormatOtherError ? 'true' : undefined}>
-          <FieldLabel htmlFor="marketingSizeFormatOther">
-            Other size / format <Required />
-          </FieldLabel>
-          <Input
-            id="marketingSizeFormatOther"
-            name="marketingSizeFormatOther"
-            autoComplete="off"
-            defaultValue={
-              state.values?.marketingSizeFormatOther ?? defaults.sizeFormatOther
-            }
-            onChange={() => markEdited('marketingSizeFormatOther')}
-            aria-invalid={sizeFormatOtherError ? true : undefined}
-            placeholder="Describe the size or format"
-          />
-          <FieldError>{sizeFormatOtherError}</FieldError>
-        </Field>
+              <FieldError>{sizeFormatOtherError}</FieldError>
+            </Field>
+          ) : null}
+        </>
       ) : null}
     </FieldGroup>
   )
