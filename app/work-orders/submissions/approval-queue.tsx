@@ -67,7 +67,11 @@ export function ApprovalQueue({
             rejected={rejected.filter((wo) => wo.category === category)}
             canModerate={canModerate}
             timeZone={timeZone}
-            emptyMessage={`No pending ${CATEGORY_LABELS[category]} work orders.`}
+            emptyMessage={
+              canModerate
+                ? `You're all caught up. No ${CATEGORY_LABELS[category]} work orders need your approval right now.`
+                : `You have no ${CATEGORY_LABELS[category]} work orders awaiting approval.`
+            }
           />
         </TabsPanel>
       ))}
