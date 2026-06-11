@@ -8,6 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { formatDateTime } from '@/lib/datetime/format'
+import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
 import { type AppRole } from '@/lib/schemas/admin'
 
@@ -33,6 +35,7 @@ export default async function UsersPage() {
 
   const { data, error } = await supabase.rpc('admin_list_users')
   const users = (data ?? []) as AdminUserRow[]
+  const timeZone = await getTimeZone()
 
   return (
     <div className="flex flex-col gap-6">
@@ -92,13 +95,7 @@ export default async function UsersPage() {
                     </TableCell>
                     <TableCell className="px-4 py-3 text-muted-foreground">
                       {u.last_sign_in_at
-                        ? new Date(u.last_sign_in_at).toLocaleString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })
+                        ? formatDateTime(u.last_sign_in_at, timeZone)
                         : '—'}
                     </TableCell>
                   </TableRow>

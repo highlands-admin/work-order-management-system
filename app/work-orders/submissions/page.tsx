@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import { getTimeZone } from '@/lib/datetime/timezone'
 import {
   type Property,
   type WorkOrderCategory,
@@ -81,6 +82,7 @@ export default async function SubmissionsPage() {
   const pending = ((pendingResult.data ?? []) as SubmissionRow[]).map(toCardData)
   const rejected = ((rejectedResult.data ?? []) as SubmissionRow[]).map(toCardData)
   const fetchError = pendingResult.error ?? rejectedResult.error
+  const timeZone = await getTimeZone()
 
   return (
     <div className="flex flex-col gap-8">
@@ -121,6 +123,7 @@ export default async function SubmissionsPage() {
                 key={wo.id}
                 workOrder={wo}
                 canModerate={canModerate}
+                timeZone={timeZone}
               />
             ))}
           </div>
@@ -136,6 +139,7 @@ export default async function SubmissionsPage() {
                 key={wo.id}
                 workOrder={wo}
                 canModerate={canModerate}
+                timeZone={timeZone}
               />
             ))}
           </div>

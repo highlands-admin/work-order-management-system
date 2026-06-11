@@ -13,6 +13,7 @@ import {
   TableCell,
   TableHeader,
 } from '@/components/ui/table'
+import { formatDate, formatDateTime } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
@@ -124,10 +125,12 @@ export function WorkOrdersTable({
   workOrders,
   emptyMessage,
   userLabelById,
+  timeZone,
 }: {
   workOrders: WorkOrderListItem[]
   emptyMessage: string
   userLabelById: Record<string, string>
+  timeZone: string
 }) {
   // The assignee label lives outside the row, so resolve it here.
   function assigneeLabel(assignedTo: string | null): string | null {
@@ -298,10 +301,10 @@ export function WorkOrdersTable({
                 {wo.property ? PROPERTY_LABELS[wo.property] : '—'}
               </TableCell>
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                {formatDate(wo.created_at)}
+                {formatDate(wo.created_at, timeZone)}
               </TableCell>
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                {wo.due_at ? formatDateTime(wo.due_at) : '—'}
+                {wo.due_at ? formatDateTime(wo.due_at, timeZone) : '—'}
               </TableCell>
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {wo.assigned_to ? (
@@ -343,20 +346,3 @@ function SortIndicator({
   )
 }
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}

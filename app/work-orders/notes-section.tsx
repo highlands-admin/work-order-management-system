@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { formatDateTime } from '@/lib/datetime/format'
 
 import type { AuthState } from '../(auth)/auth-state'
 import { initialAuthState } from '../(auth)/auth-state'
@@ -45,12 +46,14 @@ export function NotesSection({
   userById,
   currentUserId,
   canModerate,
+  timeZone,
 }: {
   workOrderId: string | null
   notes: NoteRow[]
   userById: Record<string, string>
   currentUserId: string
   canModerate: boolean
+  timeZone: string
 }) {
   const disabled = workOrderId === null
 
@@ -111,6 +114,7 @@ export function NotesSection({
               authorLabel={userById[note.created_by] ?? note.created_by.slice(0, 8)}
               canEdit={note.created_by === currentUserId}
               canDelete={note.created_by === currentUserId || canModerate}
+              timeZone={timeZone}
             />
           ))
         )}
@@ -170,11 +174,13 @@ function NoteItem({
   authorLabel,
   canEdit,
   canDelete,
+  timeZone,
 }: {
   note: NoteRow
   authorLabel: string
   canEdit: boolean
   canDelete: boolean
+  timeZone: string
 }) {
   const [editing, setEditing] = useState(false)
 
@@ -205,13 +211,6 @@ function NoteItem({
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('')
 
-  const formattedDate = new Date(note.created_at).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
   const wasEdited = note.updated_at !== note.created_at
 
   const editBodyError = editState.fieldErrors?.body?.[0]
@@ -237,7 +236,7 @@ function NoteItem({
             dateTime={note.created_at}
             className="text-xs text-muted-foreground"
           >
-            {formattedDate}
+            {formatDateTime(note.created_at, timeZone)}
           </time>
           {wasEdited ? (
             <span className="text-xs text-muted-foreground/70">(edited)</span>

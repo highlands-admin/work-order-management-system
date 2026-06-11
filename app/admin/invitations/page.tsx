@@ -8,6 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { formatDate } from '@/lib/datetime/format'
+import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
 import { ROLE_LABELS, type AppRole } from '@/lib/schemas/admin'
 
@@ -64,6 +66,7 @@ export default async function InvitationsPage() {
     .order('created_at', { ascending: false })
 
   const invitations = (data ?? []) as Invitation[]
+  const timeZone = await getTimeZone()
 
   return (
     <div className="flex flex-col gap-6">
@@ -124,10 +127,10 @@ export default async function InvitationsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-3 text-muted-foreground">
-                      {formatDate(invite.created_at)}
+                      {formatDate(invite.created_at, timeZone)}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-muted-foreground">
-                      {formatDate(invite.expires_at)}
+                      {formatDate(invite.expires_at, timeZone)}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-right">
                       {status === 'pending' || status === 'expired' ? (
@@ -172,12 +175,4 @@ export default async function InvitationsPage() {
       </div>
     </div>
   )
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }

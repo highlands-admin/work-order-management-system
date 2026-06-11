@@ -13,6 +13,7 @@ import {
   FieldLabel,
 } from '@/components/ui/field'
 import { Textarea } from '@/components/ui/textarea'
+import { formatDateTime, formatRelative } from '@/lib/datetime/format'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
@@ -68,9 +69,11 @@ const PRIORITY_TEXT: Record<WorkOrderPriority, string> = {
 export function SubmissionCard({
   workOrder,
   canModerate,
+  timeZone,
 }: {
   workOrder: SubmissionCardWorkOrder
   canModerate: boolean
+  timeZone: string
 }) {
   const isRejected = workOrder.status === 'rejected'
 
@@ -144,16 +147,23 @@ export function SubmissionCard({
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
+          {/* Relative phrasing depends on the current clock, the one value that
+              can differ between the server render and hydration, so this element
+              opts out of the hydration check. */}
           <time
             className="text-muted-foreground tabular-nums"
             dateTime={isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt}
-            title={formatExactDateTime(
-              isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt
+            title={formatDateTime(
+              isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt,
+              timeZone
             )}
+            suppressHydrationWarning
           >
-            {isRejected
-              ? `Rejected ${formatRelativeTime(workOrder.rejectedAt ?? workOrder.createdAt)}`
-              : `Submitted ${formatRelativeTime(workOrder.createdAt)}`}
+            {isRejected ? 'Rejected' : 'Submitted'}{' '}
+            {formatRelative(
+              isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt,
+              timeZone
+            )}
           </time>
           <Link
             href={`/work-orders/${workOrder.id}`}
@@ -178,7 +188,7 @@ export function SubmissionCard({
           ) : null}
           {workOrder.dueAt ? (
             <DetailRow label="Due">
-              {formatExactDateTime(workOrder.dueAt)}
+              {formatDateTime(workOrder.dueAt, timeZone)}
             </DetailRow>
           ) : null}
           {hasReporter ? (
@@ -318,27 +328,3 @@ function DetailRow({
   )
 }
 
-function formatExactDateTime(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
-function formatRelativeTime(value: string): string {
-  const then = new Date(value).getTime()
-  const now = Date.now()
-  const diffSec = Math.max(0, Math.round((now - then) / 1000))
-
-  if (diffSec < 60) return 'just now'
-  const diffMin = Math.round(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHr = Math.round(diffMin / 60)
-  if (diffHr < 24) return `${diffHr}h ago`
-  const diffDay = Math.round(diffHr / 24)
-  if (diffDay < 7) return `${diffDay}d ago`
-  return formatExactDateTime(value)
-}

@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
   MARKETING_REQUEST_TYPE_LABELS,
@@ -57,9 +58,11 @@ const LONG_FIELDS = new Set([
 export function ActivityFeed({
   events,
   userLabelById,
+  timeZone,
 }: {
   events: ActivityEvent[]
   userLabelById: Record<string, string>
+  timeZone: string
 }) {
   function actorName(actorId: string | null): string {
     if (!actorId) return 'System'
@@ -104,10 +107,14 @@ export function ActivityFeed({
                     dateTime={event.created_at}
                     className="ml-auto shrink-0 pl-3 text-xs text-muted-foreground"
                   >
-                    {formatDateTime(event.created_at)}
+                    {formatDateTime(event.created_at, timeZone)}
                   </time>
                 </div>
-                <ActivityBody event={event} userLabelById={userLabelById} />
+                <ActivityBody
+                  event={event}
+                  userLabelById={userLabelById}
+                  timeZone={timeZone}
+                />
               </div>
             </li>
           ))}
@@ -120,9 +127,11 @@ export function ActivityFeed({
 function ActivityBody({
   event,
   userLabelById,
+  timeZone,
 }: {
   event: ActivityEvent
   userLabelById: Record<string, string>
+  timeZone: string
 }) {
   if (event.action === 'updated') {
     const changes = (event.details.changes ?? {}) as Record<
@@ -142,11 +151,15 @@ function ActivityBody({
               <span className="text-muted-foreground">updated</span>
             ) : (
               <>
-                <ValueChip>{formatValue(field, change.from, userLabelById)}</ValueChip>
+                <ValueChip>
+                  {formatValue(field, change.from, userLabelById, timeZone)}
+                </ValueChip>
                 <span aria-hidden="true" className="text-muted-foreground">
                   →
                 </span>
-                <ValueChip>{formatValue(field, change.to, userLabelById)}</ValueChip>
+                <ValueChip>
+                  {formatValue(field, change.to, userLabelById, timeZone)}
+                </ValueChip>
               </>
             )}
           </li>
@@ -207,7 +220,8 @@ function actionSummary(action: string): string {
 function formatValue(
   field: string,
   value: unknown,
-  userLabelById: Record<string, string>
+  userLabelById: Record<string, string>,
+  timeZone: string
 ): string {
   if (value === null || value === undefined || value === '') {
     return field === 'assigned_to' ? 'Unassigned' : 'empty'
@@ -233,7 +247,7 @@ function formatValue(
       return userLabelById[String(value)] ?? String(value).slice(0, 8)
     case 'due_at':
     case 'rejected_at':
-      return formatDateTime(String(value))
+      return formatDateTime(String(value), timeZone)
     case 'marketing_request_type':
       return (
         MARKETING_REQUEST_TYPE_LABELS[
@@ -274,14 +288,4 @@ function initials(name: string): string {
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('')
   return result || '?'
-}
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }

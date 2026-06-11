@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { signOutAction } from '@/app/(auth)/actions'
+import { TimezoneSync } from '@/components/datetime/timezone-sync'
 import { AppSidebar } from '@/components/nav/app-sidebar'
 import { ThemeToggle } from '@/components/nav/theme-toggle'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function WorkOrdersLayout({
@@ -29,9 +31,11 @@ export default async function WorkOrdersLayout({
 
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get('sidebar_state')?.value !== 'false'
+  const timeZone = await getTimeZone()
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
+      <TimezoneSync serverTimeZone={timeZone} />
       <AppSidebar userRole={claims.user_role} />
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur-sm supports-[backdrop-filter]:bg-background/65">

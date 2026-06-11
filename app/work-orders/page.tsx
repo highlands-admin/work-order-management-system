@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { buttonVariants } from '@/components/ui/button'
+import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
 import {
   fetchAssignableUsers,
@@ -111,6 +112,7 @@ export default async function WorkOrdersPage({
     label: formatAssigneeLabel(u),
   }))
   const filtersActive = hasActiveFilters(filters)
+  const timeZone = await getTimeZone()
 
   return (
     <div className="flex flex-col gap-6">
@@ -141,6 +143,7 @@ export default async function WorkOrdersPage({
       <WorkOrdersTable
         workOrders={workOrders}
         userLabelById={userLabelById}
+        timeZone={timeZone}
         emptyMessage={
           filtersActive
             ? 'No work orders match these filters.'

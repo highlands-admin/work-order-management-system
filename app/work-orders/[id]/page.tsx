@@ -5,6 +5,8 @@ import { notFound, redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { buttonVariants } from '@/components/ui/button'
+import { formatDateTime } from '@/lib/datetime/format'
+import { getTimeZone } from '@/lib/datetime/timezone'
 import { cn } from '@/lib/utils'
 import {
   CATEGORY_LABELS,
@@ -152,6 +154,7 @@ export default async function WorkOrderDetailPage({
     data.reported_by_name || data.reported_by_email || data.reported_by_phone
   const isRejected = data.status === 'rejected'
   const isOverdue = computeIsOverdue(data.due_at, data.status)
+  const timeZone = await getTimeZone()
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -206,7 +209,7 @@ export default async function WorkOrderDetailPage({
             Rejected
             {data.rejected_at ? (
               <span className="font-normal text-destructive/80">
-                {formatDateTime(data.rejected_at)}
+                {formatDateTime(data.rejected_at, timeZone)}
                 {data.rejected_by
                   ? ` by ${formatUser(data.rejected_by, userById)}`
                   : ''}
@@ -281,11 +284,13 @@ export default async function WorkOrderDetailPage({
             userById={userLabelById}
             currentUserId={claims.sub ?? ''}
             canModerate={role === 'administrator'}
+            timeZone={timeZone}
           />
 
           <ActivityFeed
             events={activityData ?? []}
             userLabelById={userLabelById}
+            timeZone={timeZone}
           />
         </div>
 
@@ -309,7 +314,7 @@ export default async function WorkOrderDetailPage({
                       isOverdue ? 'font-medium text-destructive' : undefined
                     }
                   >
-                    {formatDateTime(data.due_at)}
+                    {formatDateTime(data.due_at, timeZone)}
                     {isOverdue ? ' · Overdue' : ''}
                   </span>
                 ) : (
@@ -484,14 +489,4 @@ function computeIsOverdue(
 ): boolean {
   if (!dueAt || CLOSED_STATUSES.has(status)) return false
   return new Date(dueAt).getTime() < Date.now()
-}
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }

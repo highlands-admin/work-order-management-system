@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
+import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
 import {
   fetchAssignableUsers,
@@ -37,6 +38,7 @@ export default async function MyWorkOrdersPage() {
   const userLabelById: Record<string, string> = Object.fromEntries(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
+  const timeZone = await getTimeZone()
 
   return (
     <div className="flex flex-col gap-6">
@@ -54,6 +56,7 @@ export default async function MyWorkOrdersPage() {
       <WorkOrdersTable
         workOrders={workOrders}
         userLabelById={userLabelById}
+        timeZone={timeZone}
         emptyMessage="You don't have any work orders assigned yet."
       />
     </div>
