@@ -1,21 +1,22 @@
-import { RiArrowLeftLine, RiCloseCircleLine } from '@remixicon/react'
+import { RiCloseCircleLine } from '@remixicon/react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { buttonVariants } from '@/components/ui/button'
+import {
+  CategoryBadge,
+  PriorityBadge,
+  StatusBadge,
+} from '@/components/work-orders/work-order-badge'
 import { formatDateTime } from '@/lib/datetime/format'
 import { getTimeZone } from '@/lib/datetime/timezone'
-import { cn } from '@/lib/utils'
 import {
-  CATEGORY_LABELS,
   MARKETING_REQUEST_TYPE_LABELS,
   MARKETING_SIZE_FORMAT_LABELS,
   MARKETING_TARGET_AUDIENCE_LABELS,
-  PRIORITY_LABELS,
   PROPERTY_LABELS,
-  STATUS_LABELS,
   type MarketingRequestType,
   type MarketingSizeFormat,
   type MarketingTargetAudience,
@@ -33,28 +34,13 @@ import {
 
 import { NotesSection, type NoteRow } from '../notes-section'
 import { ActivityFeed, type ActivityEvent } from './activity-feed'
+import { BackButton } from './back-button'
 
 export const metadata: Metadata = { title: 'Work Order' }
 
 const EDITOR_ROLES = new Set(['administrator', 'requester'])
 const TRANSITION_ROLES = new Set(['technician', 'inspector'])
 const CLOSED_STATUSES = new Set<WorkOrderStatus>(['done', 'closed'])
-
-const STATUS_COLOR: Record<WorkOrderStatus, string> = {
-  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  open: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
-  in_progress: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  done: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
-  closed: 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700/30 dark:text-zinc-300',
-  rejected: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-}
-
-const PRIORITY_COLOR: Record<WorkOrderPriority, string> = {
-  urgent: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-  high: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  low: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-300',
-}
 
 type WorkOrderRow = {
   id: string
@@ -160,16 +146,7 @@ export default async function WorkOrderDetailPage({
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       {/* Action bar */}
       <div className="flex items-center justify-between gap-3">
-        <Link
-          href="/work-orders"
-          className={cn(
-            buttonVariants({ variant: 'outline', size: 'lg' }),
-            'gap-1.5'
-          )}
-        >
-          <RiArrowLeftLine className="size-4" />
-          Back to list
-        </Link>
+        <BackButton />
         {canEdit || canTransition ? (
           <Link
             href={`/work-orders/${data.id}/edit`}
@@ -189,15 +166,9 @@ export default async function WorkOrderDetailPage({
           {data.title}
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className={STATUS_COLOR[data.status]}>
-            {STATUS_LABELS[data.status]}
-          </Badge>
-          <Badge className={PRIORITY_COLOR[data.priority]}>
-            {PRIORITY_LABELS[data.priority]}
-          </Badge>
-          <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-            {CATEGORY_LABELS[data.category]}
-          </span>
+          <StatusBadge status={data.status} />
+          <PriorityBadge priority={data.priority} />
+          <CategoryBadge category={data.category} />
         </div>
       </header>
 
@@ -368,25 +339,6 @@ export default async function WorkOrderDetailPage({
         </aside>
       </div>
     </div>
-  )
-}
-
-function Badge({
-  className,
-  children,
-}: {
-  className?: string
-  children: ReactNode
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        className
-      )}
-    >
-      {children}
-    </span>
   )
 }
 

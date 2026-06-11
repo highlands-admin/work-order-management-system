@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+import { sendApprovalRequestEmail } from '@/lib/email/send-approval-request-notification'
 import {
   sendWorkOrderAssignmentEmail,
   type AssignmentWorkOrder,
@@ -14,10 +15,12 @@ import {
   rejectWorkOrderSchema,
   transitionStatusSchema,
   updateWorkOrderSchema,
+  type WorkOrderCategory,
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
+import { getCategoryApprover } from '@/lib/work-orders/category-approvers'
 
 import type { AuthState } from '../(auth)/auth-state'
 
@@ -57,6 +60,29 @@ async function notifyAssignee(
     })
   } catch (error) {
     console.error('Failed to send assignment notification', error)
+  }
+}
+
+// Emails the category's designated approver that a work order is waiting in the
+// approval queue. Never throws: a failed notification must not fail the work
+// order creation it follows. No-ops for categories without a configured
+// approver.
+async function notifyCategoryApprover(
+  category: WorkOrderCategory,
+  submittedByName: string | null,
+  workOrder: AssignmentWorkOrder
+): Promise<void> {
+  try {
+    const approver = getCategoryApprover(category)
+    if (!approver) return
+    await sendApprovalRequestEmail({
+      to: approver.email,
+      approverName: approver.name,
+      submittedByName,
+      workOrder,
+    })
+  } catch (error) {
+    console.error('Failed to send approval request notification', error)
   }
 }
 
@@ -210,22 +236,38 @@ export async function createWorkOrderAction(
     )
   }
 
+  const notificationWorkOrder: AssignmentWorkOrder = {
+    id: workOrderData.id,
+    code: workOrderData.work_order_code,
+    title: parsed.data.title,
+    category: parsed.data.category,
+    priority: parsed.data.priority,
+    status: initialStatus,
+    property: parsed.data.property ?? null,
+    unitNumber: parsed.data.unitNumber ?? null,
+    dueAt: parsed.data.dueAt ?? null,
+    description: parsed.data.description,
+    reporterName: parsed.data.reportedByName ?? null,
+    reporterEmail: parsed.data.reportedByEmail ?? null,
+  }
+
   // Notify the assignee (unless they assigned it to themselves).
   if (parsed.data.assignedTo && parsed.data.assignedTo !== claims.sub) {
-    await notifyAssignee(supabase, parsed.data.assignedTo, actorName(claims), {
-      id: workOrderData.id,
-      code: workOrderData.work_order_code,
-      title: parsed.data.title,
-      category: parsed.data.category,
-      priority: parsed.data.priority,
-      status: initialStatus,
-      property: parsed.data.property ?? null,
-      unitNumber: parsed.data.unitNumber ?? null,
-      dueAt: parsed.data.dueAt ?? null,
-      description: parsed.data.description,
-      reporterName: parsed.data.reportedByName ?? null,
-      reporterEmail: parsed.data.reportedByEmail ?? null,
-    })
+    await notifyAssignee(
+      supabase,
+      parsed.data.assignedTo,
+      actorName(claims),
+      notificationWorkOrder
+    )
+  }
+
+  // A submission that needs approval pings the category's approver.
+  if (initialStatus === 'pending') {
+    await notifyCategoryApprover(
+      parsed.data.category,
+      actorName(claims),
+      notificationWorkOrder
+    )
   }
 
   revalidatePath('/work-orders')

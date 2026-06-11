@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import { Badge } from '@/components/ui/badge'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import {
   type Property,
@@ -8,7 +9,8 @@ import {
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
 
-import { SubmissionCard, type SubmissionCardWorkOrder } from './submission-card'
+import { ApprovalQueue } from './approval-queue'
+import { type SubmissionCardWorkOrder } from './submission-card'
 
 export const metadata: Metadata = { title: 'Submissions' }
 
@@ -85,22 +87,22 @@ export default async function SubmissionsPage() {
   const timeZone = await getTimeZone()
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex items-baseline justify-between gap-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-semibold">
             {canModerate ? 'Approval Queue' : 'Submissions'}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {canModerate
               ? 'Work orders awaiting your review, plus recent rejections.'
               : 'Your work orders awaiting administrator approval.'}
           </p>
         </div>
         {pending.length > 0 ? (
-          <span className="text-sm text-muted-foreground">
+          <Badge variant="secondary" className="shrink-0 tabular-nums">
             {pending.length} pending
-          </span>
+          </Badge>
         ) : null}
       </div>
 
@@ -108,62 +110,12 @@ export default async function SubmissionsPage() {
         <p className="text-sm text-destructive">{fetchError.message}</p>
       ) : null}
 
-      <section className="flex flex-col gap-4">
-        <SectionHeading title="Pending review" count={pending.length} />
-        {pending.length === 0 ? (
-          <EmptyState>
-            {canModerate
-              ? 'Nothing to review right now.'
-              : 'No submissions awaiting review.'}
-          </EmptyState>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {pending.map((wo) => (
-              <SubmissionCard
-                key={wo.id}
-                workOrder={wo}
-                canModerate={canModerate}
-                timeZone={timeZone}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {rejected.length > 0 ? (
-        <section className="flex flex-col gap-4">
-          <SectionHeading title="Recently rejected" count={rejected.length} />
-          <div className="flex flex-col gap-4">
-            {rejected.map((wo) => (
-              <SubmissionCard
-                key={wo.id}
-                workOrder={wo}
-                canModerate={canModerate}
-                timeZone={timeZone}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-    </div>
-  )
-}
-
-function SectionHeading({ title, count }: { title: string; count: number }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h2>
-      <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
-    </div>
-  )
-}
-
-function EmptyState({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-dashed bg-card p-6">
-      <p className="text-sm text-muted-foreground">{children}</p>
+      <ApprovalQueue
+        pending={pending}
+        rejected={rejected}
+        canModerate={canModerate}
+        timeZone={timeZone}
+      />
     </div>
   )
 }

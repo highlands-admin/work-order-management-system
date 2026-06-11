@@ -13,12 +13,14 @@ import {
   TableCell,
   TableHeader,
 } from '@/components/ui/table'
+import {
+  PriorityBadge,
+  StatusBadge,
+} from '@/components/work-orders/work-order-badge'
 import { formatDate, formatDateTime } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
-  PRIORITY_LABELS,
   PROPERTY_LABELS,
-  STATUS_LABELS,
   WORK_ORDER_PRIORITIES,
   WORK_ORDER_STATUSES,
   type Property,
@@ -41,22 +43,6 @@ export type WorkOrderListItem = {
   due_at: string | null
   reported_by_name: string | null
   created_at: string
-}
-
-const STATUS_COLOR: Record<WorkOrderStatus, string> = {
-  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  open: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
-  in_progress: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  done: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
-  closed: 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700/30 dark:text-zinc-300',
-  rejected: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-}
-
-const PRIORITY_COLOR: Record<WorkOrderPriority, string> = {
-  urgent: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-  high: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  low: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-300',
 }
 
 type Column = {
@@ -284,18 +270,10 @@ export function WorkOrdersTable({
                 {CATEGORY_LABELS[wo.category]}
               </TableCell>
               <TableCell className="truncate px-4 py-3">
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[wo.status]}`}
-                >
-                  {STATUS_LABELS[wo.status]}
-                </span>
+                <StatusBadge status={wo.status} />
               </TableCell>
               <TableCell className="truncate px-4 py-3">
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLOR[wo.priority]}`}
-                >
-                  {PRIORITY_LABELS[wo.priority]}
-                </span>
+                <PriorityBadge priority={wo.priority} />
               </TableCell>
               <TableCell className="truncate px-4 py-3">
                 {wo.property ? PROPERTY_LABELS[wo.property] : '—'}

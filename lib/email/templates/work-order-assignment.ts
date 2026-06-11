@@ -54,10 +54,9 @@ export function renderWorkOrderAssignmentHtml({
           <p style="margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#71717a;">Description</p>
           <p style="margin:0 0 24px;font-size:14px;line-height:21px;white-space:pre-line;color:#3f3f46;">${escapeHtml(description)}</p>
 
-          <p style="margin:0 0 8px;text-align:center;">
+          <p style="margin:0;text-align:center;">
             <a href="${url}" style="display:inline-block;padding:10px 18px;background:#0f766e;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;">View work order</a>
           </p>
-          <p style="margin:0;font-size:13px;line-height:20px;color:#71717a;text-align:center;"><span style="word-break:break-all;color:#52525b;">${url}</span></p>
         </td></tr>
       </table>
     </td></tr>

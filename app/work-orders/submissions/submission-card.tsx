@@ -1,5 +1,11 @@
 'use client'
 
+import {
+  RiCalendarEventLine,
+  RiMapPinLine,
+  RiUserLine,
+  type RemixiconComponentType,
+} from '@remixicon/react'
 import Link from 'next/link'
 import { useActionState, useState } from 'react'
 
@@ -13,11 +19,14 @@ import {
   FieldLabel,
 } from '@/components/ui/field'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  CategoryBadge,
+  PriorityBadge,
+  StatusBadge,
+} from '@/components/work-orders/work-order-badge'
 import { formatDateTime, formatRelative } from '@/lib/datetime/format'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
-  CATEGORY_LABELS,
-  PRIORITY_LABELS,
   PROPERTY_LABELS,
   type Property,
   type WorkOrderCategory,
@@ -52,20 +61,6 @@ export type SubmissionCardWorkOrder = {
   rejectedAt: string | null
 }
 
-const PRIORITY_DOT: Record<WorkOrderPriority, string> = {
-  urgent: 'bg-rose-500',
-  high: 'bg-orange-500',
-  medium: 'bg-amber-500',
-  low: 'bg-zinc-400',
-}
-
-const PRIORITY_TEXT: Record<WorkOrderPriority, string> = {
-  urgent: 'text-rose-700 dark:text-rose-400',
-  high: 'text-orange-700 dark:text-orange-400',
-  medium: 'text-amber-700 dark:text-amber-500',
-  low: 'text-zinc-600 dark:text-zinc-400',
-}
-
 export function SubmissionCard({
   workOrder,
   canModerate,
@@ -96,235 +91,188 @@ export function SubmissionCard({
   )
   const reasonError = getError('reason')
 
-  const propertyLine = workOrder.property
+  const locationLabel = workOrder.property
     ? workOrder.unitNumber
       ? `${PROPERTY_LABELS[workOrder.property]} · Unit ${workOrder.unitNumber}`
       : PROPERTY_LABELS[workOrder.property]
     : null
-  const hasReporter =
-    workOrder.reporterName || workOrder.reporterEmail || workOrder.reporterPhone
+  const reporterLabel =
+    workOrder.reporterName ?? workOrder.reporterEmail ?? workOrder.reporterPhone
+  const timestamp = isRejected
+    ? workOrder.rejectedAt ?? workOrder.createdAt
+    : workOrder.createdAt
 
   return (
     <article
       className={cn(
-        'rounded-lg border bg-card p-6 transition-colors hover:border-foreground/20',
-        isRejected && 'opacity-95'
+        'relative cursor-pointer rounded-xl bg-card p-5 ring-1 ring-foreground/10',
+        'transition-colors hover:ring-foreground/20 sm:p-6'
       )}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="font-medium tabular-nums text-muted-foreground">
-            {workOrder.workOrderCode}
-          </span>
-          <span className="text-muted-foreground/40" aria-hidden="true">
-            •
-          </span>
-          <span
-            className={cn(
-              'size-2 shrink-0 rounded-full',
-              PRIORITY_DOT[workOrder.priority]
-            )}
-            aria-hidden="true"
-          />
-          <span
-            className={cn(
-              'font-semibold tracking-wide',
-              PRIORITY_TEXT[workOrder.priority]
-            )}
-          >
-            {PRIORITY_LABELS[workOrder.priority]}
-          </span>
-          <span className="text-muted-foreground/40" aria-hidden="true">
-            •
-          </span>
-          <span className="text-muted-foreground">
-            {CATEGORY_LABELS[workOrder.category]}
-          </span>
-          {isRejected ? (
-            <span className="ml-1 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Rejected
-            </span>
-          ) : null}
+      {/* Top line: the colored signal (badges) leads, the identifier sits quietly
+          on the right. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {isRejected ? <StatusBadge status="rejected" /> : null}
+          <PriorityBadge priority={workOrder.priority} />
+          <CategoryBadge category={workOrder.category} />
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
-          {/* Relative phrasing depends on the current clock, the one value that
-              can differ between the server render and hydration, so this element
-              opts out of the hydration check. */}
-          <time
-            className="text-muted-foreground tabular-nums"
-            dateTime={isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt}
-            title={formatDateTime(
-              isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt,
-              timeZone
-            )}
-            suppressHydrationWarning
-          >
-            {isRejected ? 'Rejected' : 'Submitted'}{' '}
-            {formatRelative(
-              isRejected ? workOrder.rejectedAt ?? workOrder.createdAt : workOrder.createdAt,
-              timeZone
-            )}
-          </time>
-          <Link
-            href={`/work-orders/${workOrder.id}`}
-            className="font-medium text-foreground underline-offset-4 hover:underline"
-          >
-            View details
-          </Link>
-        </div>
+        <span className="shrink-0 pt-0.5 text-xs font-medium tabular-nums text-muted-foreground/70">
+          {workOrder.workOrderCode}
+        </span>
       </div>
 
-      <h3 className="mt-5 font-heading text-base font-semibold tracking-tight">
-        {workOrder.title}
+      {/* Focal point: the title. Its ::before overlay stretches across the
+          whole card so a click anywhere opens the detail page, while the action
+          controls below opt back above it with z-10. */}
+      <h3 className="mt-3 font-heading text-lg font-semibold leading-snug tracking-tight">
+        <Link
+          href={`/work-orders/${workOrder.id}`}
+          className="outline-none transition-colors before:absolute before:inset-0 before:content-[''] hover:text-primary focus-visible:text-primary"
+        >
+          {workOrder.title}
+        </Link>
       </h3>
-      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-foreground/90">
+
+      <p className="mt-1.5 line-clamp-3 text-sm leading-6 whitespace-pre-line text-muted-foreground">
         {workOrder.description}
       </p>
 
-      {propertyLine || workOrder.dueAt || hasReporter || isRejected ? (
-        <dl className="mt-6 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 text-sm">
-          {propertyLine ? (
-            <DetailRow label="Location">{propertyLine}</DetailRow>
+      {/* Quiet metadata row. Icons carry the meaning, so there are no shouty
+          uppercase labels. */}
+      {locationLabel || workOrder.dueAt || reporterLabel ? (
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+          {locationLabel ? (
+            <Meta icon={RiMapPinLine}>{locationLabel}</Meta>
           ) : null}
           {workOrder.dueAt ? (
-            <DetailRow label="Due">
-              {formatDateTime(workOrder.dueAt, timeZone)}
-            </DetailRow>
+            <Meta icon={RiCalendarEventLine}>
+              Due {formatDateTime(workOrder.dueAt, timeZone)}
+            </Meta>
           ) : null}
-          {hasReporter ? (
-            <DetailRow label="Reporter">
-              {workOrder.reporterName ? (
-                <div className="text-foreground">{workOrder.reporterName}</div>
-              ) : null}
-              {workOrder.reporterEmail || workOrder.reporterPhone ? (
-                <div
-                  className={cn(
-                    'flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground',
-                    workOrder.reporterName ? 'mt-0.5' : null
-                  )}
-                >
-                  {workOrder.reporterEmail ? (
-                    <a
-                      href={`mailto:${workOrder.reporterEmail}`}
-                      className="hover:text-foreground"
-                    >
-                      {workOrder.reporterEmail}
-                    </a>
-                  ) : null}
-                  {workOrder.reporterEmail && workOrder.reporterPhone ? (
-                    <span aria-hidden="true">·</span>
-                  ) : null}
-                  {workOrder.reporterPhone ? (
-                    <a
-                      href={`tel:${workOrder.reporterPhone}`}
-                      className="hover:text-foreground"
-                    >
-                      {workOrder.reporterPhone}
-                    </a>
-                  ) : null}
-                </div>
-              ) : null}
-            </DetailRow>
-          ) : null}
-          {isRejected && workOrder.rejectedReason ? (
-            <DetailRow label="Reason">
-              <p className="whitespace-pre-line text-foreground/90">
-                {workOrder.rejectedReason}
-              </p>
-            </DetailRow>
-          ) : null}
-        </dl>
-      ) : null}
-
-      {!isRejected ? (
-        <div className="mt-6 border-t pt-5">
-          {approveState.status === 'error' && approveState.message ? (
-            <p className="mb-3 text-sm text-destructive">
-              {approveState.message}
-            </p>
-          ) : null}
-
-          {canModerate ? (
-            showReject ? (
-              <form
-                action={rejectAction}
-                noValidate
-                className="flex flex-col gap-3"
-              >
-                <FormError state={rejectState} />
-                <FieldGroup>
-                  <Field data-invalid={reasonError ? 'true' : undefined}>
-                    <FieldLabel htmlFor={`reason-${workOrder.id}`}>
-                      Reason for rejection
-                    </FieldLabel>
-                    <Textarea
-                      id={`reason-${workOrder.id}`}
-                      name="reason"
-                      rows={3}
-                      defaultValue={rejectState.values?.reason}
-                      onChange={() => markEdited('reason')}
-                      aria-invalid={reasonError ? true : undefined}
-                      placeholder="Tell the creator what needs to change."
-                      required
-                    />
-                    <FieldError>{reasonError}</FieldError>
-                  </Field>
-                </FieldGroup>
-                <div className="flex items-center justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowReject(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <SubmitButton
-                    label="Confirm rejection"
-                    pendingLabel="Rejecting..."
-                  />
-                </div>
-              </form>
-            ) : (
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowReject(true)}
-                >
-                  Reject
-                </Button>
-                <form action={approveAction}>
-                  <SubmitButton label="Approve" pendingLabel="Approving..." />
-                </form>
-              </div>
-            )
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Awaiting administrator review.
-            </p>
-          )}
+          {reporterLabel ? <Meta icon={RiUserLine}>{reporterLabel}</Meta> : null}
         </div>
       ) : null}
+
+      {isRejected && workOrder.rejectedReason ? (
+        <div className="mt-4 border-l-2 border-rose-300 pl-3 dark:border-rose-500/40">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Reason for rejection
+          </p>
+          <p className="mt-1 text-sm leading-6 whitespace-pre-line text-foreground/90">
+            {workOrder.rejectedReason}
+          </p>
+        </div>
+      ) : null}
+
+      {/* Footer anchors the timestamp and the decision together. */}
+      <div className="mt-5 border-t pt-4">
+        {!isRejected && showReject ? (
+          <form
+            action={rejectAction}
+            noValidate
+            className="relative z-10 flex flex-col gap-3"
+          >
+            <FormError state={rejectState} />
+            <FieldGroup>
+              <Field data-invalid={reasonError ? 'true' : undefined}>
+                <FieldLabel htmlFor={`reason-${workOrder.id}`}>
+                  Reason for rejection
+                </FieldLabel>
+                <Textarea
+                  id={`reason-${workOrder.id}`}
+                  name="reason"
+                  rows={3}
+                  defaultValue={rejectState.values?.reason}
+                  onChange={() => markEdited('reason')}
+                  aria-invalid={reasonError ? true : undefined}
+                  placeholder="Tell the creator what needs to change."
+                  required
+                />
+                <FieldError>{reasonError}</FieldError>
+              </Field>
+            </FieldGroup>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="lg"
+                onClick={() => setShowReject(false)}
+              >
+                Cancel
+              </Button>
+              <SubmitButton
+                label="Confirm rejection"
+                pendingLabel="Rejecting..."
+                size="lg"
+              />
+            </div>
+          </form>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            {/* Relative phrasing depends on the current clock, the one value that
+                can differ between the server render and hydration, so this opts
+                out of the hydration check. */}
+            <time
+              className="text-xs text-muted-foreground tabular-nums"
+              dateTime={timestamp}
+              title={formatDateTime(timestamp, timeZone)}
+              suppressHydrationWarning
+            >
+              {isRejected ? 'Rejected' : 'Submitted'}{' '}
+              {formatRelative(timestamp, timeZone)}
+            </time>
+
+            {!isRejected ? (
+              canModerate ? (
+                <div className="relative z-10 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    onClick={() => setShowReject(true)}
+                  >
+                    Reject
+                  </Button>
+                  <form action={approveAction}>
+                    <SubmitButton
+                      label="Approve"
+                      pendingLabel="Approving..."
+                      size="lg"
+                    />
+                  </form>
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  Awaiting review
+                </span>
+              )
+            ) : null}
+          </div>
+        )}
+
+        {!isRejected &&
+        !showReject &&
+        approveState.status === 'error' &&
+        approveState.message ? (
+          <p className="mt-3 text-sm text-destructive">{approveState.message}</p>
+        ) : null}
+      </div>
     </article>
   )
 }
 
-function DetailRow({
-  label,
+function Meta({
+  icon: Icon,
   children,
 }: {
-  label: string
+  icon: RemixiconComponentType
   children: React.ReactNode
 }) {
   return (
-    <>
-      <dt className="pt-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="text-foreground">{children}</dd>
-    </>
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="size-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
+      <span>{children}</span>
+    </span>
   )
 }
-
