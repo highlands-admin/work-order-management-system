@@ -79,7 +79,9 @@ export function DateTimePicker({
               variant="outline"
               aria-invalid={ariaInvalid}
               className={cn(
-                'w-full justify-start font-normal',
+                // Match the input/select fields: 16px on mobile to avoid the
+                // iOS focus zoom, 14px from md up.
+                'w-full justify-start text-base font-normal md:text-sm',
                 !date && 'text-muted-foreground',
                 className
               )}

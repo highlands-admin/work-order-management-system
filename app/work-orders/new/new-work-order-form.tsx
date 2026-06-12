@@ -534,7 +534,7 @@ export function NewWorkOrderForm({
         <FormSection
           id="reporter"
           title="Reporter"
-          description="Who is this being reported on behalf of? Leave blank if you are the reporter."
+          description="Pre-filled with your details. Update them if you're filing this on behalf of someone else."
         >
           <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-3">
             <Field data-invalid={nameError ? 'true' : undefined}>
