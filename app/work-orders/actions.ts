@@ -572,6 +572,7 @@ export async function changeWorkOrderStatusAction(
   }
 
   revalidatePath('/work-orders')
+  revalidatePath('/work-orders/mine')
   revalidatePath(`/work-orders/${workOrderId}`)
   revalidatePath(`/work-orders/${workOrderId}/edit`)
   return { status: 'success' }

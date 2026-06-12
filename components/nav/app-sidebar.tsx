@@ -97,7 +97,7 @@ export function AppSidebar({
           }}
           className="font-heading px-2 py-1.5 text-base font-semibold"
         >
-          Work Orders
+          Highlands Cadence
         </Link>
       </SidebarHeader>
       <SidebarContent>

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Figtree, Space_Grotesk } from "next/font/google";
+import { Geist_Mono, Figtree, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
-const spaceGrotesk = Space_Grotesk({
+const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-heading",
 });
 
@@ -40,7 +41,7 @@ export default function RootLayout({
       className={cn(
         "h-full antialiased",
         figtree.variable,
-        spaceGrotesk.variable,
+        ibmPlexSans.variable,
         geistMono.variable,
         "font-sans"
       )}

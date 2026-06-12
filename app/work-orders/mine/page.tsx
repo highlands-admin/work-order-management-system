@@ -19,8 +19,14 @@ import {
 import { FilterBar } from '../filter-bar'
 import { TablePagination } from '../table-pagination'
 import { WorkOrdersTable, type WorkOrderListItem } from '../work-orders-table'
+import { KanbanBoard } from './kanban-board'
+import { ViewToggle } from './view-toggle'
 
 export const metadata: Metadata = { title: 'My Work Orders' }
+
+// Cap for the board, which is not paginated. A single assignee is very unlikely
+// to exceed this many active work orders.
+const BOARD_CAP = 200
 
 export default async function MyWorkOrdersPage({
   searchParams,
@@ -28,6 +34,7 @@ export default async function MyWorkOrdersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
+  const view = params.view === 'board' ? 'board' : 'table'
   // Every row here is already assigned to the current user, so the assignee
   // filter is dropped.
   const filters = { ...parseWorkOrderFilters(params), assignees: [] }
@@ -40,39 +47,61 @@ export default async function MyWorkOrdersPage({
 
   if (!claims?.sub) redirect('/login')
 
-  const order = sort ?? DEFAULT_SORT
-  const from = (page - 1) * PAGE_SIZE
+  const base = applyWorkOrderFilters(
+    supabase
+      .from('work_orders')
+      .select(
+        'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, created_at',
+        { count: 'exact' }
+      )
+      .eq('assigned_to', claims.sub)
+      .not('status', 'in', '(pending,rejected)'),
+    filters
+  )
 
-  let query = supabase
-    .from('work_orders')
-    .select(
-      'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, created_at',
-      { count: 'exact' }
-    )
-    .eq('assigned_to', claims.sub)
-    .not('status', 'in', '(pending,rejected)')
+  let workOrders: WorkOrderListItem[] = []
+  let count = 0
+  let error: { message: string } | null = null
 
-  query = applyWorkOrderFilters(query, filters)
+  if (view === 'board') {
+    // The board groups by status, so order by priority (urgent first) within
+    // each column, newest as the tiebreaker. No pagination.
+    const result = await base
+      .order('priority', { ascending: true })
+      .order('work_order_number', { ascending: false })
+      .range(0, BOARD_CAP - 1)
+    workOrders = (result.data ?? []) as WorkOrderListItem[]
+    error = result.error
+  } else {
+    const order = sort ?? DEFAULT_SORT
+    const from = (page - 1) * PAGE_SIZE
+    const result = await base
+      .order(SORT_COLUMNS[order.key].column, {
+        ascending: order.dir === 'asc',
+        nullsFirst: false,
+      })
+      .order('work_order_number', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1)
+    workOrders = (result.data ?? []) as WorkOrderListItem[]
+    count = result.count ?? 0
+    error = result.error
+  }
 
-  const { data, error, count } = await query
-    .order(SORT_COLUMNS[order.key].column, {
-      ascending: order.dir === 'asc',
-      nullsFirst: false,
-    })
-    .order('work_order_number', { ascending: false })
-    .range(from, from + PAGE_SIZE - 1)
-
-  const workOrders = (data ?? []) as WorkOrderListItem[]
   const timeZone = await getTimeZone()
   const filtersActive = hasActiveFilters(filters)
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold">My Work Orders</h1>
-        <p className="text-sm text-muted-foreground">
-          Work orders assigned to you, active work first.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold">My Work Orders</h1>
+          <p className="text-sm text-muted-foreground">
+            {view === 'board'
+              ? 'Drag a work order between columns to change its status.'
+              : 'Work orders assigned to you, active work first.'}
+          </p>
+        </div>
+        <ViewToggle view={view} />
       </div>
 
       <FilterBar showAssignee={false} />
@@ -81,20 +110,36 @@ export default async function MyWorkOrdersPage({
         <p className="text-sm text-destructive">{error.message}</p>
       ) : null}
 
-      <WorkOrdersTable
-        workOrders={workOrders}
-        userLabelById={{}}
-        timeZone={timeZone}
-        sort={sort}
-        showAssignee={false}
-        emptyMessage={
-          filtersActive
-            ? 'No work orders match these filters.'
-            : "You don't have any work orders assigned yet."
-        }
-      />
+      {view === 'board' ? (
+        workOrders.length === 0 ? (
+          <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+            <p className="p-6 text-sm text-muted-foreground">
+              {filtersActive
+                ? 'No work orders match these filters.'
+                : "You don't have any work orders assigned yet."}
+            </p>
+          </div>
+        ) : (
+          <KanbanBoard workOrders={workOrders} timeZone={timeZone} />
+        )
+      ) : (
+        <>
+          <WorkOrdersTable
+            workOrders={workOrders}
+            userLabelById={{}}
+            timeZone={timeZone}
+            sort={sort}
+            showAssignee={false}
+            emptyMessage={
+              filtersActive
+                ? 'No work orders match these filters.'
+                : "You don't have any work orders assigned yet."
+            }
+          />
 
-      <TablePagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} />
+          <TablePagination page={page} pageSize={PAGE_SIZE} total={count} />
+        </>
+      )}
     </div>
   )
 }
