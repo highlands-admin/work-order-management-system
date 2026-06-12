@@ -180,7 +180,7 @@ export function WorkOrdersTable({
 
   return (
     <div
-      className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
+      className="w-fit max-w-full overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10"
       style={resizing ? { userSelect: 'none', cursor: 'col-resize' } : undefined}
     >
       <Table className="table-fixed" style={{ width: totalWidth }}>
