@@ -394,6 +394,12 @@ export const transitionStatusSchema = z.object({
 
 export type TransitionStatusInput = z.infer<typeof transitionStatusSchema>
 
+// Inline status change from the detail page: admins, assignees, and creators
+// move an approved work order between the main workflow statuses only.
+export const changeStatusSchema = z.object({
+  status: z.enum(MAIN_TABLE_STATUSES, { message: 'Select a status' }),
+})
+
 export const addWorkOrderNoteSchema = z.object({
   body: z
     .string()

@@ -98,14 +98,20 @@ export function ActivityFeed({
                 {initials(actorName(event.actor_id))}
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                  <span className="font-medium">{actorName(event.actor_id)}</span>
-                  <span className="text-muted-foreground">
-                    {actionSummary(event.action)}
-                  </span>
+                {/* On mobile the timestamp sits on its own line below the
+                    actor and action; from sm up it moves inline to the right. */}
+                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-x-2">
+                  <p className="text-sm">
+                    <span className="font-medium">
+                      {actorName(event.actor_id)}
+                    </span>{' '}
+                    <span className="text-muted-foreground">
+                      {actionSummary(event.action)}
+                    </span>
+                  </p>
                   <time
                     dateTime={event.created_at}
-                    className="ml-auto shrink-0 pl-3 text-xs text-muted-foreground"
+                    className="text-xs text-muted-foreground sm:ml-auto sm:shrink-0 sm:pl-3"
                   >
                     {formatDateTime(event.created_at, timeZone)}
                   </time>

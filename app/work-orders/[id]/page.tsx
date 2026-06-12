@@ -35,6 +35,7 @@ import {
 import { NotesSection, type NoteRow } from '../notes-section'
 import { ActivityFeed, type ActivityEvent } from './activity-feed'
 import { BackButton } from './back-button'
+import { StatusControl } from './status-control'
 
 export const metadata: Metadata = { title: 'Work Order' }
 
@@ -140,6 +141,21 @@ export default async function WorkOrderDetailPage({
     (role === 'requester' &&
       (data.created_by === claims.sub || data.assigned_to === claims.sub))
   const canTransition = role ? TRANSITION_ROLES.has(role) : false
+  // Status is editable inline by the administrator, the assignee, or the
+  // creator, once the work order is in the active workflow (not pending or
+  // rejected, which move through the approval queue).
+  const isActiveStatus =
+    data.status !== 'pending' && data.status !== 'rejected'
+  const canChangeStatus =
+    role === 'administrator' ||
+    data.created_by === claims.sub ||
+    data.assigned_to === claims.sub
+  // When the prominent status control is shown, size the priority and category
+  // badges to match it so the three read as one row.
+  const statusControlShown = canChangeStatus && isActiveStatus
+  const matchStatusSize = statusControlShown
+    ? 'h-9 px-3.5 text-sm font-semibold shadow-sm'
+    : undefined
   const hasReporter =
     data.reported_by_name || data.reported_by_email || data.reported_by_phone
   const isRejected = data.status === 'rejected'
@@ -170,9 +186,19 @@ export default async function WorkOrderDetailPage({
           {data.title}
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={data.status} />
-          <PriorityBadge priority={data.priority} />
-          <CategoryBadge category={data.category} />
+          {statusControlShown ? (
+            <StatusControl workOrderId={data.id} status={data.status} />
+          ) : (
+            <StatusBadge status={data.status} />
+          )}
+          <PriorityBadge
+            priority={data.priority}
+            className={matchStatusSize}
+          />
+          <CategoryBadge
+            category={data.category}
+            className={matchStatusSize}
+          />
         </div>
       </header>
 

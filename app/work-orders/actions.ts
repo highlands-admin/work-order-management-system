@@ -10,7 +10,9 @@ import {
 } from '@/lib/email/send-assignment-notification'
 import {
   APPROVAL_REQUIRED_ROLES,
+  MAIN_TABLE_STATUSES,
   addWorkOrderNoteSchema,
+  changeStatusSchema,
   createWorkOrderSchema,
   rejectWorkOrderSchema,
   transitionStatusSchema,
@@ -503,6 +505,76 @@ export async function transitionWorkOrderStatusAction(
   revalidatePath('/work-orders')
   revalidatePath(`/work-orders/${workOrderId}/edit`)
   redirect('/work-orders')
+}
+
+// Inline status change from the work order detail page. Available to admins,
+// the assignee, and the creator, who may move an approved work order freely
+// between the main workflow statuses. RLS and the column trigger enforce the
+// same rules in the database. Returns a result object (no redirect) so the
+// detail page control can update in place.
+export async function changeWorkOrderStatusAction(
+  workOrderId: string,
+  status: string
+): Promise<{ status: 'success' | 'error'; message?: string }> {
+  const parsed = changeStatusSchema.safeParse({ status })
+  if (!parsed.success) {
+    return { status: 'error', message: 'Choose a valid status.' }
+  }
+
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as ActorClaims | undefined
+
+  if (!claims?.sub) {
+    return { status: 'error', message: 'You must be signed in.' }
+  }
+
+  const { data: existing } = await supabase
+    .from('work_orders')
+    .select('created_by, assigned_to, status')
+    .eq('id', workOrderId)
+    .maybeSingle<{
+      created_by: string
+      assigned_to: string | null
+      status: WorkOrderStatus
+    }>()
+
+  if (!existing) {
+    return { status: 'error', message: 'Work order not found.' }
+  }
+
+  const canChange =
+    claims.user_role === 'administrator' ||
+    existing.created_by === claims.sub ||
+    existing.assigned_to === claims.sub
+  if (!canChange) {
+    return {
+      status: 'error',
+      message: 'You are not permitted to change this work order’s status.',
+    }
+  }
+
+  // Pending and rejected work orders move through the approval flow, not here.
+  if (!(MAIN_TABLE_STATUSES as readonly WorkOrderStatus[]).includes(existing.status)) {
+    return {
+      status: 'error',
+      message: 'This work order is not in the active workflow.',
+    }
+  }
+
+  const { error } = await supabase
+    .from('work_orders')
+    .update({ status: parsed.data.status, updated_by: claims.sub })
+    .eq('id', workOrderId)
+
+  if (error) {
+    return { status: 'error', message: error.message }
+  }
+
+  revalidatePath('/work-orders')
+  revalidatePath(`/work-orders/${workOrderId}`)
+  revalidatePath(`/work-orders/${workOrderId}/edit`)
+  return { status: 'success' }
 }
 
 // Admin-only: move a pending work order into the live workflow. Clears
