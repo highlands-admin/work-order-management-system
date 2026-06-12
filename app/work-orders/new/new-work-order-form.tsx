@@ -564,7 +564,7 @@ export function NewWorkOrderForm({
                 name="reportedByEmail"
                 type="email"
                 autoComplete="email"
-                placeholder="alex@example.com"
+                placeholder="username@highlands.care"
                 defaultValue={
                   state.values?.reportedByEmail ?? reporterDefaults?.email
                 }

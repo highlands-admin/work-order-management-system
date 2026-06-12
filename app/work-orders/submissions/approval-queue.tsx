@@ -99,7 +99,7 @@ function QueueSections({
         {pending.length === 0 ? (
           <EmptyState message={emptyMessage} />
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
             {pending.map((wo) => (
               <SubmissionCard
                 key={wo.id}
@@ -115,7 +115,7 @@ function QueueSections({
       {rejected.length > 0 ? (
         <section className="flex flex-col gap-4">
           <SectionHeading title="Recently rejected" count={rejected.length} />
-          <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
             {rejected.map((wo) => (
               <SubmissionCard
                 key={wo.id}

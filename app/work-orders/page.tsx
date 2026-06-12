@@ -9,26 +9,26 @@ import {
   fetchAssignableUsers,
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
+import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
 import {
   hasActiveFilters,
   parseWorkOrderFilters,
-  UNASSIGNED,
 } from '@/lib/work-orders/filters'
+import {
+  DEFAULT_SORT,
+  PAGE_SIZE,
+  parsePage,
+  parseSort,
+  SORT_COLUMNS,
+} from '@/lib/work-orders/list-sort'
 
 import { FilterBar } from './filter-bar'
+import { TablePagination } from './table-pagination'
 import { WorkOrdersTable, type WorkOrderListItem } from './work-orders-table'
 
 export const metadata: Metadata = { title: 'Work orders' }
 
 const FILER_ROLES = new Set(['administrator', 'requester'])
-const ROW_LIMIT = 100
-
-// Strip characters that would either break PostgREST's .or() syntax or be
-// interpreted as ilike wildcards. The remaining string is wrapped with `*`
-// wildcards on the query side.
-function sanitizeSearchTerm(q: string): string {
-  return q.replace(/[,()*%_\\]/g, '').trim().slice(0, 100)
-}
 
 export default async function WorkOrdersPage({
   searchParams,
@@ -37,6 +37,8 @@ export default async function WorkOrdersPage({
 }) {
   const params = await searchParams
   const filters = parseWorkOrderFilters(params)
+  const sort = parseSort(params)
+  const page = parsePage(params)
 
   const supabase = await createClient()
 
@@ -45,50 +47,24 @@ export default async function WorkOrdersPage({
   let query = supabase
     .from('work_orders')
     .select(
-      'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, created_at'
+      'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, created_at',
+      { count: 'exact' }
     )
     .not('status', 'in', '(pending,rejected)')
-    .order('created_at', { ascending: false })
-    .limit(ROW_LIMIT)
 
-  if (filters.statuses.length) query = query.in('status', filters.statuses)
-  if (filters.priorities.length)
-    query = query.in('priority', filters.priorities)
-  if (filters.categories.length)
-    query = query.in('category', filters.categories)
-  if (filters.properties.length)
-    query = query.in('property', filters.properties)
-  if (filters.assignees.length) {
-    const includeUnassigned = filters.assignees.includes(UNASSIGNED)
-    const ids = filters.assignees.filter((a) => a !== UNASSIGNED)
-    if (includeUnassigned && ids.length) {
-      query = query.or(`assigned_to.is.null,assigned_to.in.(${ids.join(',')})`)
-    } else if (includeUnassigned) {
-      query = query.is('assigned_to', null)
-    } else {
-      query = query.in('assigned_to', ids)
-    }
-  }
+  query = applyWorkOrderFilters(query, filters)
 
-  if (filters.dueFrom) {
-    query = query.gte('due_at', `${filters.dueFrom}T00:00:00.000Z`)
-  }
-  if (filters.dueTo) {
-    query = query.lte('due_at', `${filters.dueTo}T23:59:59.999Z`)
-  }
-  if (filters.createdFrom) {
-    query = query.gte('created_at', `${filters.createdFrom}T00:00:00.000Z`)
-  }
-  if (filters.createdTo) {
-    query = query.lte('created_at', `${filters.createdTo}T23:59:59.999Z`)
-  }
-
-  const safeQ = sanitizeSearchTerm(filters.q)
-  if (safeQ) {
-    query = query.or(
-      `work_order_code.ilike.*${safeQ}*,title.ilike.*${safeQ}*,description.ilike.*${safeQ}*,unit_number.ilike.*${safeQ}*,reported_by_name.ilike.*${safeQ}*`
-    )
-  }
+  // Order by the requested column (default newest first), with work_order_number
+  // as a stable tiebreaker so paging is deterministic, then slice to the page.
+  const order = sort ?? DEFAULT_SORT
+  const from = (page - 1) * PAGE_SIZE
+  query = query
+    .order(SORT_COLUMNS[order.key].column, {
+      ascending: order.dir === 'asc',
+      nullsFirst: false,
+    })
+    .order('work_order_number', { ascending: false })
+    .range(from, from + PAGE_SIZE - 1)
 
   // Fan out the JWT claims read and the table query in parallel. Auth
   // succeeded earlier in the layout, so we don't need claims before issuing
@@ -102,7 +78,7 @@ export default async function WorkOrdersPage({
     | { user_role?: string }
     | undefined)?.user_role
   const canFile = userRole ? FILER_ROLES.has(userRole) : false
-  const { data, error } = queryResult
+  const { data, error, count } = queryResult
   const workOrders = (data ?? []) as WorkOrderListItem[]
   const userLabelById: Record<string, string> = Object.fromEntries(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
@@ -120,7 +96,7 @@ export default async function WorkOrdersPage({
         <div>
           <h1 className="font-heading text-2xl font-semibold">Work Orders</h1>
           <p className="text-sm text-muted-foreground">
-            Every work order across all properties, newest first.
+            Every work order across all properties, active work first.
           </p>
         </div>
         {canFile ? (
@@ -144,6 +120,7 @@ export default async function WorkOrdersPage({
         workOrders={workOrders}
         userLabelById={userLabelById}
         timeZone={timeZone}
+        sort={sort}
         emptyMessage={
           filtersActive
             ? 'No work orders match these filters.'
@@ -151,12 +128,7 @@ export default async function WorkOrdersPage({
         }
       />
 
-      {workOrders.length === ROW_LIMIT ? (
-        <p className="text-xs text-muted-foreground">
-          Showing the first {ROW_LIMIT} matching work orders. Narrow the filters to
-          see more.
-        </p>
-      ) : null}
+      <TablePagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} />
     </div>
   )
 }

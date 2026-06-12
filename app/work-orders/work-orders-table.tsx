@@ -5,7 +5,8 @@ import {
   RiArrowUpSLine,
   RiExpandUpDownLine,
 } from '@remixicon/react'
-import { useEffect, useMemo, useState, type PointerEvent } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState, type PointerEvent } from 'react'
 
 import {
   Table,
@@ -21,13 +22,16 @@ import { formatDate, formatDateTime } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
   PROPERTY_LABELS,
-  WORK_ORDER_PRIORITIES,
-  WORK_ORDER_STATUSES,
   type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
+import {
+  isSortable,
+  type ListSort,
+  type SortDirection,
+} from '@/lib/work-orders/list-sort'
 
 import { WorkOrderRow } from './work-order-row'
 
@@ -65,41 +69,11 @@ const COLUMNS: Column[] = [
   { key: 'reporter', label: 'Reported by', width: 180 },
 ]
 
+// The "My Work Orders" table omits the assignee column (every row is the
+// viewer's). Precomputed so the column set is a stable reference.
+const COLUMNS_WITHOUT_ASSIGNEE = COLUMNS.filter((c) => c.key !== 'assignee')
+
 const MIN_WIDTH = 60
-
-type SortDirection = 'asc' | 'desc'
-type SortState = { key: string; dir: SortDirection }
-
-// Extracts the comparable value for each column. Enum columns sort by their
-// canonical order (workflow progression for status, urgency for priority)
-// rather than alphabetically; text columns are lower-cased for a stable,
-// case-insensitive sort. Nullable columns return null and are pushed to the
-// end regardless of direction.
-const SORT_VALUE: Record<
-  string,
-  (wo: WorkOrderListItem) => number | string | null
-> = {
-  code: (wo) => Number.parseInt(wo.work_order_code.replace(/\D/g, ''), 10),
-  title: (wo) => wo.title.toLowerCase(),
-  created: (wo) => new Date(wo.created_at).getTime(),
-  category: (wo) => CATEGORY_LABELS[wo.category].toLowerCase(),
-  status: (wo) => WORK_ORDER_STATUSES.indexOf(wo.status),
-  priority: (wo) => WORK_ORDER_PRIORITIES.indexOf(wo.priority),
-  property: (wo) => (wo.property ? PROPERTY_LABELS[wo.property].toLowerCase() : null),
-  due: (wo) => (wo.due_at ? new Date(wo.due_at).getTime() : null),
-  reporter: (wo) => wo.reported_by_name?.toLowerCase() ?? null,
-}
-
-function compareValues(
-  a: number | string,
-  b: number | string
-): number {
-  if (typeof a === 'number' && typeof b === 'number') return a - b
-  return String(a).localeCompare(String(b), undefined, {
-    numeric: true,
-    sensitivity: 'base',
-  })
-}
 
 type ResizeState = {
   index: number
@@ -112,54 +86,52 @@ export function WorkOrdersTable({
   emptyMessage,
   userLabelById,
   timeZone,
+  sort,
+  showAssignee = true,
 }: {
   workOrders: WorkOrderListItem[]
   emptyMessage: string
   userLabelById: Record<string, string>
   timeZone: string
+  sort: ListSort | null
+  showAssignee?: boolean
 }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const columns = showAssignee ? COLUMNS : COLUMNS_WITHOUT_ASSIGNEE
+
   // The assignee label lives outside the row, so resolve it here.
   function assigneeLabel(assignedTo: string | null): string | null {
     if (!assignedTo) return null
     return userLabelById[assignedTo] ?? assignedTo.slice(0, 8)
   }
   const [widths, setWidths] = useState<number[]>(() =>
-    COLUMNS.map((c) => c.width)
+    columns.map((c) => c.width)
   )
   const [resizing, setResizing] = useState<ResizeState | null>(null)
-  const [sort, setSort] = useState<SortState | null>(null)
 
-  // Sort the already-loaded rows on the client. The list is capped server-side,
-  // so this stays cheap and feels instant. Nulls always sort last; the
-  // ascending order is inverted for descending while keeping nulls at the end.
-  const sortedWorkOrders = useMemo(() => {
-    if (!sort) return workOrders
-    const getValue = (wo: WorkOrderListItem): number | string | null => {
-      if (sort.key === 'assignee') {
-        return wo.assigned_to
-          ? (userLabelById[wo.assigned_to] ?? wo.assigned_to).toLowerCase()
-          : null
-      }
-      return SORT_VALUE[sort.key](wo)
-    }
-    return [...workOrders].sort((a, b) => {
-      const av = getValue(a)
-      const bv = getValue(b)
-      if (av === null && bv === null) return 0
-      if (av === null) return 1
-      if (bv === null) return -1
-      const result = compareValues(av, bv)
-      return sort.dir === 'asc' ? result : -result
-    })
-  }, [workOrders, sort, userLabelById])
-
-  // Cycle a column through ascending, descending, then unsorted.
+  // Sorting is server-side: cycle a column ascending -> descending -> default
+  // (newest first), reset to the first page, and let the URL drive the query.
   function toggleSort(key: string) {
-    setSort((prev) => {
-      if (!prev || prev.key !== key) return { key, dir: 'asc' }
-      if (prev.dir === 'asc') return { key, dir: 'desc' }
-      return null
-    })
+    if (!isSortable(key)) return
+    let nextDir: SortDirection | null
+    if (sort?.key !== key) nextDir = 'asc'
+    else if (sort.dir === 'asc') nextDir = 'desc'
+    else nextDir = null
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('page')
+    if (nextDir === null) {
+      params.delete('sort')
+      params.delete('dir')
+    } else {
+      params.set('sort', key)
+      params.set('dir', nextDir)
+    }
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }
 
   // While a drag is active, track the pointer on the window so the cursor can
@@ -213,52 +185,62 @@ export function WorkOrdersTable({
     >
       <Table className="table-fixed" style={{ width: totalWidth }}>
         <colgroup>
-          {COLUMNS.map((col, i) => (
+          {columns.map((col, i) => (
             <col key={col.key} style={{ width: widths[i] }} />
           ))}
         </colgroup>
         <TableHeader>
           <tr className="border-b bg-muted/40">
-            {COLUMNS.map((col, i) => (
-              <th
-                key={col.key}
-                aria-sort={
-                  sort?.key === col.key
-                    ? sort.dir === 'asc'
-                      ? 'ascending'
-                      : 'descending'
-                    : 'none'
-                }
-                className="relative h-10 select-none px-4 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleSort(col.key)}
-                  className="group/sort flex w-full items-center gap-1 pr-2 text-left uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+            {columns.map((col, i) => {
+              const sortable = isSortable(col.key)
+              const active = sortable && sort?.key === col.key
+              return (
+                <th
+                  key={col.key}
+                  aria-sort={
+                    active
+                      ? sort?.dir === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : undefined
+                  }
+                  className="relative h-10 select-none px-4 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground"
                 >
-                  <span className="truncate">{col.label}</span>
-                  <SortIndicator
-                    active={sort?.key === col.key}
-                    dir={sort?.key === col.key ? sort.dir : undefined}
-                  />
-                </button>
-                {i < COLUMNS.length - 1 ? (
-                  <span
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label={`Resize ${col.label} column`}
-                    onPointerDown={(e) => startResize(i, e)}
-                    className="absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-stretch justify-center hover:bg-border/70 active:bg-border"
-                  >
-                    <span className="my-2 w-px bg-border" aria-hidden="true" />
-                  </span>
-                ) : null}
-              </th>
-            ))}
+                  {sortable ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(col.key)}
+                      className="group/sort flex w-full items-center gap-1 pr-2 text-left uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <span className="truncate">{col.label}</span>
+                      <SortIndicator
+                        active={active}
+                        dir={active ? sort?.dir : undefined}
+                      />
+                    </button>
+                  ) : (
+                    <span className="flex w-full items-center gap-1 pr-2 uppercase tracking-wide">
+                      <span className="truncate">{col.label}</span>
+                    </span>
+                  )}
+                  {i < columns.length - 1 ? (
+                    <span
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label={`Resize ${col.label} column`}
+                      onPointerDown={(e) => startResize(i, e)}
+                      className="absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-stretch justify-center hover:bg-border/70 active:bg-border"
+                    >
+                      <span className="my-2 w-px bg-border" aria-hidden="true" />
+                    </span>
+                  ) : null}
+                </th>
+              )
+            })}
           </tr>
         </TableHeader>
         <TableBody>
-          {sortedWorkOrders.map((wo) => (
+          {workOrders.map((wo) => (
             <WorkOrderRow key={wo.id} href={`/work-orders/${wo.id}`}>
               <TableCell className="truncate px-4 py-3 font-medium tabular-nums text-muted-foreground">
                 {wo.work_order_code}
@@ -284,13 +266,15 @@ export function WorkOrdersTable({
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {wo.due_at ? formatDateTime(wo.due_at, timeZone) : '—'}
               </TableCell>
-              <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                {wo.assigned_to ? (
-                  assigneeLabel(wo.assigned_to)
-                ) : (
-                  <span className="text-muted-foreground/70">Unassigned</span>
-                )}
-              </TableCell>
+              {showAssignee ? (
+                <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                  {wo.assigned_to ? (
+                    assigneeLabel(wo.assigned_to)
+                  ) : (
+                    <span className="text-muted-foreground/70">Unassigned</span>
+                  )}
+                </TableCell>
+              ) : null}
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {wo.reported_by_name ?? '—'}
               </TableCell>

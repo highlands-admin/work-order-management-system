@@ -48,9 +48,11 @@ const PROPERTY_OPTIONS: Option<Property>[] = PROPERTIES.map((v) => ({
 }))
 
 export function FilterBar({
-  assigneeOptions,
+  assigneeOptions = [],
+  showAssignee = true,
 }: {
-  assigneeOptions: Option<string>[]
+  assigneeOptions?: Option<string>[]
+  showAssignee?: boolean
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -137,12 +139,14 @@ export function FilterBar({
           selected={filters.properties}
           onChange={(v) => commit(withFilter(filters, 'properties', v))}
         />
-        <MultiSelectFilter
-          label="Assignee"
-          options={assigneeFilterOptions}
-          selected={filters.assignees}
-          onChange={(v) => commit(withFilter(filters, 'assignees', v))}
-        />
+        {showAssignee ? (
+          <MultiSelectFilter
+            label="Assignee"
+            options={assigneeFilterOptions}
+            selected={filters.assignees}
+            onChange={(v) => commit(withFilter(filters, 'assignees', v))}
+          />
+        ) : null}
 
         <DateRangeFilter
           label="Due date"
@@ -187,6 +191,7 @@ export function FilterBar({
         filters={filters}
         onChange={commit}
         assigneeLabels={assigneeLabels}
+        showAssignee={showAssignee}
       />
     </div>
   )
@@ -252,10 +257,12 @@ function ActiveFilterChips({
   filters,
   onChange,
   assigneeLabels,
+  showAssignee,
 }: {
   filters: WorkOrderFilters
   onChange: (next: WorkOrderFilters) => void
   assigneeLabels: Record<string, string>
+  showAssignee: boolean
 }) {
   const chips: { key: string; label: string; remove: () => void }[] = []
 
@@ -315,19 +322,21 @@ function ActiveFilterChips({
         ),
     })
   }
-  for (const a of filters.assignees) {
-    chips.push({
-      key: `assignee-${a}`,
-      label: `Assignee: ${assigneeLabels[a] ?? 'Unknown'}`,
-      remove: () =>
-        onChange(
-          withFilter(
-            filters,
-            'assignees',
-            filters.assignees.filter((v) => v !== a)
-          )
-        ),
-    })
+  if (showAssignee) {
+    for (const a of filters.assignees) {
+      chips.push({
+        key: `assignee-${a}`,
+        label: `Assignee: ${assigneeLabels[a] ?? 'Unknown'}`,
+        remove: () =>
+          onChange(
+            withFilter(
+              filters,
+              'assignees',
+              filters.assignees.filter((v) => v !== a)
+            )
+          ),
+      })
+    }
   }
   if (filters.q) {
     chips.push({
