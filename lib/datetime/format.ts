@@ -4,6 +4,8 @@
 // Components from producing a hydration mismatch. The locale is pinned to
 // en-US to match the rest of the app and stay deterministic.
 
+import { formatDistanceToNowStrict } from 'date-fns'
+
 export const TIMEZONE_COOKIE = 'tz'
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
@@ -45,4 +47,13 @@ export function formatRelative(value: string, timeZone: string): string {
   const diffDay = Math.round(diffHr / 24)
   if (diffDay < 7) return `${diffDay}d ago`
   return formatDateTime(value, timeZone)
+}
+
+// Full-word relative phrasing that scales from seconds to years, e.g.
+// "5 minutes ago", "1 day ago", "1 month ago". Uses date-fns (already a
+// dependency); the strict variant avoids fuzzy words like "about". Depends on
+// the current clock, so use it only where the output is not hydrated (a Server
+// Component) or guard it with suppressHydrationWarning.
+export function formatRelativeLong(value: string): string {
+  return formatDistanceToNowStrict(new Date(value), { addSuffix: true })
 }

@@ -1,4 +1,4 @@
-import { formatDateTime } from '@/lib/datetime/format'
+import { formatDateTime, formatRelativeLong } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
   MARKETING_REQUEST_TYPE_LABELS,
@@ -113,7 +113,11 @@ export function ActivityFeed({
                     dateTime={event.created_at}
                     className="text-xs text-muted-foreground sm:ml-auto sm:shrink-0 sm:pl-3"
                   >
-                    {formatDateTime(event.created_at, timeZone)}
+                    {formatRelativeLong(event.created_at)}
+                    <span className="text-muted-foreground/60">
+                      {' · '}
+                      {formatDateTime(event.created_at, timeZone)}
+                    </span>
                   </time>
                 </div>
                 <ActivityBody
