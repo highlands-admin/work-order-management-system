@@ -38,7 +38,6 @@ import { BackButton } from './back-button'
 
 export const metadata: Metadata = { title: 'Work Order' }
 
-const EDITOR_ROLES = new Set(['administrator', 'requester'])
 const TRANSITION_ROLES = new Set(['technician', 'inspector'])
 const CLOSED_STATUSES = new Set<WorkOrderStatus>(['done', 'closed'])
 
@@ -134,7 +133,12 @@ export default async function WorkOrderDetailPage({
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
   const role = claims.user_role
-  const canEdit = role ? EDITOR_ROLES.has(role) : false
+  // Requesters may only edit work orders they created or are assigned to;
+  // administrators may edit any. Mirrors the RLS update policy.
+  const canEdit =
+    role === 'administrator' ||
+    (role === 'requester' &&
+      (data.created_by === claims.sub || data.assigned_to === claims.sub))
   const canTransition = role ? TRANSITION_ROLES.has(role) : false
   const hasReporter =
     data.reported_by_name || data.reported_by_email || data.reported_by_phone

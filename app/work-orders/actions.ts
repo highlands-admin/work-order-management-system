@@ -344,13 +344,36 @@ export async function updateWorkOrderAction(
     )
   }
 
-  // Read the current assignee (and code) first so we can tell whether this edit
-  // reassigns the work order and only then notify.
+  // Read the current creator/assignee (and code) first so we can authorize the
+  // edit and tell whether it reassigns the work order before notifying.
   const { data: existing } = await supabase
     .from('work_orders')
-    .select('assigned_to, work_order_code')
+    .select('created_by, assigned_to, work_order_code')
     .eq('id', workOrderId)
-    .maybeSingle<{ assigned_to: string | null; work_order_code: string }>()
+    .maybeSingle<{
+      created_by: string
+      assigned_to: string | null
+      work_order_code: string
+    }>()
+
+  if (!existing) {
+    return formError(undefined, values, 'Work order not found.')
+  }
+
+  // Requesters may only edit work orders they created or are assigned to;
+  // administrators may edit any. RLS enforces this independently, but checking
+  // here returns a clear error instead of a silent no-op update.
+  if (
+    claims.user_role === 'requester' &&
+    existing.created_by !== claims.sub &&
+    existing.assigned_to !== claims.sub
+  ) {
+    return formError(
+      undefined,
+      values,
+      'You can only edit work orders you created or are assigned to.'
+    )
+  }
 
   const { error } = await supabase
     .from('work_orders')

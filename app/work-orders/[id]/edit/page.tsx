@@ -20,8 +20,6 @@ import { TransitionStatusForm } from './transition-status-form'
 
 export const metadata: Metadata = { title: 'Edit Work Order' }
 
-const EDITOR_ROLES = new Set(['administrator', 'requester'])
-
 type WorkOrderRow = {
   id: string
   work_order_code: string
@@ -35,6 +33,7 @@ type WorkOrderRow = {
   description: string
   resolution: string | null
   assigned_to: string | null
+  created_by: string
   reported_by_name: string | null
   reported_by_email: string | null
   reported_by_phone: string | null
@@ -67,7 +66,7 @@ export default async function EditWorkOrderPage({
     supabase
       .from('work_orders')
       .select(
-        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other'
+        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other'
       )
       .eq('id', id)
       .maybeSingle<WorkOrderRow>(),
@@ -86,10 +85,15 @@ export default async function EditWorkOrderPage({
   if (!data) notFound()
 
   const role = claims.user_role
-  const isEditor = role ? EDITOR_ROLES.has(role) : false
   const isAdmin = role === 'administrator'
   const isTechnician = role === 'technician'
   const isInspector = role === 'inspector'
+  // Requesters may only edit work orders they created or are assigned to;
+  // administrators may edit any. Mirrors the RLS update policy.
+  const isEditor =
+    isAdmin ||
+    (role === 'requester' &&
+      (data.created_by === claims.sub || data.assigned_to === claims.sub))
 
   // Once a work order is approved and in the main table, every editor may only
   // move it between the main workflow statuses: Open, In Progress, Done, and
