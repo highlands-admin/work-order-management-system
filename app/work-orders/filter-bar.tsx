@@ -1,10 +1,27 @@
 'use client'
 
-import { RiCloseLine, RiLoader4Line, RiSearchLine } from '@remixicon/react'
+import {
+  RiCloseLine,
+  RiDownloadLine,
+  RiEqualizerLine,
+  RiLoader4Line,
+  RiSearchLine,
+} from '@remixicon/react'
+import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import {
   CATEGORY_LABELS,
@@ -50,9 +67,13 @@ const PROPERTY_OPTIONS: Option<Property>[] = PROPERTIES.map((v) => ({
 export function FilterBar({
   assigneeOptions = [],
   showAssignee = true,
+  exportPath,
 }: {
   assigneeOptions?: Option<string>[]
   showAssignee?: boolean
+  // When set, render an "Export CSV" link that carries the current filters so
+  // the download matches the table. Omitted on views without an export route.
+  exportPath?: string
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -86,6 +107,11 @@ export function FilterBar({
   const [filters, setFilters] = useState(urlFilters)
   const [lastSyncedUrlKey, setLastSyncedUrlKey] = useState(urlKey)
 
+  // Staged copy of the filters edited inside the Filters panel. Nothing reaches
+  // the table until "Apply"; opening the panel re-syncs the draft to whatever
+  // is currently applied, so closing without applying discards the edits.
+  const [draft, setDraft] = useState(urlFilters)
+
   // When the URL changes for any reason other than a commit we just made
   // (back/forward, external navigation, the table page refresh re-running
   // this component), adopt the URL's filters. We skip the adopt when our
@@ -100,6 +126,14 @@ export function FilterBar({
     }
   }
 
+  // Build the export URL from the optimistic filter state so the link tracks
+  // the table the instant a filter changes, before the navigation lands.
+  const exportHref = useMemo(() => {
+    if (!exportPath) return null
+    const query = toSearchParams(filters).toString()
+    return query ? `${exportPath}?${query}` : exportPath
+  }, [exportPath, filters])
+
   function commit(next: WorkOrderFilters) {
     setFilters(next)
     const query = toSearchParams(next).toString()
@@ -110,80 +144,215 @@ export function FilterBar({
     })
   }
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchInput value={filters.q} onChange={(q) => commit(withFilter(filters, 'q', q))} />
-
+  // The filter controls, rendered inside the Filters panel. They edit the draft
+  // only; the table updates when "Apply" commits the draft.
+  function renderFilters() {
+    return (
+      <>
         <MultiSelectFilter
           label="Status"
           options={STATUS_OPTIONS}
-          selected={filters.statuses}
-          onChange={(v) => commit(withFilter(filters, 'statuses', v))}
+          selected={draft.statuses}
+          onChange={(v) => setDraft((d) => withFilter(d, 'statuses', v))}
         />
         <MultiSelectFilter
           label="Priority"
           options={PRIORITY_OPTIONS}
-          selected={filters.priorities}
-          onChange={(v) => commit(withFilter(filters, 'priorities', v))}
+          selected={draft.priorities}
+          onChange={(v) => setDraft((d) => withFilter(d, 'priorities', v))}
         />
         <MultiSelectFilter
           label="Category"
           options={CATEGORY_OPTIONS}
-          selected={filters.categories}
-          onChange={(v) => commit(withFilter(filters, 'categories', v))}
+          selected={draft.categories}
+          onChange={(v) => setDraft((d) => withFilter(d, 'categories', v))}
         />
         <MultiSelectFilter
           label="Property"
           options={PROPERTY_OPTIONS}
-          selected={filters.properties}
-          onChange={(v) => commit(withFilter(filters, 'properties', v))}
+          selected={draft.properties}
+          onChange={(v) => setDraft((d) => withFilter(d, 'properties', v))}
         />
         {showAssignee ? (
           <MultiSelectFilter
             label="Assignee"
             options={assigneeFilterOptions}
-            selected={filters.assignees}
-            onChange={(v) => commit(withFilter(filters, 'assignees', v))}
+            selected={draft.assignees}
+            onChange={(v) => setDraft((d) => withFilter(d, 'assignees', v))}
           />
         ) : null}
-
         <DateRangeFilter
           label="Due date"
-          from={filters.dueFrom}
-          to={filters.dueTo}
+          from={draft.dueFrom}
+          to={draft.dueTo}
           onChange={({ from, to }) =>
-            commit({ ...filters, dueFrom: from, dueTo: to })
+            setDraft((d) => ({ ...d, dueFrom: from, dueTo: to }))
           }
         />
         <DateRangeFilter
           label="Created"
-          from={filters.createdFrom}
-          to={filters.createdTo}
+          from={draft.createdFrom}
+          to={draft.createdTo}
           onChange={({ from, to }) =>
-            commit({ ...filters, createdFrom: from, createdTo: to })
+            setDraft((d) => ({ ...d, createdFrom: from, createdTo: to }))
           }
         />
+      </>
+    )
+  }
 
-        <div className="ml-auto flex items-center gap-3">
-          {isPending ? (
-            <span
-              className="flex items-center gap-1.5 text-xs text-muted-foreground"
-              aria-live="polite"
-            >
-              <RiLoader4Line className="size-3.5 animate-spin" aria-hidden="true" />
-              Updating
-            </span>
-          ) : null}
-          {hasActiveFilters(filters) ? (
-            <button
+  // Count of active facets, shown as a badge on the "Filters" button. Search is
+  // excluded because it has its own always-visible input.
+  const activeFilterCount =
+    filters.statuses.length +
+    filters.priorities.length +
+    filters.categories.length +
+    filters.properties.length +
+    (showAssignee ? filters.assignees.length : 0) +
+    (filters.dueFrom || filters.dueTo ? 1 : 0) +
+    (filters.createdFrom || filters.createdTo ? 1 : 0)
+
+  // Export is a standalone toolbar action, never inside the filters panel.
+  const exportLink = exportHref ? (
+    <Link
+      href={exportHref}
+      prefetch={false}
+      className={buttonVariants({
+        variant: 'outline',
+        size: 'sm',
+        className: 'h-9',
+      })}
+    >
+      <RiDownloadLine className="size-4" />
+      Export CSV
+    </Link>
+  ) : null
+
+  const filterBadge =
+    activeFilterCount > 0 ? (
+      <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs font-medium text-background">
+        {activeFilterCount}
+      </span>
+    ) : null
+
+  // Body and footer shared by the mobile (bottom) and desktop (right) sheets.
+  function renderFiltersBody() {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+        {renderFilters()}
+      </div>
+    )
+  }
+
+  function renderFiltersFooter() {
+    return (
+      <SheetFooter className="border-t">
+        <div className="flex items-center gap-2">
+          {hasActiveFilters(draft) ? (
+            <Button
               type="button"
-              onClick={() => commit(EMPTY_FILTERS)}
-              className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+              variant="outline"
+              className="flex-1"
+              // Stage a reset; keep the live search term, which is edited
+              // outside the panel. Applied when "Apply" is clicked.
+              onClick={() => setDraft((d) => ({ ...EMPTY_FILTERS, q: d.q }))}
             >
               Clear all
-            </button>
+            </Button>
           ) : null}
+          <SheetClose
+            render={
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={() => commit(draft)}
+              >
+                Apply
+              </Button>
+            }
+          />
+        </div>
+      </SheetFooter>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start gap-2">
+        <SearchInput
+          value={filters.q}
+          onChange={(q) => commit(withFilter(filters, 'q', q))}
+        />
+
+        <div className="flex items-center gap-2 sm:flex-1">
+          {/* Mobile: filters in a bottom sheet. */}
+          <Sheet onOpenChange={(open) => open && setDraft(filters)}>
+            <SheetTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 sm:hidden"
+                >
+                  <RiEqualizerLine className="size-4" />
+                  Filters
+                  {filterBadge}
+                </Button>
+              }
+            />
+            <SheetContent
+              side="bottom"
+              className="max-h-[85vh] gap-0 rounded-t-xl"
+            >
+              <SheetHeader className="border-b">
+                <SheetTitle>Filters</SheetTitle>
+              </SheetHeader>
+              {renderFiltersBody()}
+              {renderFiltersFooter()}
+            </SheetContent>
+          </Sheet>
+
+          {/* Desktop: the same filters in a right-side drawer. */}
+          <Sheet onOpenChange={(open) => open && setDraft(filters)}>
+            <SheetTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="hidden h-9 shrink-0 sm:inline-flex"
+                >
+                  <RiEqualizerLine className="size-4" />
+                  Filters
+                  {filterBadge}
+                </Button>
+              }
+            />
+            <SheetContent side="right" className="gap-0 sm:max-w-sm">
+              <SheetHeader className="border-b">
+                <SheetTitle>Filters</SheetTitle>
+              </SheetHeader>
+              {renderFiltersBody()}
+              {renderFiltersFooter()}
+            </SheetContent>
+          </Sheet>
+
+          <div className="flex items-center gap-2 sm:ml-auto">
+            {isPending ? (
+              <span
+                className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex"
+                aria-live="polite"
+              >
+                <RiLoader4Line
+                  className="size-3.5 animate-spin"
+                  aria-hidden="true"
+                />
+                Updating
+              </span>
+            ) : null}
+            {exportLink}
+          </div>
         </div>
       </div>
 
@@ -239,14 +408,14 @@ function SearchInput({
   }, [debounced])
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none">
       <RiSearchLine className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="search"
         placeholder="Search"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        className="h-9 w-72 max-w-full pl-8"
+        className="h-9 w-full pl-8"
         aria-label="Search work orders"
       />
     </div>

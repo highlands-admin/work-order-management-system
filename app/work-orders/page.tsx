@@ -110,7 +110,10 @@ export default async function WorkOrdersPage({
         ) : null}
       </div>
 
-      <FilterBar assigneeOptions={assigneeOptions} />
+      <FilterBar
+        assigneeOptions={assigneeOptions}
+        exportPath="/work-orders/export"
+      />
 
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>

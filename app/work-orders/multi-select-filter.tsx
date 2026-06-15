@@ -52,7 +52,7 @@ export function MultiSelectFilter<T extends string>({
               selected.length > 0 && 'border-foreground/30'
             )}
           >
-            <span>{label}</span>
+            <span className="flex-1 text-left">{label}</span>
             {selected.length > 0 ? (
               <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs font-medium text-background">
                 {selected.length}

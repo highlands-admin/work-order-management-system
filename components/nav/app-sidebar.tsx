@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  RiBarChartBoxLine,
   RiCheckDoubleLine,
   RiClipboardLine,
   RiFileAddLine,
@@ -60,6 +61,8 @@ export function AppSidebar({
   const { isMobile, setOpenMobile } = useSidebar()
   const canFile = userRole ? FILER_ROLES.has(userRole) : false
   const isAdmin = userRole === 'administrator'
+  // The dashboard is an operations overview for administrators and supervisors.
+  const isManager = isAdmin || userRole === 'supervisor'
 
   // Admins reach the queue from the Administration group ("Approval Queue").
   // Requesters reach it from the Work Orders group ("Submissions"), since
@@ -101,6 +104,22 @@ export function AppSidebar({
         </Link>
       </SidebarHeader>
       <SidebarContent>
+        {isManager ? (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <NavMenuItem
+                  item={{
+                    title: 'Dashboard',
+                    href: '/dashboard',
+                    icon: RiBarChartBoxLine,
+                  }}
+                  pathname={pathname}
+                />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
         <SidebarGroup>
           <SidebarGroupLabel>Work Orders</SidebarGroupLabel>
           <SidebarGroupContent>

@@ -16,7 +16,11 @@ import {
 import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
 
-export default async function AdminLayout({
+// The dashboard is an operations overview, limited to administrators and
+// supervisors. Everyone else is sent back to the work order list.
+const DASHBOARD_ROLES = new Set(['administrator', 'supervisor'])
+
+export default async function DashboardLayout({
   children,
 }: {
   children: ReactNode
@@ -28,7 +32,9 @@ export default async function AdminLayout({
     | undefined
 
   if (!claims) redirect('/login')
-  if (claims.user_role !== 'administrator') redirect('/work-orders')
+  if (!claims.user_role || !DASHBOARD_ROLES.has(claims.user_role)) {
+    redirect('/work-orders')
+  }
 
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get('sidebar_state')?.value !== 'false'
