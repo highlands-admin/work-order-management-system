@@ -230,11 +230,15 @@ function ChartCard({
 }) {
   return (
     <Card className="break-inside-avoid">
-      <CardHeader>
-        <CardTitle className="font-heading text-base">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+      <CardHeader className="gap-1 px-5">
+        <CardTitle className="font-heading text-lg font-semibold tracking-tight">
+          {title}
+        </CardTitle>
+        <CardDescription className="text-sm leading-snug">
+          {description}
+        </CardDescription>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className="px-5">{children}</CardContent>
     </Card>
   )
 }

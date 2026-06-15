@@ -9,13 +9,7 @@ import Link from 'next/link'
 import type { ComponentType } from 'react'
 
 import { buttonVariants } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -60,13 +54,13 @@ export default async function DashboardPage({
   const stats = computeDashboardStats(rows, range)
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+    <div className="mx-auto flex max-w-6xl flex-col gap-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="font-heading text-3xl font-semibold tracking-tight">
             Dashboard
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Operations overview across all properties.
           </p>
         </div>
@@ -157,18 +151,20 @@ function StatCard({
 }) {
   return (
     <Card className="break-inside-avoid">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardDescription>{label}</CardDescription>
-          <Icon className={cn('size-4', iconClassName)} />
+      <div className="flex flex-col gap-2 px-5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-heading text-base font-semibold tracking-tight text-foreground">
+            {label}
+          </span>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground/5">
+            <Icon className={cn('size-[18px]', iconClassName)} />
+          </span>
         </div>
-        <CardTitle className="font-heading text-3xl tabular-nums">
+        <div className="font-heading text-4xl font-semibold leading-none tracking-tight tabular-nums">
           {value.toLocaleString()}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      </CardContent>
+        </div>
+        <p className="text-sm leading-snug text-muted-foreground">{hint}</p>
+      </div>
     </Card>
   )
 }
