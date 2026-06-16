@@ -72,7 +72,7 @@ export function DashboardCharts({
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <ChartCard
-        title="By status"
+        title="By Status"
         description="Current distribution across all work orders"
       >
         <ChartContainer
@@ -125,8 +125,8 @@ export function DashboardCharts({
       </ChartCard>
 
       <ChartCard
-        title="Created over time"
-        description={`New work orders · ${rangeLabel.toLowerCase()}`}
+        title="Created Over Time"
+        description={`New Work Orders · ${rangeLabel}`}
       >
         <ChartContainer config={trendConfig} className="h-[260px] w-full">
           <LineChart data={trend} margin={{ left: 4, right: 12, top: 8 }}>
@@ -153,14 +153,14 @@ export function DashboardCharts({
       </ChartCard>
 
       <StatusStackedCard
-        title="By category"
-        description="Work orders per category, split by status"
+        title="By Category"
+        description="Work Orders per category, split by status"
         breakdown={byCategory}
       />
 
       <StatusStackedCard
-        title="By priority"
-        description="Work orders per priority, split by status"
+        title="By Priority"
+        description="Work Orders per priority, split by status"
         breakdown={byPriority}
       />
     </div>

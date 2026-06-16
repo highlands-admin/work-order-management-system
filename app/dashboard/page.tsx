@@ -92,7 +92,7 @@ export default async function DashboardPage({
           iconClassName="text-amber-500"
         />
         <StatCard
-          label="Pending approval"
+          label="Pending Approval"
           value={stats.pending}
           hint="Awaiting review"
           icon={RiTimeLine}

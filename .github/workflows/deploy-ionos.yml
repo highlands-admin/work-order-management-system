@@ -1,0 +1,74 @@
+name: Deploy to IONOS
+
+# Builds the standalone bundle in CI and rsyncs it to the IONOS cloud server,
+# then reloads the PM2 process. Production on Vercel is unaffected; this is a
+# parallel deploy to the test domain on IONOS.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never let two deploys race onto the server at once.
+concurrency:
+  group: ionos-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # NEXT_PUBLIC_* values are inlined into the client bundle at build time,
+      # so they must be present here, sourced from repository secrets.
+      - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+        run: npm run build
+
+      # Standalone omits static/ and public/, so assemble the full runnable tree.
+      - name: Stage standalone bundle
+        run: |
+          rm -rf deploy
+          mkdir -p deploy
+          cp -r .next/standalone/. deploy/
+          cp -r .next/static deploy/.next/static
+          cp -r public deploy/public
+
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.IONOS_SSH_KEY }}
+
+      - name: Trust the server host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.IONOS_HOST }}" >> ~/.ssh/known_hosts
+
+      # --delete keeps the server tree identical to the build; --exclude='.env'
+      # protects the runtime secrets file that lives only on the server.
+      - name: Rsync bundle to server
+        run: |
+          rsync -avz --delete --exclude='.env' \
+            deploy/ "${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }}:/var/www/wo/"
+
+      # Reload if already running; otherwise start it. node --env-file loads the
+      # server-only secrets from /var/www/wo/.env at process start.
+      - name: Reload app
+        run: |
+          ssh "${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }}" '
+            cd /var/www/wo &&
+            (pm2 reload wo --update-env ||
+             PORT=3000 HOSTNAME=127.0.0.1 pm2 start server.js --name wo \
+               --node-args="--env-file=/var/www/wo/.env") &&
+            pm2 save
+          '
