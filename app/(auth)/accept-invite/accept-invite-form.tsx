@@ -121,7 +121,11 @@ export function AcceptInviteForm({
         />
       </Field>
 
-      <SubmitButton label="Create Account" pendingLabel="Creating Account..." />
+      <SubmitButton
+        label="Create Account"
+        pendingLabel="Creating Account..."
+        className="w-full"
+      />
     </form>
   )
 }

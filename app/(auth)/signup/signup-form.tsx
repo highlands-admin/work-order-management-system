@@ -120,7 +120,11 @@ export function SignUpForm() {
         />
       </Field>
 
-      <SubmitButton label="Create account" pendingLabel="Creating account..." />
+      <SubmitButton
+        label="Create account"
+        pendingLabel="Creating account..."
+        className="w-full"
+      />
     </form>
   )
 }

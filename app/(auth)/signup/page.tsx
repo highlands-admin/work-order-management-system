@@ -16,7 +16,7 @@ export default async function SignUpPage() {
 
   return (
     <AuthCard
-      title="Create your account"
+      title="Create Your Account"
       description="Sign up with your Highlands email to file and track work orders."
       footer={
         <>

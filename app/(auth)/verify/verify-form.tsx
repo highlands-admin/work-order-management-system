@@ -68,6 +68,7 @@ export function VerifyForm({ email }: { email: string }) {
           label="Verify email"
           pendingLabel="Verifying..."
           disabled={token.length < 6}
+          className="w-full"
         />
       </form>
 

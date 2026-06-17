@@ -53,7 +53,7 @@ export function LoginForm() {
         <FieldError>{passwordError}</FieldError>
       </Field>
 
-      <SubmitButton label="Sign in" pendingLabel="Signing in..." />
+      <SubmitButton label="Sign in" pendingLabel="Signing in..." className="w-full" />
     </form>
   )
 }

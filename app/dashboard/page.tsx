@@ -22,7 +22,7 @@ import {
 
 import { DashboardCharts } from './dashboard-charts'
 
-export const metadata: Metadata = { title: 'Dashboard · Highlands Cadence' }
+export const metadata: Metadata = { title: 'Dashboard · Cadence' }
 
 const RANGE_ORDER: DashboardRange[] = ['30d', '90d', '365d', 'all']
 const RANGE_SHORT: Record<DashboardRange, string> = {

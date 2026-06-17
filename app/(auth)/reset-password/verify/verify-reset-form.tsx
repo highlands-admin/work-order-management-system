@@ -40,6 +40,7 @@ export function VerifyResetForm({ email }: { email: string }) {
         label="Verify code"
         pendingLabel="Verifying..."
         disabled={token.length < 6}
+        className="w-full"
       />
 
       <FormError state={state} />

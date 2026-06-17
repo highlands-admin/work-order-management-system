@@ -16,7 +16,7 @@ export default async function LoginPage() {
 
   return (
     <AuthCard
-      title="Sign in"
+      title="Sign In"
       description="Enter your email and password to access your account."
       footer={
         <>

@@ -1,13 +1,8 @@
 import type { ReactNode } from 'react'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-
+// The auth screens live in a split-screen layout (see app/(auth)/layout.tsx).
+// The form sits in a bordered card on the form column: heading, the form, and an
+// optional footer link.
 export function AuthCard({
   title,
   description,
@@ -20,21 +15,27 @@ export function AuthCard({
   footer?: ReactNode
 }) {
   return (
-    <Card className="gap-6 py-6">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">{title}</CardTitle>
-        {description ? (
-          <CardDescription>{description}</CardDescription>
-        ) : null}
-      </CardHeader>
-      <CardContent>
+    <div className="rounded-xl border bg-card p-6 shadow-sm dark:shadow-none sm:p-8">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+            {title}
+          </h1>
+          {description ? (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {description}
+            </p>
+          ) : null}
+        </div>
+
         {children}
-        {footer ? (
-          <p className="mt-2 text-center text-sm text-muted-foreground">
-            {footer}
-          </p>
-        ) : null}
-      </CardContent>
-    </Card>
+      </div>
+
+      {footer ? (
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          {footer}
+        </p>
+      ) : null}
+    </div>
   )
 }

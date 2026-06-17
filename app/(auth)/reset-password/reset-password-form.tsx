@@ -76,7 +76,7 @@ export function ResetPasswordForm() {
         />
       </Field>
 
-      <SubmitButton label="Update password" pendingLabel="Updating..." />
+      <SubmitButton label="Update password" pendingLabel="Updating..." className="w-full" />
     </form>
   )
 }

@@ -29,7 +29,7 @@ export function ForgotPasswordForm() {
         required
       />
 
-      <SubmitButton label="Send code" pendingLabel="Sending code..." />
+      <SubmitButton label="Send code" pendingLabel="Sending code..." className="w-full" />
     </form>
   )
 }

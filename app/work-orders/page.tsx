@@ -26,7 +26,7 @@ import { FilterBar } from './filter-bar'
 import { TablePagination } from './table-pagination'
 import { WorkOrdersTable, type WorkOrderListItem } from './work-orders-table'
 
-export const metadata: Metadata = { title: 'Highlands Cadence' }
+export const metadata: Metadata = { title: 'Cadence' }
 
 const FILER_ROLES = new Set(['administrator', 'requester'])
 
