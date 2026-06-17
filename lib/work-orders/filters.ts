@@ -14,12 +14,18 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 
+// Whether a work order came from a recurring schedule or was filed one-off.
+// A list-only facet (not a domain enum), so it lives here with the filters.
+export const WORK_ORDER_SOURCES = ['recurring', 'oneoff'] as const
+export type WorkOrderSource = (typeof WORK_ORDER_SOURCES)[number]
+
 export type WorkOrderFilters = {
   statuses: WorkOrderStatus[]
   priorities: WorkOrderPriority[]
   categories: WorkOrderCategory[]
   properties: Property[]
   assignees: string[]
+  sources: WorkOrderSource[]
   q: string
   dueFrom: string | null
   dueTo: string | null
@@ -33,6 +39,7 @@ export const EMPTY_FILTERS: WorkOrderFilters = {
   categories: [],
   properties: [],
   assignees: [],
+  sources: [],
   q: '',
   dueFrom: null,
   dueTo: null,
@@ -47,6 +54,7 @@ export const PARAM = {
   category: 'category',
   property: 'property',
   assignee: 'assignee',
+  source: 'source',
   q: 'q',
   dueFrom: 'dueFrom',
   dueTo: 'dueTo',
@@ -129,6 +137,7 @@ export function parseWorkOrderFilters(
     categories: readCsv(source, PARAM.category, WORK_ORDER_CATEGORIES),
     properties: readCsv(source, PARAM.property, PROPERTIES),
     assignees: readAssigneeCsv(source, PARAM.assignee),
+    sources: readCsv(source, PARAM.source, WORK_ORDER_SOURCES),
     q: readString(source, PARAM.q).slice(0, 200),
     dueFrom: readDate(source, PARAM.dueFrom),
     dueTo: readDate(source, PARAM.dueTo),
@@ -150,6 +159,8 @@ export function toSearchParams(filters: WorkOrderFilters): URLSearchParams {
     params.set(PARAM.property, filters.properties.join(','))
   if (filters.assignees.length)
     params.set(PARAM.assignee, filters.assignees.join(','))
+  if (filters.sources.length)
+    params.set(PARAM.source, filters.sources.join(','))
   if (filters.q) params.set(PARAM.q, filters.q)
   if (filters.dueFrom) params.set(PARAM.dueFrom, filters.dueFrom)
   if (filters.dueTo) params.set(PARAM.dueTo, filters.dueTo)
@@ -165,6 +176,7 @@ export function hasActiveFilters(filters: WorkOrderFilters): boolean {
     filters.categories.length > 0 ||
     filters.properties.length > 0 ||
     filters.assignees.length > 0 ||
+    filters.sources.length > 0 ||
     filters.q.length > 0 ||
     filters.dueFrom !== null ||
     filters.dueTo !== null ||

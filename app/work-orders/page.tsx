@@ -47,7 +47,7 @@ export default async function WorkOrdersPage({
   let query = supabase
     .from('work_orders')
     .select(
-      'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, created_at',
+      'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, recurring_work_order_id, created_at',
       { count: 'exact' }
     )
     .not('status', 'in', '(pending,rejected)')

@@ -14,6 +14,7 @@ interface FilterableQuery {
   in(column: string, values: readonly string[]): FilterableQuery
   or(filter: string): FilterableQuery
   is(column: string, value: null): FilterableQuery
+  not(column: string, operator: string, value: null): FilterableQuery
   gte(column: string, value: string): FilterableQuery
   lte(column: string, value: string): FilterableQuery
 }
@@ -42,6 +43,16 @@ export function applyWorkOrderFilters<Q>(
       q = q.is('assigned_to', null)
     } else {
       q = q.in('assigned_to', ids)
+    }
+  }
+
+  // Source is recurring vs one-off. Selecting both (or neither) is no
+  // constraint; exactly one narrows by whether the row links to a schedule.
+  if (filters.sources.length === 1) {
+    if (filters.sources[0] === 'recurring') {
+      q = q.not('recurring_work_order_id', 'is', null)
+    } else {
+      q = q.is('recurring_work_order_id', null)
     }
   }
 

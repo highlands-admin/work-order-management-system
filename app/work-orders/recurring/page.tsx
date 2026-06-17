@@ -1,10 +1,8 @@
-import { RiAddLine, RiRepeatLine } from '@remixicon/react'
+import { RiRepeatLine } from '@remixicon/react'
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { Badge } from '@/components/ui/badge'
-import { buttonVariants } from '@/components/ui/button'
 import { CategoryBadge } from '@/components/work-orders/work-order-badge'
 import { formatDateTime } from '@/lib/datetime/format'
 import { getTimeZone } from '@/lib/datetime/timezone'
@@ -21,9 +19,7 @@ import {
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
 
-export const metadata: Metadata = { title: 'Recurring Work Orders' }
-
-const FILER_ROLES = new Set(['administrator', 'requester'])
+export const metadata: Metadata = { title: 'Recurring Schedules' }
 
 type RecurringRow = {
   id: string
@@ -62,36 +58,24 @@ export default async function RecurringWorkOrdersPage() {
   const userLabelById = new Map(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
-  const canFile = claims.user_role ? FILER_ROLES.has(claims.user_role) : false
   const rows = data ?? []
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold">
-            Recurring Work Orders
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Schedules that file a work order and email a reminder before each due
-            date.
-          </p>
-        </div>
-        {canFile ? (
-          <Link
-            href="/work-orders/new"
-            className={buttonVariants({ size: 'lg' })}
-          >
-            <RiAddLine className="size-4" />
-            New recurring order
-          </Link>
-        ) : null}
+      <div>
+        <h1 className="font-heading text-2xl font-semibold">
+          Recurring Schedules
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Each schedule files a work order and emails a reminder before every due
+          date.
+        </p>
       </div>
 
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>
       ) : rows.length === 0 ? (
-        <EmptyState canFile={canFile} />
+        <EmptyState />
       ) : (
         <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
           <table className="w-full min-w-[720px] text-sm">
@@ -168,23 +152,15 @@ export default async function RecurringWorkOrdersPage() {
   )
 }
 
-function EmptyState({ canFile }: { canFile: boolean }) {
+function EmptyState() {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-16 text-center">
       <RiRepeatLine className="size-8 text-muted-foreground" />
       <p className="text-sm font-medium">No recurring work orders yet</p>
       <p className="max-w-sm text-sm text-muted-foreground">
-        Create a work order in the License or Compliance category and choose a
-        frequency to make it recurring.
+        Create a work order in the Licenses or Compliance/Inspection category and
+        choose a frequency to make it recurring.
       </p>
-      {canFile ? (
-        <Link
-          href="/work-orders/new"
-          className={buttonVariants({ variant: 'outline' })}
-        >
-          Create one now
-        </Link>
-      ) : null}
     </div>
   )
 }

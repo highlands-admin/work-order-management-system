@@ -4,10 +4,13 @@ import {
   RiArrowDownSLine,
   RiArrowUpSLine,
   RiExpandUpDownLine,
+  RiRepeatLine,
 } from '@remixicon/react'
+import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, type PointerEvent } from 'react'
 
+import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -46,6 +49,7 @@ export type WorkOrderListItem = {
   priority: WorkOrderPriority
   due_at: string | null
   reported_by_name: string | null
+  recurring_work_order_id: string | null
   created_at: string
 }
 
@@ -245,8 +249,25 @@ export function WorkOrdersTable({
               <TableCell className="truncate px-4 py-3 font-medium tabular-nums text-muted-foreground">
                 {wo.work_order_code}
               </TableCell>
-              <TableCell className="truncate px-4 py-3 font-medium">
-                {wo.title}
+              <TableCell className="px-4 py-3 font-medium">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate">{wo.title}</span>
+                  {wo.recurring_work_order_id ? (
+                    <Link
+                      href="/work-orders/recurring"
+                      title="Generated from a recurring schedule"
+                      className="shrink-0"
+                    >
+                      <Badge
+                        variant="outline"
+                        className="gap-1 text-muted-foreground"
+                      >
+                        <RiRepeatLine className="size-3" aria-hidden="true" />
+                        Recurring
+                      </Badge>
+                    </Link>
+                  ) : null}
+                </div>
               </TableCell>
               <TableCell className="truncate px-4 py-3">
                 {CATEGORY_LABELS[wo.category]}

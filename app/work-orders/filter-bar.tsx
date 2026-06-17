@@ -44,7 +44,9 @@ import {
   toSearchParams,
   UNASSIGNED,
   withFilter,
+  WORK_ORDER_SOURCES,
   type WorkOrderFilters,
+  type WorkOrderSource,
 } from '@/lib/work-orders/filters'
 
 import { DateRangeFilter } from './date-range-filter'
@@ -62,6 +64,14 @@ const CATEGORY_OPTIONS: Option<WorkOrderCategory>[] =
 const PROPERTY_OPTIONS: Option<Property>[] = PROPERTIES.map((v) => ({
   value: v,
   label: PROPERTY_LABELS[v],
+}))
+const SOURCE_LABELS: Record<WorkOrderSource, string> = {
+  recurring: 'Recurring',
+  oneoff: 'One-off',
+}
+const SOURCE_OPTIONS: Option<WorkOrderSource>[] = WORK_ORDER_SOURCES.map((v) => ({
+  value: v,
+  label: SOURCE_LABELS[v],
 }))
 
 export function FilterBar({
@@ -173,6 +183,12 @@ export function FilterBar({
           selected={draft.properties}
           onChange={(v) => setDraft((d) => withFilter(d, 'properties', v))}
         />
+        <MultiSelectFilter
+          label="Source"
+          options={SOURCE_OPTIONS}
+          selected={draft.sources}
+          onChange={(v) => setDraft((d) => withFilter(d, 'sources', v))}
+        />
         {showAssignee ? (
           <MultiSelectFilter
             label="Assignee"
@@ -208,6 +224,7 @@ export function FilterBar({
     filters.priorities.length +
     filters.categories.length +
     filters.properties.length +
+    filters.sources.length +
     (showAssignee ? filters.assignees.length : 0) +
     (filters.dueFrom || filters.dueTo ? 1 : 0) +
     (filters.createdFrom || filters.createdTo ? 1 : 0)
@@ -487,6 +504,20 @@ function ActiveFilterChips({
             filters,
             'properties',
             filters.properties.filter((v) => v !== p)
+          )
+        ),
+    })
+  }
+  for (const s of filters.sources) {
+    chips.push({
+      key: `source-${s}`,
+      label: `Source: ${SOURCE_LABELS[s]}`,
+      remove: () =>
+        onChange(
+          withFilter(
+            filters,
+            'sources',
+            filters.sources.filter((v) => v !== s)
           )
         ),
     })

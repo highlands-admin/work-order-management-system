@@ -41,7 +41,7 @@ const workOrderItems: NavItem[] = [
   { title: 'All Work Orders', href: '/work-orders', icon: RiClipboardLine },
   { title: 'My Work Orders', href: '/work-orders/mine', icon: RiInboxLine },
   {
-    title: 'Recurring Work Orders',
+    title: 'Recurring Schedules',
     href: '/work-orders/recurring',
     icon: RiRepeatLine,
   },
