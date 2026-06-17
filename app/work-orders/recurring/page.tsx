@@ -77,7 +77,7 @@ export default async function RecurringWorkOrdersPage() {
       ) : rows.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
+        <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b bg-muted/30 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">

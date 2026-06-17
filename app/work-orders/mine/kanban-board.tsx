@@ -18,6 +18,7 @@ import { RiCalendarEventLine } from '@remixicon/react'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
+import { ResolutionDialog } from '@/components/work-orders/resolution-dialog'
 import { PriorityBadge } from '@/components/work-orders/work-order-badge'
 import { formatDate } from '@/lib/datetime/format'
 import {
@@ -63,7 +64,14 @@ export function KanbanBoard({
   const [serverSig, setServerSig] = useState(() => signature(workOrders))
   const [activeId, setActiveId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [, startTransition] = useTransition()
+  // A drop into the Done column is held here until the resolution modal is
+  // confirmed; the card only moves once a resolution is provided.
+  const [doneMove, setDoneMove] = useState<{
+    cardId: string
+    from: WorkOrderStatus
+    card: WorkOrderListItem
+  } | null>(null)
+  const [isPending, startTransition] = useTransition()
 
   // Adopt fresh server data (after a revalidation) once it differs from what we
   // last synced. Our own optimistic moves leave the prop unchanged until the
@@ -95,6 +103,36 @@ export function KanbanBoard({
     setActiveId(String(event.active.id))
   }
 
+  // Optimistically move the card, then commit via the action and revert on
+  // failure. Shared by the immediate path and the Done path (after the modal).
+  function commitMove(
+    cardId: string,
+    from: WorkOrderStatus,
+    to: WorkOrderStatus,
+    card: WorkOrderListItem,
+    resolution?: string
+  ) {
+    setBoard((prev) => ({
+      ...prev,
+      [from]: prev[from].filter((c) => c.id !== cardId),
+      [to]: [{ ...card, status: to }, ...prev[to]],
+    }))
+    setError(null)
+
+    startTransition(async () => {
+      const result = await changeWorkOrderStatusAction(cardId, to, resolution)
+      if (result.status === 'error') {
+        // Revert the card to its original column.
+        setBoard((prev) => ({
+          ...prev,
+          [to]: prev[to].filter((c) => c.id !== cardId),
+          [from]: [{ ...card, status: from }, ...prev[from]],
+        }))
+        setError(result.message ?? 'Could not update the status.')
+      }
+    })
+  }
+
   function onDragEnd(event: DragEndEvent) {
     setActiveId(null)
     const { active, over } = event
@@ -114,26 +152,13 @@ export function KanbanBoard({
     const card = board[from].find((c) => c.id === cardId)
     if (!card) return
 
-    // Optimistically move the card to the top of the target column.
-    setBoard((prev) => ({
-      ...prev,
-      [from]: prev[from].filter((c) => c.id !== cardId),
-      [to]: [{ ...card, status: to }, ...prev[to]],
-    }))
-    setError(null)
+    // Moving to Done requires a resolution: hold the move and prompt first.
+    if (to === 'done') {
+      setDoneMove({ cardId, from, card })
+      return
+    }
 
-    startTransition(async () => {
-      const result = await changeWorkOrderStatusAction(cardId, to)
-      if (result.status === 'error') {
-        // Revert the card to its original column.
-        setBoard((prev) => ({
-          ...prev,
-          [to]: prev[to].filter((c) => c.id !== cardId),
-          [from]: [{ ...card, status: from }, ...prev[from]],
-        }))
-        setError(result.message ?? 'Could not update the status.')
-      }
-    })
+    commitMove(cardId, from, to, card)
   }
 
   return (
@@ -172,6 +197,26 @@ export function KanbanBoard({
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <ResolutionDialog
+        open={doneMove !== null}
+        onOpenChange={(open) => {
+          if (!open) setDoneMove(null)
+        }}
+        pending={isPending}
+        onConfirm={(resolution) => {
+          if (!doneMove) return
+          commitMove(
+            doneMove.cardId,
+            doneMove.from,
+            'done',
+            doneMove.card,
+            resolution
+          )
+          setDoneMove(null)
+        }}
+        onCancel={() => setDoneMove(null)}
+      />
     </div>
   )
 }
@@ -272,7 +317,7 @@ function CardShell({
     <div
       ref={nodeRef}
       className={cn(
-        'rounded-lg bg-card p-3 ring-1 ring-foreground/10 outline-none',
+        'rounded-lg bg-card p-3 ring-1 ring-foreground/10 shadow-md dark:shadow-none outline-none',
         dragging
           ? 'cursor-grabbing shadow-lg'
           : 'cursor-grab transition-shadow hover:ring-foreground/20 focus-visible:ring-2 focus-visible:ring-primary/50',

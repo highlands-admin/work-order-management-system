@@ -13,7 +13,7 @@ export default function InvitePage() {
           Send an email invitation. The recipient sets their own password.
         </p>
       </div>
-      <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
+      <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10 shadow-md dark:shadow-none">
         <InviteForm />
       </div>
     </div>

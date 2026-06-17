@@ -346,8 +346,9 @@ export async function createWorkOrderAction(
   }
 
   revalidatePath('/work-orders')
-  redirect('/work-orders')
-
+  // Flash a toast on the destination; requester submissions land in the approval
+  // queue, admins create approved work orders directly.
+  redirect(`/work-orders?flash=${initialStatus === 'pending' ? 'submitted' : 'created'}`)
 }
 
 // Full edit for administrators and requesters. RLS and the
@@ -512,7 +513,7 @@ export async function updateWorkOrderAction(
 
   revalidatePath('/work-orders')
   revalidatePath(`/work-orders/${workOrderId}/edit`)
-  redirect('/work-orders')
+  redirect('/work-orders?flash=updated')
 }
 
 // Status-only update for technicians (open -> in_progress -> done) and
@@ -525,7 +526,10 @@ export async function transitionWorkOrderStatusAction(
   _prev: AuthState,
   formData: FormData
 ): Promise<AuthState> {
-  const raw = { status: String(formData.get('status') ?? '') }
+  const raw = {
+    status: String(formData.get('status') ?? ''),
+    resolution: String(formData.get('resolution') ?? ''),
+  }
   const parsed = transitionStatusSchema.safeParse(raw)
   if (!parsed.success) {
     return formError(z4FieldErrors(parsed.error), raw)
@@ -569,6 +573,10 @@ export async function transitionWorkOrderStatusAction(
     .from('work_orders')
     .update({
       status: parsed.data.status,
+      // A resolution is collected (and required) only when completing the work.
+      ...(parsed.data.status === 'done'
+        ? { resolution: parsed.data.resolution ?? null }
+        : {}),
       updated_by: claims.sub,
     })
     .eq('id', workOrderId)
@@ -579,7 +587,7 @@ export async function transitionWorkOrderStatusAction(
 
   revalidatePath('/work-orders')
   revalidatePath(`/work-orders/${workOrderId}/edit`)
-  redirect('/work-orders')
+  redirect('/work-orders?flash=status')
 }
 
 // Inline status change from the work order detail page. Available to admins,
@@ -589,11 +597,15 @@ export async function transitionWorkOrderStatusAction(
 // detail page control can update in place.
 export async function changeWorkOrderStatusAction(
   workOrderId: string,
-  status: string
+  status: string,
+  resolution?: string
 ): Promise<{ status: 'success' | 'error'; message?: string }> {
-  const parsed = changeStatusSchema.safeParse({ status })
+  const parsed = changeStatusSchema.safeParse({ status, resolution })
   if (!parsed.success) {
-    return { status: 'error', message: 'Choose a valid status.' }
+    return {
+      status: 'error',
+      message: parsed.error.issues[0]?.message ?? 'Choose a valid status.',
+    }
   }
 
   const supabase = await createClient()
@@ -639,7 +651,14 @@ export async function changeWorkOrderStatusAction(
 
   const { error } = await supabase
     .from('work_orders')
-    .update({ status: parsed.data.status, updated_by: claims.sub })
+    .update({
+      status: parsed.data.status,
+      // Persist the resolution only when completing; required by the schema.
+      ...(parsed.data.status === 'done'
+        ? { resolution: parsed.data.resolution ?? null }
+        : {}),
+      updated_by: claims.sub,
+    })
     .eq('id', workOrderId)
 
   if (error) {

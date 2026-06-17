@@ -568,7 +568,7 @@ function FormSection({
   return (
     <section
       aria-labelledby={titleId}
-      className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
+      className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none"
     >
       <header className="border-b bg-muted/30 px-6 py-4">
         <h2

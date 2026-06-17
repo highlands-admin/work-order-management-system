@@ -445,20 +445,42 @@ export const updateWorkOrderSchema = z
 
 export type UpdateWorkOrderInput = z.infer<typeof updateWorkOrderSchema>
 
+// Marking a work order Done requires a resolution describing how it was
+// completed. Shared by the two status-change paths below.
+function requireResolutionOnDone<
+  T extends { status: WorkOrderStatus; resolution?: string }
+>(data: T, ctx: z.RefinementCtx) {
+  if (data.status === 'done' && !data.resolution) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['resolution'],
+      message: 'A resolution is required to mark a work order done.',
+    })
+  }
+}
+
 // Status-only transitions for technicians and inspectors. The action checks the
 // caller's role against the target status; RLS and a trigger enforce the same
-// rules at the database boundary.
-export const transitionStatusSchema = z.object({
-  status: z.enum(WORK_ORDER_STATUSES, { message: 'Select a status' }),
-})
+// rules at the database boundary. A resolution is required (and permitted) when
+// a technician completes the work (in_progress -> done).
+export const transitionStatusSchema = z
+  .object({
+    status: z.enum(WORK_ORDER_STATUSES, { message: 'Select a status' }),
+    resolution: trimmedOptional.pipe(z.string().max(5000).optional()),
+  })
+  .superRefine(requireResolutionOnDone)
 
 export type TransitionStatusInput = z.infer<typeof transitionStatusSchema>
 
-// Inline status change from the detail page: admins, assignees, and creators
-// move an approved work order between the main workflow statuses only.
-export const changeStatusSchema = z.object({
-  status: z.enum(MAIN_TABLE_STATUSES, { message: 'Select a status' }),
-})
+// Inline status change from the detail page and kanban board: admins, assignees,
+// and creators move an approved work order between the main workflow statuses.
+// Moving to Done requires a resolution.
+export const changeStatusSchema = z
+  .object({
+    status: z.enum(MAIN_TABLE_STATUSES, { message: 'Select a status' }),
+    resolution: trimmedOptional.pipe(z.string().max(5000).optional()),
+  })
+  .superRefine(requireResolutionOnDone)
 
 export const addWorkOrderNoteSchema = z.object({
   body: z

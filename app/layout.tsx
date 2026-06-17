@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Figtree, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
@@ -51,6 +52,7 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         {children}
+        <Toaster />
       </body>
     </html>
   );

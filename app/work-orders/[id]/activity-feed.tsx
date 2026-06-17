@@ -70,7 +70,7 @@ export function ActivityFeed({
   }
 
   return (
-    <section className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+    <section className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
       <header className="border-b bg-muted/30 px-6 py-4">
         <h2 className="font-heading text-base font-semibold tracking-tight">
           Activity

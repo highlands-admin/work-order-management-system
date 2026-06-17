@@ -2,6 +2,7 @@
 
 import { RiDeleteBinLine, RiPencilLine } from '@remixicon/react'
 import { useActionState, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 import { SubmitButton } from '@/components/auth/submit-button'
 import {
@@ -72,20 +73,24 @@ export function NotesSection({
   const [submitCount, setSubmitCount] = useState(0)
   const prevStateRef = useRef<AuthState>(initialAuthState)
   useEffect(() => {
-    if (prevStateRef.current !== state && state.status === 'success') {
-      setSubmitCount((c) => c + 1)
+    if (prevStateRef.current !== state) {
+      if (state.status === 'success') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSubmitCount((c) => c + 1)
+        toast.success('Note added.')
+      } else if (state.status === 'error' && !state.fieldErrors?.body && state.message) {
+        toast.error(state.message)
+      }
     }
     prevStateRef.current = state
   }, [state])
 
   const bodyError = state.fieldErrors?.body?.[0]
-  const formError =
-    state.status === 'error' && !bodyError ? state.message : undefined
 
   return (
     <section
       aria-labelledby="notes-title"
-      className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
+      className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none"
     >
       <header className="border-b bg-muted/30 px-6 py-4">
         <h2
@@ -148,14 +153,6 @@ export function NotesSection({
                 {bodyError ? (
                   <p className="text-xs text-destructive">{bodyError}</p>
                 ) : null}
-                {formError ? (
-                  <p className="text-xs text-destructive">{formError}</p>
-                ) : null}
-                {state.status === 'success' ? (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                    Note added.
-                  </p>
-                ) : null}
               </div>
 
               <div className="flex justify-end">
@@ -199,11 +196,32 @@ function NoteItem({
   // looping on unrelated re-renders.
   const prevEditRef = useRef<AuthState>(initialAuthState)
   useEffect(() => {
-    if (prevEditRef.current !== editState && editState.status === 'success') {
-      setEditing(false)
+    if (prevEditRef.current !== editState) {
+      if (editState.status === 'success') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setEditing(false)
+        toast.success('Note updated.')
+      } else if (
+        editState.status === 'error' &&
+        !editState.fieldErrors?.body &&
+        editState.message
+      ) {
+        toast.error(editState.message)
+      }
     }
     prevEditRef.current = editState
   }, [editState])
+
+  const prevDeleteRef = useRef<AuthState>(initialAuthState)
+  useEffect(() => {
+    if (prevDeleteRef.current === deleteState) return
+    prevDeleteRef.current = deleteState
+    if (deleteState.status === 'success') {
+      toast.success('Note deleted.')
+    } else if (deleteState.status === 'error' && deleteState.message) {
+      toast.error(deleteState.message)
+    }
+  }, [deleteState])
 
   const initials = authorLabel
     .split(' ')
@@ -214,10 +232,6 @@ function NoteItem({
   const wasEdited = note.updated_at !== note.created_at
 
   const editBodyError = editState.fieldErrors?.body?.[0]
-  const editFormError =
-    editState.status === 'error' && !editBodyError ? editState.message : undefined
-  const deleteError =
-    deleteState.status === 'error' ? deleteState.message : undefined
 
   return (
     <article className="group flex gap-4 px-6 py-5">
@@ -279,9 +293,6 @@ function NoteItem({
                       This permanently removes the note. This action cannot be
                       undone.
                     </AlertDialogDescription>
-                    {deleteError ? (
-                      <p className="text-sm text-destructive">{deleteError}</p>
-                    ) : null}
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <form action={runDelete}>
@@ -314,9 +325,6 @@ function NoteItem({
             />
             {editBodyError ? (
               <p className="text-xs text-destructive">{editBodyError}</p>
-            ) : null}
-            {editFormError ? (
-              <p className="text-xs text-destructive">{editFormError}</p>
             ) : null}
             <div className="flex items-center gap-2">
               <SubmitButton label="Save" pendingLabel="Saving…" size="sm" />

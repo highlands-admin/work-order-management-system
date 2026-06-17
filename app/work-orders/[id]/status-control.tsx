@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 
 import {
   Select,
@@ -9,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ResolutionDialog } from '@/components/work-orders/resolution-dialog'
 import { STATUS_COLOR } from '@/components/work-orders/work-order-badge'
 import {
   MAIN_TABLE_STATUSES,
@@ -32,7 +34,7 @@ export function StatusControl({
 }) {
   const [serverStatus, setServerStatus] = useState<WorkOrderStatus>(status)
   const [value, setValue] = useState<WorkOrderStatus>(status)
-  const [error, setError] = useState<string | null>(null)
+  const [doneDialogOpen, setDoneDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   // Re-sync to the server value after a revalidation delivers a new prop.
@@ -41,18 +43,33 @@ export function StatusControl({
     setValue(status)
   }
 
-  function onChange(next: WorkOrderStatus) {
-    if (next === value) return
+  function commit(next: WorkOrderStatus, resolution?: string) {
     const previous = value
     setValue(next)
-    setError(null)
     startTransition(async () => {
-      const result = await changeWorkOrderStatusAction(workOrderId, next)
+      const result = await changeWorkOrderStatusAction(
+        workOrderId,
+        next,
+        resolution
+      )
       if (result.status === 'error') {
         setValue(previous)
-        setError(result.message ?? 'Could not update the status.')
+        toast.error(result.message ?? 'Could not update the status.')
+      } else {
+        toast.success(`Status changed to ${STATUS_LABELS[next]}.`)
       }
     })
+  }
+
+  function onChange(next: WorkOrderStatus) {
+    if (next === value) return
+    // Moving to Done requires a resolution: collect it in a modal, then commit.
+    // The select stays on its current value until the change is confirmed.
+    if (next === 'done') {
+      setDoneDialogOpen(true)
+      return
+    }
+    commit(next)
   }
 
   return (
@@ -80,11 +97,16 @@ export function StatusControl({
           ))}
         </SelectContent>
       </Select>
-      {error ? (
-        <p className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
+
+      <ResolutionDialog
+        open={doneDialogOpen}
+        onOpenChange={setDoneDialogOpen}
+        pending={isPending}
+        onConfirm={(resolution) => {
+          setDoneDialogOpen(false)
+          commit('done', resolution)
+        }}
+      />
     </div>
   )
 }

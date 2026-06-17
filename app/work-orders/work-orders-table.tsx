@@ -174,7 +174,7 @@ export function WorkOrdersTable({
 
   if (workOrders.length === 0) {
     return (
-      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
         <p className="p-6 text-sm text-muted-foreground">{emptyMessage}</p>
       </div>
     )
@@ -184,7 +184,7 @@ export function WorkOrdersTable({
 
   return (
     <div
-      className="w-fit max-w-full overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10"
+      className="w-fit max-w-full overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none"
       style={resizing ? { userSelect: 'none', cursor: 'col-resize' } : undefined}
     >
       <Table className="table-fixed" style={{ width: totalWidth }}>

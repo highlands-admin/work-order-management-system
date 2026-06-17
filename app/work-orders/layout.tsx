@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import type { ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 
 import { signOutAction } from '@/app/(auth)/actions'
 import { TimezoneSync } from '@/components/datetime/timezone-sync'
@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/sidebar'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
+
+import { ToastFlash } from './toast-flash'
 
 export default async function WorkOrdersLayout({
   children,
@@ -36,6 +38,9 @@ export default async function WorkOrdersLayout({
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <TimezoneSync serverTimeZone={timeZone} />
+      <Suspense fallback={null}>
+        <ToastFlash />
+      </Suspense>
       <AppSidebar userRole={claims.user_role} />
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur-sm supports-[backdrop-filter]:bg-background/65">

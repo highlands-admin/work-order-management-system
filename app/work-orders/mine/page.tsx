@@ -112,7 +112,7 @@ export default async function MyWorkOrdersPage({
 
       {view === 'board' ? (
         workOrders.length === 0 ? (
-          <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
             <p className="p-6 text-sm text-muted-foreground">
               {filtersActive
                 ? 'No work orders match these filters.'

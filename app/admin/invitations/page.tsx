@@ -81,7 +81,7 @@ export default async function InvitationsPage() {
         <p className="text-sm text-destructive">{error.message}</p>
       ) : null}
 
-      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
         {invitations.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">
             No invitations yet.

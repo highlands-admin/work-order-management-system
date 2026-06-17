@@ -7,7 +7,8 @@ import {
   type RemixiconComponentType,
 } from '@remixicon/react'
 import Link from 'next/link'
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 import { FormError } from '@/components/auth/form-error'
 import { SubmitButton } from '@/components/auth/submit-button'
@@ -34,6 +35,7 @@ import {
 } from '@/lib/schemas/work-order'
 import { cn } from '@/lib/utils'
 
+import type { AuthState } from '../../(auth)/auth-state'
 import { initialAuthState } from '../../(auth)/auth-state'
 import {
   approveWorkOrderAction,
@@ -91,6 +93,29 @@ export function SubmissionCard({
   )
   const reasonError = getError('reason')
 
+  // Approve and reject both revalidate the queue (the card then disappears), so
+  // a toast is the only durable confirmation. Reject's validation errors stay
+  // inline; only its success is toasted.
+  const prevApprove = useRef<AuthState>(initialAuthState)
+  useEffect(() => {
+    if (prevApprove.current === approveState) return
+    prevApprove.current = approveState
+    if (approveState.status === 'success') {
+      toast.success('Work order approved.')
+    } else if (approveState.status === 'error' && approveState.message) {
+      toast.error(approveState.message)
+    }
+  }, [approveState])
+
+  const prevReject = useRef<AuthState>(initialAuthState)
+  useEffect(() => {
+    if (prevReject.current === rejectState) return
+    prevReject.current = rejectState
+    if (rejectState.status === 'success') {
+      toast.success('Work order rejected.')
+    }
+  }, [rejectState])
+
   const locationLabel = workOrder.property
     ? workOrder.unitNumber
       ? `${PROPERTY_LABELS[workOrder.property]} · Unit ${workOrder.unitNumber}`
@@ -105,7 +130,7 @@ export function SubmissionCard({
   return (
     <article
       className={cn(
-        'relative cursor-pointer rounded-xl bg-card p-5 ring-1 ring-foreground/10',
+        'relative cursor-pointer rounded-xl bg-card p-5 ring-1 ring-foreground/10 shadow-md dark:shadow-none',
         'transition-colors hover:ring-foreground/20 sm:p-6'
       )}
     >
@@ -250,13 +275,6 @@ export function SubmissionCard({
             ) : null}
           </div>
         )}
-
-        {!isRejected &&
-        !showReject &&
-        approveState.status === 'error' &&
-        approveState.message ? (
-          <p className="mt-3 text-sm text-destructive">{approveState.message}</p>
-        ) : null}
       </div>
     </article>
   )

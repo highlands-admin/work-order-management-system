@@ -145,7 +145,7 @@ export default async function EditWorkOrderPage({
           role={role as 'technician' | 'inspector'}
         />
       ) : (
-        <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
+        <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10 shadow-md dark:shadow-none">
           <p className="text-sm text-muted-foreground">
             Your role does not have permission to edit work orders.
           </p>
