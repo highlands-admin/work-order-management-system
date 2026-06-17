@@ -34,6 +34,7 @@ import {
 
 import { NotesSection, type NoteRow } from '../notes-section'
 import { ActivityFeed, type ActivityEvent } from './activity-feed'
+import { ApproveButton } from './approve-button'
 import { BackButton } from './back-button'
 import { StatusControl } from './status-control'
 
@@ -150,15 +151,17 @@ export default async function WorkOrderDetailPage({
     role === 'administrator' ||
     data.created_by === claims.sub ||
     data.assigned_to === claims.sub
-  // When the prominent status control is shown, size the priority and category
-  // badges to match it so the three read as one row.
   const statusControlShown = canChangeStatus && isActiveStatus
-  const matchStatusSize = statusControlShown
-    ? 'h-9 px-3.5 text-sm font-semibold shadow-sm'
-    : undefined
+  // Size the three header badges consistently so a pending work order reads the
+  // same as an active one. Status is the interactive control when it can be
+  // changed inline, otherwise a badge at the same prominent size.
+  const prominentBadgeSize = 'h-9 px-3.5 text-sm font-semibold shadow-sm'
   const hasReporter =
     data.reported_by_name || data.reported_by_email || data.reported_by_phone
   const isRejected = data.status === 'rejected'
+  // Administrators can approve a pending work order directly from the detail
+  // page, mirroring the approval queue.
+  const canApprove = data.status === 'pending' && role === 'administrator'
   const isOverdue = computeIsOverdue(data.due_at, data.status)
   const timeZone = await getTimeZone()
 
@@ -167,14 +170,22 @@ export default async function WorkOrderDetailPage({
       {/* Action bar */}
       <div className="flex items-center justify-between gap-3">
         <BackButton />
-        {canEdit || canTransition ? (
-          <Link
-            href={`/work-orders/${data.id}/edit`}
-            className={buttonVariants({ size: 'lg' })}
-          >
-            {canEdit ? 'Edit work order' : 'Update status'}
-          </Link>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {canEdit || canTransition ? (
+            <Link
+              href={`/work-orders/${data.id}/edit`}
+              className={buttonVariants({
+                size: 'lg',
+                // Demote Edit to a secondary outline when the primary Approve
+                // action is alongside it, so the two don't read as twins.
+                variant: canApprove ? 'outline' : 'default',
+              })}
+            >
+              {canEdit ? 'Edit work order' : 'Update status'}
+            </Link>
+          ) : null}
+          {canApprove ? <ApproveButton workOrderId={data.id} /> : null}
+        </div>
       </div>
 
       {/* Header */}
@@ -189,15 +200,18 @@ export default async function WorkOrderDetailPage({
           {statusControlShown ? (
             <StatusControl workOrderId={data.id} status={data.status} />
           ) : (
-            <StatusBadge status={data.status} />
+            <StatusBadge
+              status={data.status}
+              className={prominentBadgeSize}
+            />
           )}
           <PriorityBadge
             priority={data.priority}
-            className={matchStatusSize}
+            className={prominentBadgeSize}
           />
           <CategoryBadge
             category={data.category}
-            className={matchStatusSize}
+            className={prominentBadgeSize}
           />
         </div>
       </header>

@@ -616,6 +616,7 @@ export async function approveWorkOrderAction(
 
   revalidatePath('/work-orders/submissions')
   revalidatePath('/work-orders')
+  revalidatePath(`/work-orders/${workOrderId}`)
   return { status: 'success', message: 'Approved.' }
 }
 

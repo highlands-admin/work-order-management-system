@@ -51,12 +51,14 @@ export function DashboardCharts({
   byPriority,
   trend,
   rangeLabel,
+  rangeSelector,
 }: {
   byStatus: Slice[]
   byCategory: StackedBreakdown
   byPriority: StackedBreakdown
   trend: TrendPoint[]
   rangeLabel: string
+  rangeSelector?: ReactNode
 }) {
   const statusConfig = sliceConfig(byStatus, (s) => STATUS_COLORS[s.key])
   const statusData = byStatus.map((s) => ({
@@ -127,6 +129,7 @@ export function DashboardCharts({
       <ChartCard
         title="Created Over Time"
         description={`New Work Orders · ${rangeLabel}`}
+        action={rangeSelector}
       >
         <ChartContainer config={trendConfig} className="h-[260px] w-full">
           <LineChart data={trend} margin={{ left: 4, right: 12, top: 8 }}>
@@ -222,21 +225,28 @@ function StatusStackedCard({
 function ChartCard({
   title,
   description,
+  action,
   children,
 }: {
   title: string
   description: string
+  action?: ReactNode
   children: ReactNode
 }) {
   return (
     <Card className="break-inside-avoid">
       <CardHeader className="gap-1 px-5">
-        <CardTitle className="font-heading text-lg font-semibold tracking-tight">
-          {title}
-        </CardTitle>
-        <CardDescription className="text-sm leading-snug">
-          {description}
-        </CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle className="font-heading text-lg font-semibold tracking-tight">
+              {title}
+            </CardTitle>
+            <CardDescription className="text-sm leading-snug">
+              {description}
+            </CardDescription>
+          </div>
+          {action ? <div className="shrink-0">{action}</div> : null}
+        </div>
       </CardHeader>
       <CardContent className="px-5">{children}</CardContent>
     </Card>
