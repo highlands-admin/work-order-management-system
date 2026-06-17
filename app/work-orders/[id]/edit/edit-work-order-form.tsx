@@ -462,7 +462,8 @@ export function EditWorkOrderForm({
 
           <Field data-invalid={resolutionError ? 'true' : undefined}>
             <FieldLabel htmlFor="resolution">
-              Resolution <Optional />
+              Resolution{' '}
+              {statusValue === 'done' ? <Required /> : <Optional />}
             </FieldLabel>
             <Textarea
               id="resolution"
@@ -471,7 +472,11 @@ export function EditWorkOrderForm({
               defaultValue={state.values?.resolution ?? workOrder.resolution ?? ''}
               onChange={() => markEdited('resolution')}
               aria-invalid={resolutionError ? true : undefined}
-              placeholder="What was done to resolve this ticket?"
+              placeholder={
+                statusValue === 'done'
+                  ? 'Required: describe how this work order was resolved.'
+                  : 'What was done to resolve this ticket?'
+              }
             />
             <FieldError>{resolutionError}</FieldError>
           </Field>

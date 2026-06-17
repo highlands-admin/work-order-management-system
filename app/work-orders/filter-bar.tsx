@@ -10,6 +10,7 @@ import {
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition } from 'react'
+import { toast } from 'sonner'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -234,6 +235,7 @@ export function FilterBar({
     <Link
       href={exportHref}
       prefetch={false}
+      onClick={() => toast.success('Exporting work orders to CSV.')}
       className={buttonVariants({
         variant: 'outline',
         size: 'sm',

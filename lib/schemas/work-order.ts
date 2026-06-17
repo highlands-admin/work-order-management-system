@@ -442,6 +442,7 @@ export const updateWorkOrderSchema = z
   })
   .superRefine(requirePropertyUnlessIT)
   .superRefine(requireMarketingFields)
+  .superRefine(requireResolutionOnDone)
 
 export type UpdateWorkOrderInput = z.infer<typeof updateWorkOrderSchema>
 
