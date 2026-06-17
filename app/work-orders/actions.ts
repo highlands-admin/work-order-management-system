@@ -10,6 +10,7 @@ import {
 } from '@/lib/email/send-assignment-notification'
 import {
   APPROVAL_REQUIRED_ROLES,
+  DEFAULT_REMINDER_LEAD_DAYS,
   MAIN_TABLE_STATUSES,
   addWorkOrderNoteSchema,
   changeStatusSchema,
@@ -23,6 +24,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 import { getCategoryApprover } from '@/lib/work-orders/category-approvers'
+import { nextOccurrenceAfter } from '@/lib/work-orders/recurrence'
 
 import type { AuthState } from '../(auth)/auth-state'
 
@@ -132,6 +134,9 @@ export async function createWorkOrderAction(
     reportedByName: String(formData.get('reportedByName') ?? ''),
     reportedByEmail: String(formData.get('reportedByEmail') ?? ''),
     reportedByPhone: String(formData.get('reportedByPhone') ?? ''),
+    provider: String(formData.get('provider') ?? ''),
+    frequency: String(formData.get('frequency') ?? ''),
+    reminderLeadDays: String(formData.get('reminderLeadDays') ?? ''),
     marketingRequestType: String(formData.get('marketingRequestType') ?? ''),
     marketingRequestTypeOther: String(
       formData.get('marketingRequestTypeOther') ?? ''
@@ -185,6 +190,45 @@ export async function createWorkOrderAction(
     ? 'pending'
     : 'open'
 
+  // When a frequency is set, the work order is filed as a recurring order: create
+  // the template first, then file its first occurrence below, linked to it. The
+  // template's next_due_at points at the second occurrence, which pg_cron will
+  // generate; later occurrences advance from there. one_time has no second
+  // occurrence, so the template is created already inactive.
+  let recurringWorkOrderId: string | null = null
+  if (parsed.data.frequency && parsed.data.dueAt) {
+    const { data: template, error: templateError } = await supabase
+      .from('recurring_work_orders')
+      .insert({
+        title: parsed.data.title,
+        category: parsed.data.category,
+        priority: parsed.data.priority,
+        property: parsed.data.property ?? null,
+        unit_number: parsed.data.unitNumber ?? null,
+        description: parsed.data.description,
+        provider: parsed.data.provider ?? null,
+        assigned_to: parsed.data.assignedTo ?? null,
+        frequency: parsed.data.frequency,
+        anchor_date: parsed.data.dueAt.slice(0, 10),
+        next_due_at: nextOccurrenceAfter(
+          parsed.data.dueAt,
+          parsed.data.frequency
+        ),
+        reminder_lead_days:
+          parsed.data.reminderLeadDays ?? DEFAULT_REMINDER_LEAD_DAYS,
+        active: parsed.data.frequency !== 'one_time',
+        created_by: claims.sub,
+        updated_by: claims.sub,
+      })
+      .select('id')
+      .single()
+
+    if (templateError) {
+      return formError(undefined, values, templateError.message)
+    }
+    recurringWorkOrderId = template.id
+  }
+
   const { data: workOrderData, error } = await supabase
     .from('work_orders')
     .insert({
@@ -195,6 +239,8 @@ export async function createWorkOrderAction(
       unit_number: parsed.data.unitNumber ?? null,
       due_at: parsed.data.dueAt ?? null,
       description: parsed.data.description,
+      provider: parsed.data.provider ?? null,
+      recurring_work_order_id: recurringWorkOrderId,
       reported_by_name: parsed.data.reportedByName ?? null,
       reported_by_email: parsed.data.reportedByEmail ?? null,
       reported_by_phone: parsed.data.reportedByPhone ?? null,
@@ -302,6 +348,7 @@ export async function updateWorkOrderAction(
     reportedByName: String(formData.get('reportedByName') ?? ''),
     reportedByEmail: String(formData.get('reportedByEmail') ?? ''),
     reportedByPhone: String(formData.get('reportedByPhone') ?? ''),
+    provider: String(formData.get('provider') ?? ''),
     status: String(formData.get('status') ?? ''),
     resolution: String(formData.get('resolution') ?? ''),
     marketingRequestType: String(formData.get('marketingRequestType') ?? ''),
@@ -387,6 +434,7 @@ export async function updateWorkOrderAction(
       unit_number: parsed.data.unitNumber ?? null,
       due_at: parsed.data.dueAt ?? null,
       description: parsed.data.description,
+      provider: parsed.data.provider ?? null,
       reported_by_name: parsed.data.reportedByName ?? null,
       reported_by_email: parsed.data.reportedByEmail ?? null,
       reported_by_phone: parsed.data.reportedByPhone ?? null,

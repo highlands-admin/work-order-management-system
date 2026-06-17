@@ -9,6 +9,7 @@ import {
   RiInboxLine,
   RiMailAddLine,
   RiMailSendLine,
+  RiRepeatLine,
 } from '@remixicon/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -39,6 +40,11 @@ const FILER_ROLES = new Set(['administrator', 'requester'])
 const workOrderItems: NavItem[] = [
   { title: 'All Work Orders', href: '/work-orders', icon: RiClipboardLine },
   { title: 'My Work Orders', href: '/work-orders/mine', icon: RiInboxLine },
+  {
+    title: 'Recurring Work Orders',
+    href: '/work-orders/recurring',
+    icon: RiRepeatLine,
+  },
 ]
 
 const newWorkOrderItem: NavItem = {

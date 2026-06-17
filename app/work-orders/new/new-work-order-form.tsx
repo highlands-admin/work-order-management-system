@@ -31,14 +31,19 @@ import { Textarea } from '@/components/ui/textarea'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
+  DEFAULT_REMINDER_LEAD_DAYS,
+  FREQUENCY_LABELS,
   MARKETING_BRIEF_EXEMPT_REQUEST_TYPES,
   MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
+  RECURRENCE_FREQUENCIES,
+  RECURRING_CATEGORIES,
   WORK_ORDER_CATEGORIES,
   WORK_ORDER_PRIORITIES,
   PROPERTIES,
   type MarketingRequestType,
+  type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
 import { cn } from '@/lib/utils'
 
@@ -63,6 +68,9 @@ const STEPS = [
     fields: [
       'description',
       'dueAt',
+      'frequency',
+      'reminderLeadDays',
+      'provider',
       'marketingRequestType',
       'marketingRequestTypeOther',
       'marketingEventName',
@@ -131,6 +139,9 @@ export function NewWorkOrderForm({
   const [assignedToValue, setAssignedToValue] = useState<string>(
     state.values?.assignedTo ?? ''
   )
+  const [frequencyValue, setFrequencyValue] = useState<string>(
+    state.values?.frequency ?? ''
+  )
   if (storedState !== state) {
     setStoredState(state)
     setStepErrors({})
@@ -138,6 +149,7 @@ export function NewWorkOrderForm({
     setPriorityValue(state.values?.priority ?? '')
     setPropertyValue(state.values?.property ?? '')
     setAssignedToValue(state.values?.assignedTo ?? '')
+    setFrequencyValue(state.values?.frequency ?? '')
     // After a failed submit, jump to the first step that has an error so the
     // user sees what needs fixing.
     if (state.status === 'error' && state.fieldErrors) {
@@ -161,6 +173,13 @@ export function NewWorkOrderForm({
       if (!val('priority')) errors.priority = 'Select a priority'
     } else if (index === 1) {
       if (!val('description')) errors.description = 'Description is required'
+      if (
+        RECURRING_CATEGORIES.has(categoryValue as WorkOrderCategory) &&
+        val('frequency') &&
+        !val('dueAt')
+      ) {
+        errors.dueAt = 'A first due date is required for recurring work orders'
+      }
       if (categoryValue === 'marketing') {
         const requestType = val('marketingRequestType')
         if (!requestType) {
@@ -420,6 +439,79 @@ export function NewWorkOrderForm({
             </Field>
           </FieldGroup>
         </FormSection>
+
+        {RECURRING_CATEGORIES.has(categoryValue as WorkOrderCategory) ? (
+          <FormSection
+            id="recurrence"
+            title="Repeat"
+            description="Make this a recurring inspection or license. The due date above is the first occurrence; later ones are filed automatically."
+          >
+            <FieldGroup className="flex flex-col gap-5">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="frequency">
+                    Frequency <Optional />
+                  </FieldLabel>
+                  <Select
+                    name="frequency"
+                    items={FREQUENCY_LABELS}
+                    value={frequencyValue}
+                    onValueChange={(v) => {
+                      setFrequencyValue(typeof v === 'string' ? v : '')
+                      editField('frequency')
+                      // Selecting a cadence makes the due date required, so clear
+                      // any stale due-date error as the requirement changes.
+                      editField('dueAt')
+                    }}
+                  >
+                    <SelectTrigger id="frequency" className="w-full">
+                      <SelectValue placeholder="Does not repeat" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={null}>Does not repeat</SelectItem>
+                      {RECURRENCE_FREQUENCIES.map((f) => (
+                        <SelectItem key={f} value={f}>
+                          {FREQUENCY_LABELS[f]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="reminderLeadDays">
+                    Email reminder (days before) <Optional />
+                  </FieldLabel>
+                  <Input
+                    id="reminderLeadDays"
+                    name="reminderLeadDays"
+                    type="number"
+                    min={0}
+                    max={365}
+                    inputMode="numeric"
+                    placeholder={String(DEFAULT_REMINDER_LEAD_DAYS)}
+                    defaultValue={state.values?.reminderLeadDays}
+                    onChange={() => editField('reminderLeadDays')}
+                  />
+                </Field>
+              </div>
+
+              <Field>
+                <FieldLabel htmlFor="provider">
+                  Provider <Optional />
+                </FieldLabel>
+                <Input
+                  id="provider"
+                  name="provider"
+                  autoComplete="off"
+                  placeholder="e.g. Cartersville Sprinkler"
+                  defaultValue={state.values?.provider}
+                  onChange={() => editField('provider')}
+                />
+              </Field>
+            </FieldGroup>
+          </FormSection>
+        ) : null}
 
         {categoryValue === 'marketing' ? (
           <FormSection

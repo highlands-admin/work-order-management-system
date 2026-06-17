@@ -60,6 +60,7 @@ type WorkOrder = {
   reported_by_name: string | null
   reported_by_email: string | null
   reported_by_phone: string | null
+  provider: string | null
   marketing_request_type: string | null
   marketing_request_type_other: string | null
   marketing_event_name: string | null
@@ -127,6 +128,7 @@ export function EditWorkOrderForm({
   const nameError = getError('reportedByName')
   const emailError = getError('reportedByEmail')
   const phoneError = getError('reportedByPhone')
+  const providerError = getError('provider')
 
   const marketingDefaults: MarketingDefaults = {
     requestType: workOrder.marketing_request_type ?? '',
@@ -440,6 +442,22 @@ export function EditWorkOrderForm({
               className="sm:max-w-sm"
             />
             <FieldError>{dueAtError}</FieldError>
+          </Field>
+
+          <Field data-invalid={providerError ? 'true' : undefined}>
+            <FieldLabel htmlFor="provider">
+              Provider <Optional />
+            </FieldLabel>
+            <Input
+              id="provider"
+              name="provider"
+              autoComplete="off"
+              placeholder="e.g. Cartersville Sprinkler"
+              defaultValue={state.values?.provider ?? workOrder.provider ?? ''}
+              onChange={() => markEdited('provider')}
+              aria-invalid={providerError ? true : undefined}
+            />
+            <FieldError>{providerError}</FieldError>
           </Field>
 
           <Field data-invalid={resolutionError ? 'true' : undefined}>

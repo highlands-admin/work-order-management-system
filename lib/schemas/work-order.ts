@@ -1,9 +1,9 @@
 import * as z from 'zod'
 
 export const WORK_ORDER_CATEGORIES = [
-  'maintenance',
   'it',
   'marketing',
+  'maintenance',
   'license',
   'compliance',
 ] as const
@@ -11,11 +11,11 @@ export const WORK_ORDER_CATEGORIES = [
 export type WorkOrderCategory = (typeof WORK_ORDER_CATEGORIES)[number]
 
 export const CATEGORY_LABELS: Record<WorkOrderCategory, string> = {
-  maintenance: 'Maintenance',
   it: 'IT',
   marketing: 'Marketing',
-  license: 'License',
-  compliance: 'Compliance',
+  maintenance: 'Maintenance',
+  license: 'Licenses',
+  compliance: 'Compliance/Inspection',
 }
 
 export const WORK_ORDER_STATUSES = [
@@ -99,6 +99,38 @@ export const PROPERTY_LABELS: Record<Property, string> = {
   columbia: 'Columbia',
   forest_city: 'Forest City',
 }
+
+// Recurrence cadences for recurring work orders (inspections and licenses).
+// Mirrors the recurrence_frequency enum in the database.
+export const RECURRENCE_FREQUENCIES = [
+  'one_time',
+  'weekly',
+  'monthly',
+  'quarterly',
+  'semiannual',
+  'annual',
+] as const
+
+export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number]
+
+export const FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
+  one_time: 'One-time',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  semiannual: 'Semi-annual',
+  annual: 'Annual',
+}
+
+// Default number of days before an occurrence's due date to email a reminder.
+export const DEFAULT_REMINDER_LEAD_DAYS = 14
+
+// Categories that can be made recurring through the form. Inspections and
+// licenses are the recurring compliance work; everything else stays one-off.
+export const RECURRING_CATEGORIES = new Set<WorkOrderCategory>([
+  'license',
+  'compliance',
+])
 
 // Marketing-specific fields. These are collected only for the 'marketing'
 // category and are required when that category is selected. The 'other' values
@@ -248,6 +280,7 @@ const baseWorkOrderFields = {
     z.email('Enter a valid email address').optional()
   ),
   reportedByPhone: trimmedOptional.pipe(z.string().max(30).optional()),
+  provider: trimmedOptional.pipe(z.string().max(200).optional()),
   marketingRequestType: optionalEnum(MARKETING_REQUEST_TYPES),
   marketingRequestTypeOther: trimmedOptional.pipe(z.string().max(200).optional()),
   marketingEventName: trimmedOptional.pipe(z.string().max(200).optional()),
@@ -364,10 +397,37 @@ function requireMarketingFields<
   }
 }
 
+// Recurrence is optional. When a frequency is chosen the work order is filed as
+// a recurring order: a template is created and its first occurrence is filed
+// immediately. The due date doubles as the first occurrence's date, so it is
+// required once a frequency is set.
+const recurrenceFields = {
+  frequency: optionalEnum(RECURRENCE_FREQUENCIES),
+  reminderLeadDays: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? Number(v) : undefined))
+    .pipe(z.number().int().min(0).max(365).optional()),
+}
+
+function requireRecurrenceAnchor<
+  T extends { frequency?: RecurrenceFrequency; dueAt?: string }
+>(data: T, ctx: z.RefinementCtx) {
+  if (data.frequency && !data.dueAt) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['dueAt'],
+      message: 'A first due date is required for recurring work orders',
+    })
+  }
+}
+
 export const createWorkOrderSchema = z
-  .object(baseWorkOrderFields)
+  .object({ ...baseWorkOrderFields, ...recurrenceFields })
   .superRefine(requirePropertyUnlessIT)
   .superRefine(requireMarketingFields)
+  .superRefine(requireRecurrenceAnchor)
 
 export type CreateWorkOrderInput = z.infer<typeof createWorkOrderSchema>
 

@@ -13,6 +13,7 @@ import {
 import { formatDateTime } from '@/lib/datetime/format'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import {
+  FREQUENCY_LABELS,
   MARKETING_REQUEST_TYPE_LABELS,
   MARKETING_SIZE_FORMAT_LABELS,
   MARKETING_TARGET_AUDIENCE_LABELS,
@@ -21,6 +22,7 @@ import {
   type MarketingSizeFormat,
   type MarketingTargetAudience,
   type Property,
+  type RecurrenceFrequency,
   type WorkOrderCategory,
   type WorkOrderPriority,
   type WorkOrderStatus,
@@ -72,6 +74,12 @@ type WorkOrderRow = {
   rejected_reason: string | null
   rejected_at: string | null
   rejected_by: string | null
+  provider: string | null
+  recurring_work_order_id: string | null
+  recurring: {
+    frequency: RecurrenceFrequency
+    next_due_at: string | null
+  } | null
   created_at: string
   updated_at: string
 }
@@ -96,7 +104,7 @@ export default async function WorkOrderDetailPage({
       supabase
         .from('work_orders')
         .select(
-          'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, created_at, updated_at'
+          'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, provider, recurring_work_order_id, recurring:recurring_work_orders(frequency, next_due_at), created_at, updated_at'
         )
         .eq('id', id)
         .maybeSingle<WorkOrderRow>(),
@@ -328,6 +336,20 @@ export default async function WorkOrderDetailPage({
                 )}
               </DetailItem>
               <DetailItem label="Unit">{data.unit_number ?? <Empty />}</DetailItem>
+              {data.provider ? (
+                <DetailItem label="Provider">{data.provider}</DetailItem>
+              ) : null}
+              {data.recurring ? (
+                <DetailItem label="Repeats">
+                  {FREQUENCY_LABELS[data.recurring.frequency]}
+                  {data.recurring.next_due_at ? (
+                    <span className="text-muted-foreground">
+                      {' · next '}
+                      {formatDateTime(data.recurring.next_due_at, timeZone)}
+                    </span>
+                  ) : null}
+                </DetailItem>
+              ) : null}
               <DetailItem label="Due">
                 {data.due_at ? (
                   <span
