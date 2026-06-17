@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+import { sendWorkOrderApprovedEmail } from '@/lib/email/send-approval-notification'
 import { sendApprovalRequestEmail } from '@/lib/email/send-approval-request-notification'
 import {
   sendWorkOrderAssignmentEmail,
@@ -18,7 +19,9 @@ import {
   rejectWorkOrderSchema,
   transitionStatusSchema,
   updateWorkOrderSchema,
+  type Property,
   type WorkOrderCategory,
+  type WorkOrderPriority,
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
@@ -64,6 +67,30 @@ async function notifyAssignee(
     })
   } catch (error) {
     console.error('Failed to send assignment notification', error)
+  }
+}
+
+// Emails the requester (the work order's creator) that their pending submission
+// has been approved. Never throws: a failed notification must not fail the
+// approval it follows. No-ops if the creator has no email on file.
+async function notifyRequesterApproved(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  createdBy: string,
+  approvedByName: string | null,
+  workOrder: AssignmentWorkOrder
+): Promise<void> {
+  try {
+    const users = await fetchAssignableUsers(supabase)
+    const requester = users.find((u) => u.user_id === createdBy)
+    if (!requester?.email) return
+    await sendWorkOrderApprovedEmail({
+      to: requester.email,
+      requesterFirstName: requester.first_name,
+      approvedByName,
+      workOrder,
+    })
+  } catch (error) {
+    console.error('Failed to send approval notification', error)
   }
 }
 
@@ -636,9 +663,7 @@ export async function approveWorkOrderAction(
 ): Promise<AuthState> {
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
-  const claims = claimsData?.claims as
-    | { sub?: string; user_role?: string }
-    | undefined
+  const claims = claimsData?.claims as ActorClaims | undefined
 
   if (!claims?.sub) {
     return formError(undefined, {}, 'You must be signed in to approve.')
@@ -647,7 +672,9 @@ export async function approveWorkOrderAction(
     return formError(undefined, {}, 'Only administrators can approve work orders.')
   }
 
-  const { error } = await supabase
+  // Select the approved row back so we can email the requester. The fields
+  // mirror the assignment notification's shape.
+  const { data: workOrder, error } = await supabase
     .from('work_orders')
     .update({
       status: 'open',
@@ -657,10 +684,44 @@ export async function approveWorkOrderAction(
       updated_by: claims.sub,
     })
     .eq('id', workOrderId)
+    .select(
+      'id, work_order_code, title, category, priority, status, property, unit_number, due_at, description, reported_by_name, reported_by_email, created_by'
+    )
+    .single<{
+      id: string
+      work_order_code: string
+      title: string
+      category: WorkOrderCategory
+      priority: WorkOrderPriority
+      status: WorkOrderStatus
+      property: Property | null
+      unit_number: string | null
+      due_at: string | null
+      description: string
+      reported_by_name: string | null
+      reported_by_email: string | null
+      created_by: string
+    }>()
 
   if (error) {
     return formError(undefined, {}, error.message)
   }
+
+  // Tell the requester their submission is now approved and active.
+  await notifyRequesterApproved(supabase, workOrder.created_by, actorName(claims), {
+    id: workOrder.id,
+    code: workOrder.work_order_code,
+    title: workOrder.title,
+    category: workOrder.category,
+    priority: workOrder.priority,
+    status: workOrder.status,
+    property: workOrder.property,
+    unitNumber: workOrder.unit_number,
+    dueAt: workOrder.due_at,
+    description: workOrder.description,
+    reporterName: workOrder.reported_by_name,
+    reporterEmail: workOrder.reported_by_email,
+  })
 
   revalidatePath('/work-orders/submissions')
   revalidatePath('/work-orders')
