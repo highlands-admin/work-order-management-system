@@ -125,6 +125,21 @@ export const FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = {
 // Default number of days before an occurrence's due date to email a reminder.
 export const DEFAULT_REMINDER_LEAD_DAYS = 14
 
+// Calendar-style alert lead times offered when setting up a recurring schedule.
+// Each value is the number of days before the due date to email an alert.
+export const REMINDER_LEAD_OPTIONS = [
+  { value: 1, label: '1 day before' },
+  { value: 3, label: '3 days before' },
+  { value: 7, label: '1 week before' },
+  { value: 14, label: '2 weeks before' },
+  { value: 30, label: '1 month before' },
+  { value: 60, label: '2 months before' },
+] as const
+
+export const REMINDER_LEAD_LABELS: Record<number, string> = Object.fromEntries(
+  REMINDER_LEAD_OPTIONS.map((o) => [o.value, o.label])
+)
+
 // Categories that can be made recurring through the form. Inspections and
 // licenses are the recurring compliance work; everything else stays one-off.
 export const RECURRING_CATEGORIES = new Set<WorkOrderCategory>([
@@ -403,12 +418,16 @@ function requireMarketingFields<
 // required once a frequency is set.
 const recurrenceFields = {
   frequency: optionalEnum(RECURRENCE_FREQUENCIES),
+  // Calendar-style alerts: zero or more lead times (days before due), deduped.
   reminderLeadDays: z
-    .string()
-    .trim()
+    .array(z.coerce.number().int().min(0).max(365))
     .optional()
-    .transform((v) => (v && v.length > 0 ? Number(v) : undefined))
-    .pipe(z.number().int().min(0).max(365).optional()),
+    .transform((v) => (v && v.length > 0 ? Array.from(new Set(v)) : undefined)),
+  // People (user ids) who receive the alerts, deduped.
+  reminderRecipients: z
+    .array(z.uuid())
+    .optional()
+    .transform((v) => (v && v.length > 0 ? Array.from(new Set(v)) : undefined)),
 }
 
 function requireRecurrenceAnchor<

@@ -8,6 +8,7 @@ import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
+  REMINDER_LEAD_LABELS,
   STATUS_LABELS,
   type Property,
   type WorkOrderCategory,
@@ -33,6 +34,8 @@ export type ReminderWorkOrder = {
 type SendReminderInput = {
   to: string
   recipientFirstName?: string | null
+  // Which alert this is (days before due), for the email's "Alert" detail line.
+  leadDays?: number
   workOrder: ReminderWorkOrder
 }
 
@@ -62,6 +65,13 @@ export async function sendRecurrenceReminderEmail(
   if (wo.unitNumber) rows.push({ label: 'Unit', value: wo.unitNumber })
   if (wo.provider) rows.push({ label: 'Provider', value: wo.provider })
   if (wo.dueAt) rows.push({ label: 'Due', value: formatDateTime(wo.dueAt) })
+  if (input.leadDays !== undefined) {
+    rows.push({
+      label: 'Alert',
+      value:
+        REMINDER_LEAD_LABELS[input.leadDays] ?? `${input.leadDays} days before`,
+    })
+  }
 
   const templateInput = {
     greeting: input.recipientFirstName ? `Hi ${input.recipientFirstName},` : 'Hi,',

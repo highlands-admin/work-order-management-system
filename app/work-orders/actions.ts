@@ -11,7 +11,6 @@ import {
 } from '@/lib/email/send-assignment-notification'
 import {
   APPROVAL_REQUIRED_ROLES,
-  DEFAULT_REMINDER_LEAD_DAYS,
   MAIN_TABLE_STATUSES,
   addWorkOrderNoteSchema,
   changeStatusSchema,
@@ -149,6 +148,13 @@ export async function createWorkOrderAction(
   const marketingSizeFormat = formData
     .getAll('marketingSizeFormat')
     .map((v) => String(v))
+  // Calendar-style alerts and recipients arrive as repeated form fields.
+  const reminderLeadDays = formData
+    .getAll('reminderLeadDays')
+    .map((v) => String(v))
+  const reminderRecipients = formData
+    .getAll('reminderRecipients')
+    .map((v) => String(v))
   const raw = {
     title: String(formData.get('title') ?? ''),
     category: String(formData.get('category') ?? ''),
@@ -163,7 +169,8 @@ export async function createWorkOrderAction(
     reportedByPhone: String(formData.get('reportedByPhone') ?? ''),
     provider: String(formData.get('provider') ?? ''),
     frequency: String(formData.get('frequency') ?? ''),
-    reminderLeadDays: String(formData.get('reminderLeadDays') ?? ''),
+    reminderLeadDays,
+    reminderRecipients,
     marketingRequestType: String(formData.get('marketingRequestType') ?? ''),
     marketingRequestTypeOther: String(
       formData.get('marketingRequestTypeOther') ?? ''
@@ -185,6 +192,8 @@ export async function createWorkOrderAction(
     ...raw,
     marketingTargetAudience: marketingTargetAudience.join(','),
     marketingSizeFormat: marketingSizeFormat.join(','),
+    reminderLeadDays: reminderLeadDays.join(','),
+    reminderRecipients: reminderRecipients.join(','),
   }
 
   const parsed = createWorkOrderSchema.safeParse(raw)
@@ -224,6 +233,12 @@ export async function createWorkOrderAction(
   // occurrence, so the template is created already inactive.
   let recurringWorkOrderId: string | null = null
   if (parsed.data.frequency && parsed.data.dueAt) {
+    const leadDays = parsed.data.reminderLeadDays ?? []
+    const recipients = parsed.data.reminderRecipients ?? []
+    // Occurrences must be generated before the earliest alert can fire, so the
+    // generation window covers the largest lead time (at least the 30-day default).
+    const generationLeadDays = Math.max(30, ...leadDays)
+
     const { data: template, error: templateError } = await supabase
       .from('recurring_work_orders')
       .insert({
@@ -241,8 +256,9 @@ export async function createWorkOrderAction(
           parsed.data.dueAt,
           parsed.data.frequency
         ),
-        reminder_lead_days:
-          parsed.data.reminderLeadDays ?? DEFAULT_REMINDER_LEAD_DAYS,
+        reminder_lead_days: leadDays,
+        reminder_recipients: recipients,
+        generation_lead_days: generationLeadDays,
         active: parsed.data.frequency !== 'one_time',
         created_by: claims.sub,
         updated_by: claims.sub,

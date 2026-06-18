@@ -31,7 +31,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
-  DEFAULT_REMINDER_LEAD_DAYS,
   FREQUENCY_LABELS,
   MARKETING_BRIEF_EXEMPT_REQUEST_TYPES,
   MARKETING_DESCRIPTION_PLACEHOLDER,
@@ -55,6 +54,7 @@ import {
 import { initialAuthState } from '../../(auth)/auth-state'
 import { createWorkOrderAction } from '../actions'
 import { MarketingFields, emptyMarketingDefaults } from '../marketing-fields'
+import { RecurrenceReminders } from './recurrence-reminders'
 
 const DESCRIPTION_PLACEHOLDER =
   'What needs to be done? Include anything a technician should know.'
@@ -117,6 +117,19 @@ export function NewWorkOrderForm({
 
   // Notes are kept in local state so they survive failed form submissions.
   const [notes, setNotes] = useState<string[]>([])
+
+  // Seed recurrence reminder defaults: a single 2-week alert on a fresh form, or
+  // the echoed values after a failed submit so selections survive validation.
+  const reminderLeadDefaults =
+    state.values?.reminderLeadDays === undefined
+      ? [14]
+      : state.values.reminderLeadDays
+          .split(',')
+          .filter(Boolean)
+          .map(Number)
+  const reminderRecipientDefaults = (state.values?.reminderRecipients ?? '')
+    .split(',')
+    .filter(Boolean)
   const [step, setStep] = useState(0)
   // Client-side validation errors for the current step. Merged with server
   // errors for display, and cleared as the user edits each field.
@@ -479,36 +492,25 @@ export function NewWorkOrderForm({
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="reminderLeadDays">
-                    Email reminder (days before) <Optional />
+                  <FieldLabel htmlFor="provider">
+                    Provider <Optional />
                   </FieldLabel>
                   <Input
-                    id="reminderLeadDays"
-                    name="reminderLeadDays"
-                    type="number"
-                    min={0}
-                    max={365}
-                    inputMode="numeric"
-                    placeholder={String(DEFAULT_REMINDER_LEAD_DAYS)}
-                    defaultValue={state.values?.reminderLeadDays}
-                    onChange={() => editField('reminderLeadDays')}
+                    id="provider"
+                    name="provider"
+                    autoComplete="off"
+                    placeholder="e.g. Cartersville Sprinkler"
+                    defaultValue={state.values?.provider}
+                    onChange={() => editField('provider')}
                   />
                 </Field>
               </div>
 
-              <Field>
-                <FieldLabel htmlFor="provider">
-                  Provider <Optional />
-                </FieldLabel>
-                <Input
-                  id="provider"
-                  name="provider"
-                  autoComplete="off"
-                  placeholder="e.g. Cartersville Sprinkler"
-                  defaultValue={state.values?.provider}
-                  onChange={() => editField('provider')}
-                />
-              </Field>
+              <RecurrenceReminders
+                assignableUsers={assignableUsers}
+                defaultLeadDays={reminderLeadDefaults}
+                defaultRecipients={reminderRecipientDefaults}
+              />
             </FieldGroup>
           </FormSection>
         ) : null}

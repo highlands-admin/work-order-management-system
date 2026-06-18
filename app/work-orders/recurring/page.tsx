@@ -9,6 +9,7 @@ import { getTimeZone } from '@/lib/datetime/timezone'
 import {
   FREQUENCY_LABELS,
   PROPERTY_LABELS,
+  REMINDER_LEAD_LABELS,
   type Property,
   type RecurrenceFrequency,
   type WorkOrderCategory,
@@ -35,7 +36,8 @@ type RecurringRow = {
   recurrence_interval: number
   anchor_date: string
   next_due_at: string | null
-  reminder_lead_days: number
+  reminder_lead_days: number[]
+  reminder_recipients: string[]
   assigned_to: string | null
   active: boolean
 }
@@ -58,7 +60,7 @@ export default async function RecurringWorkOrdersPage({
     supabase
       .from('recurring_work_orders')
       .select(
-        'id, title, category, property, unit_number, provider, frequency, recurrence_interval, anchor_date, next_due_at, reminder_lead_days, assigned_to, active'
+        'id, title, category, property, unit_number, provider, frequency, recurrence_interval, anchor_date, next_due_at, reminder_lead_days, reminder_recipients, assigned_to, active'
       )
       .order('active', { ascending: false })
       .order('next_due_at', { ascending: true, nullsFirst: false })
@@ -114,7 +116,8 @@ export default async function RecurringWorkOrdersPage({
                 <th className="px-4 py-3">Frequency</th>
                 <th className="px-4 py-3">Property</th>
                 <th className="px-4 py-3">Next due</th>
-                <th className="px-4 py-3">Reminder</th>
+                <th className="px-4 py-3">Alerts</th>
+                <th className="px-4 py-3">Recipients</th>
                 <th className="px-4 py-3">Assignee</th>
                 <th className="px-4 py-3">State</th>
               </tr>
@@ -152,7 +155,24 @@ export default async function RecurringWorkOrdersPage({
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {row.reminder_lead_days} days before
+                    {row.reminder_lead_days.length > 0
+                      ? row.reminder_lead_days
+                          .slice()
+                          .sort((a, b) => a - b)
+                          .map(
+                            (d) => REMINDER_LEAD_LABELS[d] ?? `${d} days before`
+                          )
+                          .join(', ')
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {row.reminder_recipients.length > 0
+                      ? `${row.reminder_recipients.length} ${
+                          row.reminder_recipients.length === 1
+                            ? 'person'
+                            : 'people'
+                        }`
+                      : '—'}
                   </td>
                   <td className="px-4 py-3">
                     {row.assigned_to ? (

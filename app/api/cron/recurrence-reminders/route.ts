@@ -10,10 +10,13 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // Triggered daily by pg_cron via pg_net (see the schedule_recurring_jobs
-// migration). It emails a reminder for every recurring occurrence inside its
-// reminder window that has not been reminded yet, then stamps reminder_sent_at
-// so each occurrence is only ever emailed once. The caller is authenticated with
-// a shared secret because this runs with the service role and bypasses RLS.
+// migration). The RPC returns one row per (occurrence, alert lead time) that is
+// due and not yet sent, with the schedule's recipient list. For each, it emails
+// every recipient and records the alert as sent so it never repeats. The caller
+// is authenticated with a shared secret because this runs with the service role
+// and bypasses RLS.
+
+type Recipient = { email: string | null; first_name: string | null }
 
 type ReminderRow = {
   id: string
@@ -27,8 +30,8 @@ type ReminderRow = {
   due_at: string | null
   description: string
   provider: string | null
-  recipient_email: string | null
-  recipient_name: string | null
+  lead_days: number
+  recipients: Recipient[]
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
@@ -53,53 +56,69 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 
   const rows = (data ?? []) as ReminderRow[]
-  let sent = 0
-  let failed = 0
+  let emailsSent = 0
+  let emailsFailed = 0
   let skipped = 0
 
   for (const row of rows) {
-    // A generated occurrence always has a creator, so a missing recipient email
-    // means the user has no address on file; skip rather than fail the batch.
-    if (!row.recipient_email) {
+    const recipients = (row.recipients ?? []).filter((r) => r.email)
+    if (recipients.length === 0) {
       skipped += 1
       continue
     }
 
-    const { error: sendError } = await sendRecurrenceReminderEmail({
-      to: row.recipient_email,
-      recipientFirstName: row.recipient_name,
-      workOrder: {
-        id: row.id,
-        code: row.work_order_code,
-        title: row.title,
-        category: row.category,
-        priority: row.priority,
-        status: row.status,
-        property: row.property,
-        unitNumber: row.unit_number,
-        dueAt: row.due_at,
-        description: row.description,
-        provider: row.provider,
-      },
+    const workOrder = {
+      id: row.id,
+      code: row.work_order_code,
+      title: row.title,
+      category: row.category,
+      priority: row.priority,
+      status: row.status,
+      property: row.property,
+      unitNumber: row.unit_number,
+      dueAt: row.due_at,
+      description: row.description,
+      provider: row.provider,
+    }
+
+    for (const recipient of recipients) {
+      const { error: sendError } = await sendRecurrenceReminderEmail({
+        to: recipient.email as string,
+        recipientFirstName: recipient.first_name,
+        leadDays: row.lead_days,
+        workOrder,
+      })
+      if (sendError) {
+        emailsFailed += 1
+        console.error('Recurrence reminder send failed', {
+          workOrder: row.id,
+          leadDays: row.lead_days,
+          to: recipient.email,
+          error: sendError,
+        })
+      } else {
+        emailsSent += 1
+      }
+    }
+
+    // Mark this alert as sent for the occurrence so it never repeats, even if a
+    // recipient failed (logged above), to avoid re-emailing the rest.
+    const { error: recordError } = await supabase.rpc('record_reminder_sent', {
+      p_work_order_id: row.id,
+      p_lead_days: row.lead_days,
     })
-
-    if (sendError) {
-      // Leave reminder_sent_at unset so the next run retries this occurrence.
-      failed += 1
-      continue
+    if (recordError) {
+      console.error('record_reminder_sent failed', {
+        workOrder: row.id,
+        error: recordError.message,
+      })
     }
-
-    const { error: stampError } = await supabase
-      .from('work_orders')
-      .update({ reminder_sent_at: new Date().toISOString() })
-      .eq('id', row.id)
-
-    if (stampError) {
-      failed += 1
-      continue
-    }
-    sent += 1
   }
 
-  return NextResponse.json({ processed: rows.length, sent, failed, skipped })
+  return NextResponse.json({
+    alerts: rows.length,
+    emailsSent,
+    emailsFailed,
+    skipped,
+  })
 }
