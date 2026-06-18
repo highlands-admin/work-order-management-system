@@ -14,7 +14,7 @@ export const CATEGORY_LABELS: Record<WorkOrderCategory, string> = {
   it: 'IT',
   marketing: 'Marketing',
   maintenance: 'Maintenance',
-  license: 'Licenses',
+  license: 'License/Permit',
   compliance: 'Compliance/Inspection',
 }
 
