@@ -6,17 +6,21 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 
 // Goes back to wherever the user came from (the list, the approval queue, a
-// search result) rather than always to the work orders table. Falls back to
-// the list when there is no in-app history, for example on a fresh tab or a
-// shared link opened directly.
-export function BackButton() {
+// search result) rather than always to a fixed page. Falls back to fallbackHref
+// when there is no in-app history, for example on a fresh tab or a shared link
+// opened directly.
+export function BackButton({
+  fallbackHref = '/work-orders',
+}: {
+  fallbackHref?: string
+}) {
   const router = useRouter()
 
   function handleBack() {
     if (window.history.length > 1) {
       router.back()
     } else {
-      router.push('/work-orders')
+      router.push(fallbackHref)
     }
   }
 

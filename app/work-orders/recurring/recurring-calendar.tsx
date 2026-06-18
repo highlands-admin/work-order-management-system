@@ -1,12 +1,31 @@
 'use client'
 
-import { RiArrowLeftSLine, RiArrowRightSLine } from '@remixicon/react'
-import { useMemo, useState } from 'react'
-
-import { Button } from '@/components/ui/button'
 import {
-  CATEGORY_LABELS,
+  RiArrowLeftSLine,
+  RiArrowRightSLine,
+  RiCalendarEventLine,
+  RiMapPinLine,
+  RiPauseCircleLine,
+  RiPencilLine,
+  RiRepeatLine,
+  RiToolsLine,
+  type RemixiconComponentType,
+} from '@remixicon/react'
+import Link from 'next/link'
+import { useMemo, useState, type ReactNode } from 'react'
+
+import { Button, buttonVariants } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { CategoryBadge } from '@/components/work-orders/work-order-badge'
+import {
   FREQUENCY_LABELS,
+  PROPERTY_LABELS,
+  type Property,
   type RecurrenceFrequency,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
@@ -17,6 +36,8 @@ export type CalendarSchedule = {
   id: string
   title: string
   category: WorkOrderCategory
+  property: Property | null
+  unit_number: string | null
   frequency: RecurrenceFrequency
   recurrence_interval: number
   anchor_date: string
@@ -31,15 +52,49 @@ function dateKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 }
 
+function firstOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1)
+}
+
+// Open the calendar on the month of the nearest upcoming occurrence across all
+// schedules, so a newly created (often months-out) schedule is visible right
+// away instead of landing on an empty current month. Falls back to this month.
+function initialMonth(schedules: CalendarSchedule[]): Date {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const horizonEnd = new Date(
+    today.getFullYear() + 2,
+    today.getMonth(),
+    today.getDate()
+  )
+
+  let earliest: Date | null = null
+  for (const s of schedules) {
+    if (!s.active && s.frequency !== 'one_time') continue
+    const occurrences = occurrencesInRange(
+      s.anchor_date,
+      s.frequency,
+      s.recurrence_interval,
+      today,
+      horizonEnd
+    )
+    for (const occ of occurrences) {
+      if (!earliest || occ < earliest) earliest = occ
+    }
+  }
+
+  return firstOfMonth(earliest ?? today)
+}
+
 export function RecurringCalendar({
   schedules,
+  canEdit = false,
 }: {
   schedules: CalendarSchedule[]
+  canEdit?: boolean
 }) {
   const today = new Date()
-  const [month, setMonth] = useState(
-    () => new Date(today.getFullYear(), today.getMonth(), 1)
-  )
+  const [month, setMonth] = useState(() => initialMonth(schedules))
 
   const { cells, byDate } = useMemo(() => {
     const monthStart = new Date(month.getFullYear(), month.getMonth(), 1)
@@ -167,13 +222,12 @@ export function RecurringCalendar({
 
               <div className="flex flex-col gap-1">
                 {items.slice(0, MAX_CHIPS).map((s) => (
-                  <span
+                  <ScheduleChip
                     key={s.id}
-                    title={`${s.title} · ${CATEGORY_LABELS[s.category]} · ${FREQUENCY_LABELS[s.frequency]}${s.provider ? ` · ${s.provider}` : ''}`}
-                    className="truncate rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary"
-                  >
-                    {s.title}
-                  </span>
+                    schedule={s}
+                    date={d}
+                    canEdit={canEdit}
+                  />
                 ))}
                 {items.length > MAX_CHIPS ? (
                   <span className="px-1 text-[11px] text-muted-foreground">
@@ -185,6 +239,122 @@ export function RecurringCalendar({
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// A calendar chip that pops a detail card on click, scaling out from the chip
+// (the popover's transform origin), like an Apple Calendar event. Editors get an
+// Edit button inside.
+function ScheduleChip({
+  schedule,
+  date,
+  canEdit,
+}: {
+  schedule: CalendarSchedule
+  date: Date
+  canEdit: boolean
+}) {
+  const dueLabel = date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  const location = schedule.property
+    ? schedule.unit_number
+      ? `${PROPERTY_LABELS[schedule.property]} · Unit ${schedule.unit_number}`
+      : PROPERTY_LABELS[schedule.property]
+    : null
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="block w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-left text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
+          >
+            {schedule.title}
+          </button>
+        }
+      />
+      <PopoverContent align="start" className="w-72 gap-0 overflow-hidden p-0">
+        {/* Header: accent bar, then the title with the category to its right, and
+            the occurrence date below. */}
+        <div className="flex gap-3 px-4 pb-3.5 pt-4">
+          <span
+            aria-hidden="true"
+            className="w-1 shrink-0 self-stretch rounded-full bg-primary"
+          />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex items-start justify-between gap-2">
+              <PopoverTitle className="min-w-0 font-heading text-[15px] font-semibold leading-relaxed">
+                {schedule.title}
+              </PopoverTitle>
+              <CategoryBadge
+                category={schedule.category}
+                className="mt-0.5 shrink-0"
+              />
+            </div>
+            <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+              <RiCalendarEventLine
+                className="mt-0.5 size-3.5 shrink-0"
+                aria-hidden="true"
+              />
+              {dueLabel}
+            </p>
+          </div>
+        </div>
+
+        {/* Metadata */}
+        <div className="flex flex-col gap-2.5 border-t px-4 py-3 text-xs">
+          <MetaRow icon={RiRepeatLine}>
+            Repeats {FREQUENCY_LABELS[schedule.frequency].toLowerCase()}
+          </MetaRow>
+          {location ? <MetaRow icon={RiMapPinLine}>{location}</MetaRow> : null}
+          {schedule.provider ? (
+            <MetaRow icon={RiToolsLine}>{schedule.provider}</MetaRow>
+          ) : null}
+          {!schedule.active ? (
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+              <RiPauseCircleLine className="size-3.5 shrink-0" aria-hidden="true" />
+              Paused
+            </div>
+          ) : null}
+        </div>
+
+        {canEdit ? (
+          <div className="border-t p-2">
+            <Link
+              href={`/work-orders/recurring/${schedule.id}/edit`}
+              className={buttonVariants({
+                variant: 'ghost',
+                size: 'sm',
+                className: 'w-full justify-center gap-1.5',
+              })}
+            >
+              <RiPencilLine className="size-3.5" aria-hidden="true" />
+              Edit schedule
+            </Link>
+          </div>
+        ) : null}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function MetaRow({
+  icon: Icon,
+  children,
+}: {
+  icon: RemixiconComponentType
+  children: ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-2 text-muted-foreground">
+      <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+      <span className="truncate text-foreground">{children}</span>
     </div>
   )
 }

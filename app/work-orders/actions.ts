@@ -17,6 +17,7 @@ import {
   createWorkOrderSchema,
   rejectWorkOrderSchema,
   transitionStatusSchema,
+  updateRecurringWorkOrderSchema,
   updateWorkOrderSchema,
   type Property,
   type WorkOrderCategory,
@@ -909,6 +910,138 @@ export async function deleteWorkOrderNoteAction(
 
   revalidatePath(`/work-orders/${data.work_order_id}`)
   return { status: 'success', message: 'Note deleted.' }
+}
+
+// Edits a recurring schedule (the template). Administrators and requesters may
+// edit any schedule, mirroring the RLS update policy. The next due date
+// re-anchors the series, and the generation window is widened to cover the
+// largest alert so every alert can fire on time.
+export async function updateRecurringWorkOrderAction(
+  recurringId: string,
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const reminderLeadDays = formData
+    .getAll('reminderLeadDays')
+    .map((v) => String(v))
+  const reminderRecipients = formData
+    .getAll('reminderRecipients')
+    .map((v) => String(v))
+  const raw = {
+    title: String(formData.get('title') ?? ''),
+    category: String(formData.get('category') ?? ''),
+    priority: String(formData.get('priority') ?? ''),
+    property: String(formData.get('property') ?? ''),
+    unitNumber: String(formData.get('unitNumber') ?? ''),
+    description: String(formData.get('description') ?? ''),
+    provider: String(formData.get('provider') ?? ''),
+    assignedTo: String(formData.get('assignedTo') ?? ''),
+    frequency: String(formData.get('frequency') ?? ''),
+    dueAt: String(formData.get('dueAt') ?? ''),
+    reminderLeadDays,
+    reminderRecipients,
+    active: String(formData.get('active') ?? 'true'),
+  }
+  const values = {
+    ...raw,
+    reminderLeadDays: reminderLeadDays.join(','),
+    reminderRecipients: reminderRecipients.join(','),
+  }
+
+  const parsed = updateRecurringWorkOrderSchema.safeParse(raw)
+  if (!parsed.success) {
+    return formError(z4FieldErrors(parsed.error), values)
+  }
+
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as ActorClaims | undefined
+
+  if (!claims?.sub) {
+    return formError(undefined, values, 'You must be signed in to edit a schedule.')
+  }
+  if (!EDITOR_ROLES.includes(claims.user_role as EditorRole)) {
+    return formError(
+      undefined,
+      values,
+      'Your role is not permitted to edit recurring schedules.'
+    )
+  }
+
+  const dueAt = parsed.data.dueAt
+  if (!dueAt) {
+    return formError(undefined, values, 'A next due date is required.')
+  }
+
+  const leadDays = parsed.data.reminderLeadDays ?? []
+  const recipients = parsed.data.reminderRecipients ?? []
+  const generationLeadDays = Math.max(30, ...leadDays)
+
+  const { error } = await supabase
+    .from('recurring_work_orders')
+    .update({
+      title: parsed.data.title,
+      category: parsed.data.category,
+      priority: parsed.data.priority,
+      property: parsed.data.property ?? null,
+      unit_number: parsed.data.unitNumber ?? null,
+      description: parsed.data.description,
+      provider: parsed.data.provider ?? null,
+      assigned_to: parsed.data.assignedTo ?? null,
+      frequency: parsed.data.frequency,
+      anchor_date: dueAt.slice(0, 10),
+      next_due_at: dueAt,
+      reminder_lead_days: leadDays,
+      reminder_recipients: recipients,
+      generation_lead_days: generationLeadDays,
+      active: parsed.data.active,
+      updated_by: claims.sub,
+    })
+    .eq('id', recurringId)
+
+  if (error) {
+    return formError(undefined, values, error.message)
+  }
+
+  revalidatePath('/work-orders/recurring')
+  redirect('/work-orders/recurring?view=table')
+}
+
+// Deletes a recurring schedule. Generated occurrences keep existing; their link
+// is cleared by the on-delete-set-null foreign key.
+export async function deleteRecurringWorkOrderAction(
+  recurringId: string,
+  _prev: AuthState,
+  _formData: FormData
+): Promise<AuthState> {
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as
+    | { sub?: string; user_role?: string }
+    | undefined
+
+  if (!claims?.sub) {
+    return formError(undefined, {}, 'You must be signed in to delete a schedule.')
+  }
+  if (!EDITOR_ROLES.includes(claims.user_role as EditorRole)) {
+    return formError(
+      undefined,
+      {},
+      'Your role is not permitted to delete recurring schedules.'
+    )
+  }
+
+  const { error } = await supabase
+    .from('recurring_work_orders')
+    .delete()
+    .eq('id', recurringId)
+
+  if (error) {
+    return formError(undefined, {}, error.message)
+  }
+
+  revalidatePath('/work-orders/recurring')
+  redirect('/work-orders/recurring?view=table')
 }
 
 function z4FieldErrors(error: {

@@ -465,6 +465,60 @@ export const updateWorkOrderSchema = z
 
 export type UpdateWorkOrderInput = z.infer<typeof updateWorkOrderSchema>
 
+// Editing a recurring schedule (the template). Covers the schedule's own fields
+// plus its cadence, alerts, recipients, and active state. dueAt is the next
+// occurrence's date and is required.
+export const updateRecurringWorkOrderSchema = z
+  .object({
+    title: z.string().trim().min(1, 'Title is required').max(120, 'Title is too long'),
+    category: z.enum(WORK_ORDER_CATEGORIES, { message: 'Select a category' }),
+    priority: z.enum(WORK_ORDER_PRIORITIES, { message: 'Select a priority' }),
+    property: optionalProperty,
+    unitNumber: trimmedOptional.pipe(z.string().max(10).optional()),
+    description: z
+      .string()
+      .trim()
+      .min(1, 'Description is required')
+      .max(5000, 'Description is too long'),
+    provider: trimmedOptional.pipe(z.string().max(200).optional()),
+    assignedTo: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : undefined))
+      .pipe(z.uuid({ message: 'Select a valid assignee' }).optional()),
+    frequency: z.enum(RECURRENCE_FREQUENCIES, { message: 'Select a frequency' }),
+    dueAt: trimmedOptional.pipe(
+      z.iso.datetime({ offset: true, message: 'Enter a valid date and time' }).optional()
+    ),
+    reminderLeadDays: z
+      .array(z.coerce.number().int().min(0).max(365))
+      .optional()
+      .transform((v) => (v && v.length > 0 ? Array.from(new Set(v)) : undefined)),
+    reminderRecipients: z
+      .array(z.uuid())
+      .optional()
+      .transform((v) => (v && v.length > 0 ? Array.from(new Set(v)) : undefined)),
+    active: z
+      .string()
+      .optional()
+      .transform((v) => v === 'true'),
+  })
+  .superRefine(requirePropertyUnlessIT)
+  .superRefine((data, ctx) => {
+    if (!data.dueAt) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['dueAt'],
+        message: 'A next due date is required',
+      })
+    }
+  })
+
+export type UpdateRecurringWorkOrderInput = z.infer<
+  typeof updateRecurringWorkOrderSchema
+>
+
 // Marking a work order Done requires a resolution describing how it was
 // completed. Shared by the two status-change paths below.
 function requireResolutionOnDone<

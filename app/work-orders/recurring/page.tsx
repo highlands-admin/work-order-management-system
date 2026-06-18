@@ -2,14 +2,8 @@ import { RiRepeatLine } from '@remixicon/react'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-import { Badge } from '@/components/ui/badge'
-import { CategoryBadge } from '@/components/work-orders/work-order-badge'
-import { formatDateTime } from '@/lib/datetime/format'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import {
-  FREQUENCY_LABELS,
-  PROPERTY_LABELS,
-  REMINDER_LEAD_LABELS,
   type Property,
   type RecurrenceFrequency,
   type WorkOrderCategory,
@@ -21,9 +15,12 @@ import {
 } from '@/lib/work-orders/assignable-users'
 
 import { RecurringCalendar, type CalendarSchedule } from './recurring-calendar'
+import { RecurringTable } from './recurring-table'
 import { RecurringViewToggle } from './view-toggle'
 
 export const metadata: Metadata = { title: 'Recurring Schedules' }
+
+const EDITOR_ROLES = new Set(['administrator', 'requester'])
 
 type RecurringRow = {
   id: string
@@ -73,11 +70,16 @@ export default async function RecurringWorkOrdersPage({
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
   const rows = data ?? []
+  const canEdit = claims.user_role
+    ? EDITOR_ROLES.has(claims.user_role)
+    : false
 
   const calendarSchedules: CalendarSchedule[] = rows.map((row) => ({
     id: row.id,
     title: row.title,
     category: row.category,
+    property: row.property,
+    unit_number: row.unit_number,
     frequency: row.frequency,
     recurrence_interval: row.recurrence_interval,
     anchor_date: row.anchor_date,
@@ -103,98 +105,16 @@ export default async function RecurringWorkOrdersPage({
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>
       ) : view === 'calendar' ? (
-        <RecurringCalendar schedules={calendarSchedules} />
+        <RecurringCalendar schedules={calendarSchedules} canEdit={canEdit} />
       ) : rows.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b bg-muted/30 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3">Title</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Frequency</th>
-                <th className="px-4 py-3">Property</th>
-                <th className="px-4 py-3">Next due</th>
-                <th className="px-4 py-3">Alerts</th>
-                <th className="px-4 py-3">Recipients</th>
-                <th className="px-4 py-3">Assignee</th>
-                <th className="px-4 py-3">State</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b last:border-0 align-top"
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-foreground">{row.title}</div>
-                    {row.provider ? (
-                      <div className="text-xs text-muted-foreground">
-                        {row.provider}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    <CategoryBadge category={row.category} />
-                  </td>
-                  <td className="px-4 py-3">{FREQUENCY_LABELS[row.frequency]}</td>
-                  <td className="px-4 py-3">
-                    {row.property ? (
-                      PROPERTY_LABELS[row.property]
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {row.next_due_at ? (
-                      formatDateTime(row.next_due_at, timeZone)
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {row.reminder_lead_days.length > 0
-                      ? row.reminder_lead_days
-                          .slice()
-                          .sort((a, b) => a - b)
-                          .map(
-                            (d) => REMINDER_LEAD_LABELS[d] ?? `${d} days before`
-                          )
-                          .join(', ')
-                      : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {row.reminder_recipients.length > 0
-                      ? `${row.reminder_recipients.length} ${
-                          row.reminder_recipients.length === 1
-                            ? 'person'
-                            : 'people'
-                        }`
-                      : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    {row.assigned_to ? (
-                      (userLabelById.get(row.assigned_to) ?? '—')
-                    ) : (
-                      <span className="text-muted-foreground">Unassigned</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {row.active ? (
-                      <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Ended</Badge>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RecurringTable
+          schedules={rows}
+          userLabelById={Object.fromEntries(userLabelById)}
+          timeZone={timeZone}
+          canEdit={canEdit}
+        />
       )}
     </div>
   )
