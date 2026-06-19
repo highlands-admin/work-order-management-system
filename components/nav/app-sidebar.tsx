@@ -9,12 +9,19 @@ import {
   RiInboxLine,
   RiMailAddLine,
   RiMailSendLine,
+  RiNotification3Line,
   RiRepeatLine,
 } from '@remixicon/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import type { ComponentProps, ComponentType } from 'react'
+import {
+  useEffect,
+  useState,
+  type ComponentProps,
+  type ComponentType,
+} from 'react'
 
+import { createClient } from '@/lib/supabase/client'
 import {
   Sidebar,
   SidebarContent,
@@ -65,6 +72,26 @@ export function AppSidebar({
 }: { userRole: string | undefined } & ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
+
+  // Unread notification count for the badge. Refetched on navigation (so it
+  // updates after the user reads notifications) via the browser client; RLS
+  // scopes the count to the signed-in user.
+  const [unreadCount, setUnreadCount] = useState(0)
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .is('read_at', null)
+      .then(({ count }) => {
+        if (active) setUnreadCount(count ?? 0)
+      })
+    return () => {
+      active = false
+    }
+  }, [pathname])
+
   const canFile = userRole ? FILER_ROLES.has(userRole) : false
   const isAdmin = userRole === 'administrator'
   // The dashboard is an operations overview for administrators and supervisors.
@@ -110,10 +137,10 @@ export function AppSidebar({
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        {isManager ? (
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {isManager ? (
                 <NavMenuItem
                   item={{
                     title: 'Dashboard',
@@ -122,10 +149,19 @@ export function AppSidebar({
                   }}
                   pathname={pathname}
                 />
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : null}
+              ) : null}
+              <NavMenuItem
+                item={{
+                  title: 'Notifications',
+                  href: '/notifications',
+                  icon: RiNotification3Line,
+                }}
+                pathname={pathname}
+                badge={unreadCount}
+              />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
         <SidebarGroup>
           <SidebarGroupLabel>Work Orders</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -161,9 +197,11 @@ export function AppSidebar({
 function NavMenuItem({
   item,
   pathname,
+  badge = 0,
 }: {
   item: NavItem
   pathname: string
+  badge?: number
 }) {
   const { isMobile, setOpenMobile } = useSidebar()
   const Icon = item.icon
@@ -187,6 +225,11 @@ function NavMenuItem({
       >
         <Icon className="size-4" />
         <span>{item.title}</span>
+        {badge > 0 ? (
+          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        ) : null}
       </SidebarMenuButton>
     </SidebarMenuItem>
   )
