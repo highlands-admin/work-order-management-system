@@ -69,7 +69,7 @@ export function ApprovalQueue({
             timeZone={timeZone}
             emptyMessage={
               canModerate
-                ? `You're all caught up. No ${CATEGORY_LABELS[category]} work orders need your approval right now.`
+                ? `You're all caught up! No ${CATEGORY_LABELS[category]} work orders need your approval right now.`
                 : `You have no ${CATEGORY_LABELS[category]} work orders awaiting approval.`
             }
           />

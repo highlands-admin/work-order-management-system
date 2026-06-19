@@ -1,8 +1,10 @@
 'use client'
 
 import {
+  RiChat3Line,
   RiCheckboxCircleLine,
   RiCloseCircleLine,
+  RiLoopRightLine,
   RiNotification3Line,
   RiUserReceivedLine,
   type RemixiconComponentType,
@@ -45,6 +47,26 @@ const TYPE_META: Record<
   rejected: {
     icon: RiCloseCircleLine,
     className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+  },
+  status_changed: {
+    icon: RiLoopRightLine,
+    className:
+      'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  },
+  note_added: {
+    icon: RiChat3Line,
+    className:
+      'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  },
+  note_edited: {
+    icon: RiChat3Line,
+    className:
+      'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  },
+  note_deleted: {
+    icon: RiChat3Line,
+    className:
+      'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
   },
 }
 
@@ -107,10 +129,9 @@ export function NotificationsList({
       {notifications.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-16 text-center">
           <RiNotification3Line className="size-8 text-muted-foreground" />
-          <p className="text-sm font-medium">You&apos;re all caught up</p>
+          <p className="text-sm font-medium">You&apos;re all caught up!</p>
           <p className="max-w-sm text-sm text-muted-foreground">
-            Notifications appear here when a work order is assigned to you or one
-            of your submissions is approved or rejected.
+            Updates about your work orders will appear here.
           </p>
         </div>
       ) : (
