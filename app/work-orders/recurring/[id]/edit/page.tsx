@@ -15,13 +15,12 @@ import { EditRecurringForm, type RecurringSchedule } from './edit-recurring-form
 
 export const metadata: Metadata = { title: 'Edit Recurring Schedule' }
 
-const EDITOR_ROLES = new Set(['administrator', 'requester'])
-
 type ScheduleRow = RecurringSchedule & {
   category: WorkOrderCategory
   priority: WorkOrderPriority
   property: Property | null
   frequency: RecurrenceFrequency
+  created_by: string
 }
 
 export default async function EditRecurringSchedulePage({
@@ -33,10 +32,14 @@ export default async function EditRecurringSchedulePage({
 
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
-  const claims = claimsData?.claims as { user_role?: string } | undefined
+  const claims = claimsData?.claims as
+    | { sub?: string; user_role?: string }
+    | undefined
 
   if (!claims) redirect('/login')
-  if (!claims.user_role || !EDITOR_ROLES.has(claims.user_role)) {
+  // Administrators may edit any schedule; requesters only ones they created.
+  const role = claims.user_role
+  if (role !== 'administrator' && role !== 'requester') {
     redirect('/work-orders/recurring')
   }
 
@@ -44,7 +47,7 @@ export default async function EditRecurringSchedulePage({
     supabase
       .from('recurring_work_orders')
       .select(
-        'id, title, category, priority, property, unit_number, description, provider, assigned_to, frequency, next_due_at, reminder_lead_days, reminder_recipients, active'
+        'id, title, category, priority, property, unit_number, description, provider, assigned_to, frequency, next_due_at, reminder_lead_days, reminder_recipients, active, created_by'
       )
       .eq('id', id)
       .maybeSingle<ScheduleRow>(),
@@ -63,6 +66,9 @@ export default async function EditRecurringSchedulePage({
   }
 
   if (!data) notFound()
+  if (role === 'requester' && data.created_by !== claims.sub) {
+    redirect('/work-orders/recurring')
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">

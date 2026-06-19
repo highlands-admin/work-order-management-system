@@ -20,8 +20,6 @@ import { RecurringViewToggle } from './view-toggle'
 
 export const metadata: Metadata = { title: 'Recurring Schedules' }
 
-const EDITOR_ROLES = new Set(['administrator', 'requester'])
-
 type RecurringRow = {
   id: string
   title: string
@@ -37,6 +35,7 @@ type RecurringRow = {
   reminder_recipients: string[]
   assigned_to: string | null
   active: boolean
+  created_by: string
 }
 
 export default async function RecurringWorkOrdersPage({
@@ -49,7 +48,9 @@ export default async function RecurringWorkOrdersPage({
 
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
-  const claims = claimsData?.claims as { user_role?: string } | undefined
+  const claims = claimsData?.claims as
+    | { sub?: string; user_role?: string }
+    | undefined
 
   if (!claims) redirect('/login')
 
@@ -57,7 +58,7 @@ export default async function RecurringWorkOrdersPage({
     supabase
       .from('recurring_work_orders')
       .select(
-        'id, title, category, property, unit_number, provider, frequency, recurrence_interval, anchor_date, next_due_at, reminder_lead_days, reminder_recipients, assigned_to, active'
+        'id, title, category, property, unit_number, provider, frequency, recurrence_interval, anchor_date, next_due_at, reminder_lead_days, reminder_recipients, assigned_to, active, created_by'
       )
       .order('active', { ascending: false })
       .order('next_due_at', { ascending: true, nullsFirst: false })
@@ -70,9 +71,18 @@ export default async function RecurringWorkOrdersPage({
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
   const rows = data ?? []
-  const canEdit = claims.user_role
-    ? EDITOR_ROLES.has(claims.user_role)
-    : false
+
+  // Administrators may edit any schedule; requesters only ones they created.
+  // Schedules are only ever created by filers, so a created_by match is enough
+  // to scope a requester to their own without re-checking the role.
+  const isAdmin = claims.user_role === 'administrator'
+  const canEditSchedule = (createdBy: string) =>
+    isAdmin || createdBy === claims.sub
+
+  const tableRows = rows.map((row) => ({
+    ...row,
+    editable: canEditSchedule(row.created_by),
+  }))
 
   const calendarSchedules: CalendarSchedule[] = rows.map((row) => ({
     id: row.id,
@@ -85,6 +95,7 @@ export default async function RecurringWorkOrdersPage({
     anchor_date: row.anchor_date,
     provider: row.provider,
     active: row.active,
+    editable: canEditSchedule(row.created_by),
   }))
 
   return (
@@ -105,15 +116,14 @@ export default async function RecurringWorkOrdersPage({
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>
       ) : view === 'calendar' ? (
-        <RecurringCalendar schedules={calendarSchedules} canEdit={canEdit} />
+        <RecurringCalendar schedules={calendarSchedules} />
       ) : rows.length === 0 ? (
         <EmptyState />
       ) : (
         <RecurringTable
-          schedules={rows}
+          schedules={tableRows}
           userLabelById={Object.fromEntries(userLabelById)}
           timeZone={timeZone}
-          canEdit={canEdit}
         />
       )}
     </div>

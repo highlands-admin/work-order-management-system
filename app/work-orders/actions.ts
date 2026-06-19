@@ -960,12 +960,31 @@ export async function updateRecurringWorkOrderAction(
   if (!claims?.sub) {
     return formError(undefined, values, 'You must be signed in to edit a schedule.')
   }
-  if (!EDITOR_ROLES.includes(claims.user_role as EditorRole)) {
+  // Administrators may edit any schedule; requesters only ones they created.
+  const role = claims.user_role
+  if (role !== 'administrator' && role !== 'requester') {
     return formError(
       undefined,
       values,
       'Your role is not permitted to edit recurring schedules.'
     )
+  }
+  if (role === 'requester') {
+    const { data: existing } = await supabase
+      .from('recurring_work_orders')
+      .select('created_by')
+      .eq('id', recurringId)
+      .maybeSingle<{ created_by: string }>()
+    if (!existing) {
+      return formError(undefined, values, 'Schedule not found.')
+    }
+    if (existing.created_by !== claims.sub) {
+      return formError(
+        undefined,
+        values,
+        'You can only edit schedules you created.'
+      )
+    }
   }
 
   const dueAt = parsed.data.dueAt
@@ -1023,12 +1042,31 @@ export async function deleteRecurringWorkOrderAction(
   if (!claims?.sub) {
     return formError(undefined, {}, 'You must be signed in to delete a schedule.')
   }
-  if (!EDITOR_ROLES.includes(claims.user_role as EditorRole)) {
+  // Administrators may delete any schedule; requesters only ones they created.
+  const role = claims.user_role
+  if (role !== 'administrator' && role !== 'requester') {
     return formError(
       undefined,
       {},
       'Your role is not permitted to delete recurring schedules.'
     )
+  }
+  if (role === 'requester') {
+    const { data: existing } = await supabase
+      .from('recurring_work_orders')
+      .select('created_by')
+      .eq('id', recurringId)
+      .maybeSingle<{ created_by: string }>()
+    if (!existing) {
+      return formError(undefined, {}, 'Schedule not found.')
+    }
+    if (existing.created_by !== claims.sub) {
+      return formError(
+        undefined,
+        {},
+        'You can only delete schedules you created.'
+      )
+    }
   }
 
   const { error } = await supabase

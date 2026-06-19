@@ -43,6 +43,8 @@ export type CalendarSchedule = {
   anchor_date: string
   provider: string | null
   active: boolean
+  // Whether the current user may edit this specific schedule.
+  editable: boolean
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -88,10 +90,8 @@ function initialMonth(schedules: CalendarSchedule[]): Date {
 
 export function RecurringCalendar({
   schedules,
-  canEdit = false,
 }: {
   schedules: CalendarSchedule[]
-  canEdit?: boolean
 }) {
   const today = new Date()
   const [month, setMonth] = useState(() => initialMonth(schedules))
@@ -226,7 +226,7 @@ export function RecurringCalendar({
                     key={s.id}
                     schedule={s}
                     date={d}
-                    canEdit={canEdit}
+                    canEdit={s.editable}
                   />
                 ))}
                 {items.length > MAX_CHIPS ? (

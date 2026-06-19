@@ -34,6 +34,8 @@ export type RecurringTableRow = {
   reminder_recipients: string[]
   assigned_to: string | null
   active: boolean
+  // Whether the current user may edit this specific schedule.
+  editable: boolean
 }
 
 // Default column widths in pixels. Users drag the handles to resize, matching the
@@ -63,12 +65,10 @@ export function RecurringTable({
   schedules,
   userLabelById,
   timeZone,
-  canEdit,
 }: {
   schedules: RecurringTableRow[]
   userLabelById: Record<string, string>
   timeZone: string
-  canEdit: boolean
 }) {
   const [widths, setWidths] = useState<number[]>(() =>
     COLUMNS.map((c) => c.width)
@@ -148,7 +148,9 @@ export function RecurringTable({
             <RecurringRow
               key={row.id}
               href={
-                canEdit ? `/work-orders/recurring/${row.id}/edit` : undefined
+                row.editable
+                  ? `/work-orders/recurring/${row.id}/edit`
+                  : undefined
               }
             >
               <TableCell className="truncate px-4 py-3 align-top font-medium text-foreground">
