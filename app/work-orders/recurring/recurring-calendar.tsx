@@ -54,47 +54,15 @@ function dateKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 }
 
-function firstOfMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1)
-}
-
-// Open the calendar on the month of the nearest upcoming occurrence across all
-// schedules, so a newly created (often months-out) schedule is visible right
-// away instead of landing on an empty current month. Falls back to this month.
-function initialMonth(schedules: CalendarSchedule[]): Date {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const horizonEnd = new Date(
-    today.getFullYear() + 2,
-    today.getMonth(),
-    today.getDate()
-  )
-
-  let earliest: Date | null = null
-  for (const s of schedules) {
-    if (!s.active && s.frequency !== 'one_time') continue
-    const occurrences = occurrencesInRange(
-      s.anchor_date,
-      s.frequency,
-      s.recurrence_interval,
-      today,
-      horizonEnd
-    )
-    for (const occ of occurrences) {
-      if (!earliest || occ < earliest) earliest = occ
-    }
-  }
-
-  return firstOfMonth(earliest ?? today)
-}
-
 export function RecurringCalendar({
   schedules,
 }: {
   schedules: CalendarSchedule[]
 }) {
   const today = new Date()
-  const [month, setMonth] = useState(() => initialMonth(schedules))
+  const [month, setMonth] = useState(
+    () => new Date(today.getFullYear(), today.getMonth(), 1)
+  )
 
   const { cells, byDate } = useMemo(() => {
     const monthStart = new Date(month.getFullYear(), month.getMonth(), 1)
