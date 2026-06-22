@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/popover'
 import { CategoryBadge } from '@/components/work-orders/work-order-badge'
 import {
-  FREQUENCY_LABELS,
   PROPERTY_LABELS,
   type Property,
   type RecurrenceFrequency,
@@ -49,6 +48,16 @@ export type CalendarSchedule = {
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MAX_CHIPS = 3
+
+// Adverb phrasing for the "Repeats …" line in a schedule's popover.
+const FREQUENCY_ADVERBS: Record<RecurrenceFrequency, string> = {
+  one_time: 'once',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  semiannual: 'semi-annually',
+  annual: 'annually',
+}
 
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -198,7 +207,7 @@ export function RecurringCalendar({
                   />
                 ))}
                 {items.length > MAX_CHIPS ? (
-                  <span className="px-1 text-[11px] text-muted-foreground">
+                  <span className="px-1 text-xs text-muted-foreground">
                     +{items.length - MAX_CHIPS} more
                   </span>
                 ) : null}
@@ -241,7 +250,7 @@ function ScheduleChip({
         render={
           <button
             type="button"
-            className="block w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-left text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
+            className="block w-full truncate rounded-md bg-primary/10 px-2 py-1 text-left text-[13px] font-medium text-primary transition-colors hover:bg-primary/20"
           >
             {schedule.title}
           </button>
@@ -278,7 +287,7 @@ function ScheduleChip({
         {/* Metadata */}
         <div className="flex flex-col gap-2.5 border-t px-4 py-3 text-xs">
           <MetaRow icon={RiRepeatLine}>
-            Repeats {FREQUENCY_LABELS[schedule.frequency].toLowerCase()}
+            Repeats {FREQUENCY_ADVERBS[schedule.frequency]}
           </MetaRow>
           {location ? <MetaRow icon={RiMapPinLine}>{location}</MetaRow> : null}
           {schedule.provider ? (

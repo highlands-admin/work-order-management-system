@@ -50,3 +50,48 @@ export async function markAllNotificationsReadAction(): Promise<{
   revalidatePath('/notifications')
   return { status: 'success' }
 }
+
+// Deletes a single notification. RLS restricts deletes to the caller's own
+// rows, so a forged id for another user's notification is a no-op.
+export async function clearNotificationAction(
+  notificationId: string
+): Promise<{ status: 'success' | 'error'; message?: string }> {
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  if (!claimsData?.claims) {
+    return { status: 'error', message: 'You must be signed in.' }
+  }
+
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('id', notificationId)
+
+  if (error) return { status: 'error', message: error.message }
+
+  revalidatePath('/notifications')
+  return { status: 'success' }
+}
+
+// Deletes every notification for the caller.
+export async function clearAllNotificationsAction(): Promise<{
+  status: 'success' | 'error'
+  message?: string
+}> {
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as { sub?: string } | undefined
+  if (!claims?.sub) {
+    return { status: 'error', message: 'You must be signed in.' }
+  }
+
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('user_id', claims.sub)
+
+  if (error) return { status: 'error', message: error.message }
+
+  revalidatePath('/notifications')
+  return { status: 'success' }
+}

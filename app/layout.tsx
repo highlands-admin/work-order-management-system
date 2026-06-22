@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Figtree, IBM_Plex_Sans } from "next/font/google";
+import { Geist_Mono, Figtree, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
-const ibmPlexSans = IBM_Plex_Sans({
+const headingFont = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["500", "600", "700"],
   variable: "--font-heading",
 });
 
@@ -42,7 +42,7 @@ export default function RootLayout({
       className={cn(
         "h-full antialiased",
         figtree.variable,
-        ibmPlexSans.variable,
+        headingFont.variable,
         geistMono.variable,
         "font-sans"
       )}
