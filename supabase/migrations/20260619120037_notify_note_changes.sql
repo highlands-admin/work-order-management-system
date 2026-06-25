@@ -20,7 +20,7 @@ begin
     v_work_order_id := new.work_order_id;
     v_actor := new.created_by;
     v_type := 'note_added';
-    v_title := 'New note on a work order';
+    v_title := 'New Note Added';
   elsif tg_op = 'UPDATE' then
     -- Only the body is editable; ignore no-op updates.
     if new.body is not distinct from old.body then

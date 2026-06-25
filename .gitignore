@@ -175,3 +175,4 @@ pids
 *.pid
 *.seed
 *.pid.lock
+presentation/*
