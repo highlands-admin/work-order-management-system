@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Figtree, Plus_Jakarta_Sans } from "next/font/google";
+import { Geist_Mono, Figtree, Manrope } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
-const headingFont = Plus_Jakarta_Sans({
+const headingFont = Manrope({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   variable: "--font-heading",

@@ -143,13 +143,13 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
   }
-  /* Headings use the display face with tightened tracking for a modern,
-     confident feel. Explicit per-element classes still win where set. */
+  /* Headings use the display face at normal tracking. Explicit per-element
+     classes still win where set. */
   h1,
   h2,
   h3,
   h4 {
-    @apply font-heading tracking-tight;
+    @apply font-heading tracking-normal;
   }
 
   /* Theme the scrollbars off the design tokens so every scroll area, including

@@ -150,7 +150,7 @@ export function SubmissionCard({
       {/* Focal point: the title. Its ::before overlay stretches across the
           whole card so a click anywhere opens the detail page, while the action
           controls below opt back above it with z-10. */}
-      <h3 className="mt-3 font-heading text-lg font-semibold leading-snug tracking-tight">
+      <h3 className="mt-3 font-heading text-lg font-semibold leading-snug">
         <Link
           href={`/work-orders/${workOrder.id}`}
           className="outline-none transition-colors before:absolute before:inset-0 before:content-[''] hover:text-primary focus-visible:text-primary"

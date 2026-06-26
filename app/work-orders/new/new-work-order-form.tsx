@@ -235,7 +235,7 @@ export function NewWorkOrderForm({
       }
     } else if (index === 2) {
       if (categoryValue !== 'it' && !val('property')) {
-        errors.property = 'Select a property'
+        errors.property = 'Select a facility'
       }
     }
 
@@ -542,7 +542,7 @@ export function NewWorkOrderForm({
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Field data-invalid={propertyError ? 'true' : undefined}>
                 <FieldLabel htmlFor="property">
-                  Property {categoryValue === 'it' ? <Optional /> : <Required />}
+                  Facility {categoryValue === 'it' ? <Optional /> : <Required />}
                 </FieldLabel>
                 <Select
                   name="property"
@@ -558,7 +558,7 @@ export function NewWorkOrderForm({
                     className="w-full"
                     aria-invalid={propertyError ? true : undefined}
                   >
-                    <SelectValue placeholder="Select a property" />
+                    <SelectValue placeholder="Select a facility" />
                   </SelectTrigger>
                   <SelectContent>
                     {PROPERTIES.map((p) => (
@@ -573,7 +573,7 @@ export function NewWorkOrderForm({
 
               <Field data-invalid={unitNumberError ? 'true' : undefined}>
                 <FieldLabel htmlFor="unitNumber">
-                  Unit number <Optional />
+                  Apartment Number/Area <Optional />
                 </FieldLabel>
                 <Input
                   id="unitNumber"
