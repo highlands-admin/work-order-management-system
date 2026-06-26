@@ -29,7 +29,7 @@ import {
   PRIORITY_LABELS,
   PROPERTY_LABELS,
   STATUS_LABELS,
-  WORK_ORDER_CATEGORIES,
+  WORK_ORDER_CATEGORIES_BY_LABEL,
   WORK_ORDER_PRIORITIES,
   WORK_ORDER_STATUSES,
   PROPERTIES,
@@ -61,7 +61,7 @@ const STATUS_OPTIONS: Option<WorkOrderStatus>[] = WORK_ORDER_STATUSES
 const PRIORITY_OPTIONS: Option<WorkOrderPriority>[] =
   WORK_ORDER_PRIORITIES.map((v) => ({ value: v, label: PRIORITY_LABELS[v] }))
 const CATEGORY_OPTIONS: Option<WorkOrderCategory>[] =
-  WORK_ORDER_CATEGORIES.map((v) => ({ value: v, label: CATEGORY_LABELS[v] }))
+  WORK_ORDER_CATEGORIES_BY_LABEL.map((v) => ({ value: v, label: CATEGORY_LABELS[v] }))
 const PROPERTY_OPTIONS: Option<Property>[] = PROPERTIES.map((v) => ({
   value: v,
   label: PROPERTY_LABELS[v],

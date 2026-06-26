@@ -33,7 +33,7 @@ import {
   PROPERTY_LABELS,
   PROPERTIES,
   RECURRENCE_FREQUENCIES,
-  WORK_ORDER_CATEGORIES,
+  WORK_ORDER_CATEGORIES_BY_LABEL,
   WORK_ORDER_PRIORITIES,
   type Property,
   type RecurrenceFrequency,
@@ -169,7 +169,7 @@ export function EditRecurringForm({
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {WORK_ORDER_CATEGORIES.map((c) => (
+                  {WORK_ORDER_CATEGORIES_BY_LABEL.map((c) => (
                     <SelectItem key={c} value={c}>
                       {CATEGORY_LABELS[c]}
                     </SelectItem>

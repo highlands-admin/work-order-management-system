@@ -4,6 +4,7 @@ export const WORK_ORDER_CATEGORIES = [
   'it',
   'marketing',
   'maintenance',
+  'preventative_maintenance',
   'license',
   'compliance',
 ] as const
@@ -14,9 +15,17 @@ export const CATEGORY_LABELS: Record<WorkOrderCategory, string> = {
   it: 'IT',
   marketing: 'Marketing',
   maintenance: 'Maintenance',
+  preventative_maintenance: 'Preventative Maintenance',
   license: 'License/Permit',
   compliance: 'Compliance/Inspection',
 }
+
+// Categories ordered alphabetically by their display label, for rendering
+// selectable lists (dropdowns, filters, queue sections) in the frontend.
+// WORK_ORDER_CATEGORIES keeps its own order because it backs the Postgres enum.
+export const WORK_ORDER_CATEGORIES_BY_LABEL: readonly WorkOrderCategory[] = [
+  ...WORK_ORDER_CATEGORIES,
+].sort((a, b) => CATEGORY_LABELS[a].localeCompare(CATEGORY_LABELS[b]))
 
 export const WORK_ORDER_STATUSES = [
   'pending',
@@ -561,7 +570,7 @@ export const addWorkOrderNoteSchema = z.object({
     .string()
     .trim()
     .min(1, 'Note cannot be empty')
-    .max(2000, 'Note is too long (max 2000 characters)'),
+    .max(10000, 'Note is too long (max 10,000 characters)'),
 })
 
 export type AddWorkOrderNoteInput = z.infer<typeof addWorkOrderNoteSchema>

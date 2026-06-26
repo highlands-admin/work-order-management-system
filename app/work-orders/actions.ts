@@ -316,7 +316,7 @@ export async function createWorkOrderAction(
   const noteValues = formData
     .getAll('note')
     .map((v) => String(v).trim())
-    .filter((v) => v.length > 0 && v.length <= 2000)
+    .filter((v) => v.length > 0 && v.length <= 10000)
 
   if (noteValues.length > 0) {
     await supabase.from('work_order_notes').insert(

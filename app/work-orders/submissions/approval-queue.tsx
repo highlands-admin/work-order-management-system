@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsPanel, TabsTab } from '@/components/ui/tabs'
 import {
   CATEGORY_LABELS,
-  WORK_ORDER_CATEGORIES,
+  WORK_ORDER_CATEGORIES_BY_LABEL,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
 
@@ -43,7 +43,7 @@ export function ApprovalQueue({
           All
           <TabCount>{pending.length}</TabCount>
         </TabsTab>
-        {WORK_ORDER_CATEGORIES.map((category) => (
+        {WORK_ORDER_CATEGORIES_BY_LABEL.map((category) => (
           <TabsTab key={category} value={category}>
             {CATEGORY_LABELS[category]}
             <TabCount>{pendingByCategory[category] ?? 0}</TabCount>
@@ -60,7 +60,7 @@ export function ApprovalQueue({
           emptyMessage={allEmptyMessage}
         />
       </TabsPanel>
-      {WORK_ORDER_CATEGORIES.map((category) => (
+      {WORK_ORDER_CATEGORIES_BY_LABEL.map((category) => (
         <TabsPanel key={category} value={category}>
           <QueueSections
             pending={pending.filter((wo) => wo.category === category)}
