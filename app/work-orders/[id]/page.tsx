@@ -28,6 +28,7 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
+import { fetchWorkOrderAttachments } from '@/lib/work-orders/attachments'
 import {
   fetchAssignableUsers,
   formatAssigneeLabel,
@@ -99,29 +100,35 @@ export default async function WorkOrderDetailPage({
 
   if (!claims) redirect('/login')
 
-  const [{ data, error }, assignableUsers, { data: notesData }, { data: activityData }] =
-    await Promise.all([
-      supabase
-        .from('work_orders')
-        .select(
-          'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, provider, recurring_work_order_id, recurring:recurring_work_orders(frequency, next_due_at), created_at, updated_at'
-        )
-        .eq('id', id)
-        .maybeSingle<WorkOrderRow>(),
-      fetchAssignableUsers(supabase),
-      supabase
-        .from('work_order_notes')
-        .select('id, body, created_by, created_at, updated_at')
-        .eq('work_order_id', id)
-        .order('created_at', { ascending: true })
-        .returns<NoteRow[]>(),
-      supabase
-        .from('work_order_activity')
-        .select('id, actor_id, action, details, created_at')
-        .eq('work_order_id', id)
-        .order('created_at', { ascending: false })
-        .returns<ActivityEvent[]>(),
-    ])
+  const [
+    { data, error },
+    assignableUsers,
+    { data: notesData },
+    { data: activityData },
+    attachments,
+  ] = await Promise.all([
+    supabase
+      .from('work_orders')
+      .select(
+        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, provider, recurring_work_order_id, recurring:recurring_work_orders(frequency, next_due_at), created_at, updated_at'
+      )
+      .eq('id', id)
+      .maybeSingle<WorkOrderRow>(),
+    fetchAssignableUsers(supabase),
+    supabase
+      .from('work_order_notes')
+      .select('id, body, created_by, created_at, updated_at')
+      .eq('work_order_id', id)
+      .order('created_at', { ascending: true })
+      .returns<NoteRow[]>(),
+    supabase
+      .from('work_order_activity')
+      .select('id, actor_id, action, details, created_at')
+      .eq('work_order_id', id)
+      .order('created_at', { ascending: false })
+      .returns<ActivityEvent[]>(),
+    fetchWorkOrderAttachments(supabase, id),
+  ])
 
   if (error) {
     return (
@@ -255,6 +262,32 @@ export default async function WorkOrderDetailPage({
               {data.description}
             </p>
           </Section>
+
+          {attachments.length > 0 ? (
+            <Section title="Photos">
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {attachments.map((a) => (
+                  <li key={a.id}>
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block aspect-square overflow-hidden rounded-lg ring-1 ring-foreground/10 transition-opacity hover:opacity-90"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element --
+                          presigned URLs are short-lived and already compressed,
+                          so Next image optimization adds cost without benefit. */}
+                      <img
+                        src={a.url}
+                        alt={a.name ?? 'Work order photo'}
+                        className="h-full w-full object-cover"
+                      />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
 
           {data.resolution ? (
             <Section title="Resolution">

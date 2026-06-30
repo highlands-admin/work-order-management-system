@@ -13,6 +13,7 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
+import { fetchWorkOrderAttachments } from '@/lib/work-orders/attachments'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 
 import { EditWorkOrderForm } from './edit-work-order-form'
@@ -85,6 +86,8 @@ export default async function EditWorkOrderPage({
 
   if (!data) notFound()
 
+  const attachments = await fetchWorkOrderAttachments(supabase, data.id)
+
   const role = claims.user_role
   const isAdmin = role === 'administrator'
   const isTechnician = role === 'technician'
@@ -137,6 +140,7 @@ export default async function EditWorkOrderPage({
           workOrder={data}
           allowedStatuses={allowedStatuses}
           assignableUsers={assignableUsers}
+          attachments={attachments}
         />
       ) : isTechnician || isInspector ? (
         <TransitionStatusForm

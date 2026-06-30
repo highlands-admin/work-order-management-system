@@ -20,6 +20,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  ImageUploader,
+  type ExistingAttachment,
+} from '@/components/work-orders/image-uploader'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
@@ -75,10 +79,12 @@ export function EditWorkOrderForm({
   workOrder,
   allowedStatuses,
   assignableUsers,
+  attachments,
 }: {
   workOrder: WorkOrder
   allowedStatuses: WorkOrderStatus[]
   assignableUsers: AssignableUser[]
+  attachments: ExistingAttachment[]
 }) {
   // Value -> label maps let each Select show the chosen option's label (not the
   // raw stored value) without the dropdown items being mounted.
@@ -481,6 +487,14 @@ export function EditWorkOrderForm({
             <FieldError>{resolutionError}</FieldError>
           </Field>
         </FieldGroup>
+      </FormSection>
+
+      <FormSection
+        id="photos"
+        title="Photos"
+        description="Images of the issue or location. Add new ones or remove existing images."
+      >
+        <ImageUploader existing={attachments} />
       </FormSection>
 
       <FormSection

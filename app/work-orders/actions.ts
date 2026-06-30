@@ -25,6 +25,7 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
+import { syncWorkOrderAttachments } from '@/lib/work-orders/attachments'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 import { getCategoryApprover } from '@/lib/work-orders/category-approvers'
 import { nextOccurrenceAfter } from '@/lib/work-orders/recurrence'
@@ -328,6 +329,19 @@ export async function createWorkOrderAction(
     )
   }
 
+  // Link any images uploaded with the form. Failures must not block creation,
+  // so the helper is best-effort and any error is logged.
+  try {
+    await syncWorkOrderAttachments(
+      supabase,
+      workOrderData.id,
+      formData,
+      claims.sub
+    )
+  } catch (attachmentError) {
+    console.error('Failed to attach work order images', attachmentError)
+  }
+
   const notificationWorkOrder: AssignmentWorkOrder = {
     id: workOrderData.id,
     code: workOrderData.work_order_code,
@@ -502,6 +516,14 @@ export async function updateWorkOrderAction(
 
   if (error) {
     return formError(undefined, values, error.message)
+  }
+
+  // Apply image additions and removals. Best-effort, so a storage hiccup does
+  // not fail the edit that already saved.
+  try {
+    await syncWorkOrderAttachments(supabase, workOrderId, formData, claims.sub)
+  } catch (attachmentError) {
+    console.error('Failed to sync work order images', attachmentError)
   }
 
   // Notify the assignee only when the assignee actually changed to someone new

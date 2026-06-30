@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { ImageUploader } from '@/components/work-orders/image-uploader'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
@@ -81,6 +82,9 @@ const STEPS = [
       'marketingSizeFormatOther',
     ],
   },
+  // Photos has no fields that the server validates, so an empty list keeps it
+  // out of the error-jump logic while still rendering as its own step.
+  { title: 'Photos', fields: [] },
   { title: 'Location', fields: ['property', 'unitNumber', 'assignedTo'] },
   {
     title: 'Reporter',
@@ -233,7 +237,7 @@ export function NewWorkOrderForm({
           }
         }
       }
-    } else if (index === 2) {
+    } else if (index === 3) {
       if (categoryValue !== 'it' && !val('property')) {
         errors.property = 'Select a facility'
       }
@@ -531,8 +535,19 @@ export function NewWorkOrderForm({
         ) : null}
       </StepPanel>
 
-      {/* Step 3 — Location & assignment */}
+      {/* Step 3 — Photos */}
       <StepPanel active={step === 2}>
+        <FormSection
+          id="photos"
+          title="Photos"
+          description="Optional. Attach photos of the issue, or skip this step."
+        >
+          <ImageUploader />
+        </FormSection>
+      </StepPanel>
+
+      {/* Step 4 — Location & assignment */}
+      <StepPanel active={step === 3}>
         <FormSection
           id="location"
           title="Location & assignment"
@@ -623,8 +638,8 @@ export function NewWorkOrderForm({
         </FormSection>
       </StepPanel>
 
-      {/* Step 4 — Reporter & notes */}
-      <StepPanel active={step === 3}>
+      {/* Step 5 — Reporter & notes */}
+      <StepPanel active={step === 4}>
         <FormSection
           id="reporter"
           title="Reporter"
