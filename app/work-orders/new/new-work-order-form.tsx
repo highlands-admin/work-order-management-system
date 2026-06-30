@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { ImageUploader } from '@/components/work-orders/image-uploader'
+import { AttachmentUploader } from '@/components/work-orders/attachment-uploader'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
@@ -82,9 +82,9 @@ const STEPS = [
       'marketingSizeFormatOther',
     ],
   },
-  // Photos has no fields that the server validates, so an empty list keeps it
-  // out of the error-jump logic while still rendering as its own step.
-  { title: 'Photos', fields: [] },
+  // Attachments has no fields that the server validates, so an empty list keeps
+  // it out of the error-jump logic while still rendering as its own step.
+  { title: 'Attachments', fields: [] },
   { title: 'Location', fields: ['property', 'unitNumber', 'assignedTo'] },
   {
     title: 'Reporter',
@@ -535,14 +535,14 @@ export function NewWorkOrderForm({
         ) : null}
       </StepPanel>
 
-      {/* Step 3 — Photos */}
+      {/* Step 3 — Attachments */}
       <StepPanel active={step === 2}>
         <FormSection
-          id="photos"
-          title="Photos"
-          description="Optional. Attach photos of the issue, or skip this step."
+          id="attachments"
+          title="Attachments"
+          description="Optional. Attach photos or documents, or skip this step."
         >
-          <ImageUploader />
+          <AttachmentUploader />
         </FormSection>
       </StepPanel>
 

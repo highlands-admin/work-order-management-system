@@ -11,10 +11,11 @@ export type WorkOrderAttachment = {
   id: string
   url: string
   name: string | null
+  contentType: string
 }
 
 // Loads a work order's attachments and mints a short-lived presigned GET URL
-// for each, so the images load directly from MinIO on an authenticated page.
+// for each, so the files load directly from MinIO on an authenticated page.
 // Returns an empty list on error so a storage issue never breaks the page.
 export async function fetchWorkOrderAttachments(
   supabase: SupabaseServerClient,
@@ -22,7 +23,7 @@ export async function fetchWorkOrderAttachments(
 ): Promise<WorkOrderAttachment[]> {
   const { data, error } = await supabase
     .from('work_order_attachments')
-    .select('id, object_key, original_filename')
+    .select('id, object_key, original_filename, content_type')
     .eq('work_order_id', workOrderId)
     .order('created_at', { ascending: true })
 
@@ -33,6 +34,7 @@ export async function fetchWorkOrderAttachments(
       id: row.id,
       url: await presignDownloadUrl(row.object_key),
       name: row.original_filename,
+      contentType: row.content_type,
     }))
   )
 }

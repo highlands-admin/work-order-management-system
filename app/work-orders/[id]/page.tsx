@@ -27,6 +27,7 @@ import {
   type WorkOrderPriority,
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
+import { AttachmentGallery } from '@/components/work-orders/attachment-gallery'
 import { createClient } from '@/lib/supabase/server'
 import { fetchWorkOrderAttachments } from '@/lib/work-orders/attachments'
 import {
@@ -264,28 +265,8 @@ export default async function WorkOrderDetailPage({
           </Section>
 
           {attachments.length > 0 ? (
-            <Section title="Photos">
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {attachments.map((a) => (
-                  <li key={a.id}>
-                    <a
-                      href={a.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block aspect-square overflow-hidden rounded-lg ring-1 ring-foreground/10 transition-opacity hover:opacity-90"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element --
-                          presigned URLs are short-lived and already compressed,
-                          so Next image optimization adds cost without benefit. */}
-                      <img
-                        src={a.url}
-                        alt={a.name ?? 'Work order photo'}
-                        className="h-full w-full object-cover"
-                      />
-                    </a>
-                  </li>
-                ))}
-              </ul>
+            <Section title="Attachments">
+              <AttachmentGallery attachments={attachments} />
             </Section>
           ) : null}
 

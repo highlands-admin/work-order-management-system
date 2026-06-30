@@ -21,9 +21,9 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  ImageUploader,
+  AttachmentUploader,
   type ExistingAttachment,
-} from '@/components/work-orders/image-uploader'
+} from '@/components/work-orders/attachment-uploader'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
@@ -490,11 +490,11 @@ export function EditWorkOrderForm({
       </FormSection>
 
       <FormSection
-        id="photos"
-        title="Photos"
-        description="Images of the issue or location. Add new ones or remove existing images."
+        id="attachments"
+        title="Attachments"
+        description="Photos or documents for this work order. Add new ones or remove existing files."
       >
-        <ImageUploader existing={attachments} />
+        <AttachmentUploader existing={attachments} />
       </FormSection>
 
       <FormSection

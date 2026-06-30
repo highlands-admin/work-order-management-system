@@ -3,16 +3,20 @@
 import {
   RiCloseLine,
   RiErrorWarningLine,
-  RiImageAddLine,
   RiLoader4Line,
+  RiUploadCloud2Line,
 } from '@remixicon/react'
 import imageCompression from 'browser-image-compression'
 import { useRef, useState } from 'react'
 
+import { FileIcon } from '@/components/work-orders/file-icon'
 import {
-  ALLOWED_IMAGE_TYPES,
+  ATTACHMENT_ACCEPT,
   MAX_ATTACHMENTS_PER_WORK_ORDER,
-  type AllowedImageType,
+  MAX_ATTACHMENT_BYTES,
+  attachmentTypeForFilename,
+  isImageType,
+  type AllowedAttachmentType,
   type AttachmentMetadata,
 } from '@/lib/schemas/attachment'
 import { cn } from '@/lib/utils'
@@ -22,13 +26,17 @@ export type ExistingAttachment = {
   id: string
   url: string
   name: string | null
+  contentType: string
 }
 
 // A file the user added in this session, tracked through its upload lifecycle.
 type UploadItem = {
   localId: string
   name: string
-  previewUrl: string
+  contentType: AllowedAttachmentType
+  isImage: boolean
+  // Object URL for the image preview; absent for non-image files.
+  previewUrl?: string
   status: 'uploading' | 'done' | 'error'
   error?: string
   // Set as soon as the object key is known (after presigning), so a removal can
@@ -38,28 +46,30 @@ type UploadItem = {
   controller: AbortController
 }
 
-function isAllowedType(type: string): type is AllowedImageType {
-  return (ALLOWED_IMAGE_TYPES as readonly string[]).includes(type)
+const MAX_MB = Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))
+
+function extensionLabel(filename: string): string {
+  const match = filename.toLowerCase().match(/\.([a-z0-9]+)$/)
+  return match ? match[1].toUpperCase() : 'FILE'
 }
 
-// Resize and re-encode in the browser. The canvas re-encode drops EXIF
+// Resize and re-encode an image in the browser. The canvas re-encode drops EXIF
 // metadata (including GPS), and the smaller output keeps uploads well under the
-// size cap.
-async function compressImage(file: File): Promise<File> {
+// size cap. Non-image files are uploaded unchanged.
+async function compressImage(
+  file: File,
+  contentType: AllowedAttachmentType
+): Promise<File> {
   const compressed = await imageCompression(file, {
     maxSizeMB: 2,
     maxWidthOrHeight: 1600,
     useWebWorker: true,
-    fileType: isAllowedType(file.type) ? file.type : 'image/jpeg',
+    fileType: contentType,
   })
-  // imageCompression returns a Blob; wrap it back into a File so the name and
-  // type travel with it.
-  return new File([compressed], file.name, {
-    type: isAllowedType(compressed.type) ? compressed.type : 'image/jpeg',
-  })
+  return new File([compressed], file.name, { type: contentType })
 }
 
-export function ImageUploader({
+export function AttachmentUploader({
   existing = [],
 }: {
   existing?: ExistingAttachment[]
@@ -71,7 +81,8 @@ export function ImageUploader({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const keptExisting = existing.filter((a) => !removedIds.includes(a.id))
-  const liveCount = keptExisting.length + items.filter((i) => i.status !== 'error').length
+  const liveCount =
+    keptExisting.length + items.filter((i) => i.status !== 'error').length
   const remaining = MAX_ATTACHMENTS_PER_WORK_ORDER - liveCount
 
   function patchItem(localId: string, patch: Partial<UploadItem>) {
@@ -83,11 +94,17 @@ export function ImageUploader({
   async function uploadOne(
     file: File,
     localId: string,
+    contentType: AllowedAttachmentType,
     controller: AbortController
   ) {
     try {
-      const prepared = await compressImage(file)
-      const contentType = prepared.type as AllowedImageType
+      const prepared = isImageType(contentType)
+        ? await compressImage(file, contentType)
+        : file
+
+      if (prepared.size > MAX_ATTACHMENT_BYTES) {
+        throw new Error(`File is too large (max ${MAX_MB} MB).`)
+      }
 
       const presignRes = await fetch(
         '/api/work-orders/attachments/presign',
@@ -95,7 +112,7 @@ export function ImageUploader({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            filename: prepared.name,
+            filename: file.name,
             contentType,
             size: prepared.size,
           }),
@@ -128,12 +145,7 @@ export function ImageUploader({
 
       patchItem(localId, {
         status: 'done',
-        meta: {
-          key,
-          contentType,
-          size: prepared.size,
-          name: prepared.name,
-        },
+        meta: { key, contentType, size: prepared.size, name: file.name },
       })
     } catch (error) {
       // A removal aborts the request; the item is already gone, so stay quiet.
@@ -154,25 +166,37 @@ export function ImageUploader({
         { method: 'DELETE' }
       )
     } catch (error) {
-      console.error('Failed to delete uploaded image', error)
+      console.error('Failed to delete uploaded attachment', error)
     }
   }
 
   function handleFiles(fileList: FileList | null) {
     if (!fileList) return
-    const files = Array.from(fileList)
-      .filter((f) => isAllowedType(f.type))
+    const candidates = Array.from(fileList)
+      .map((file) => ({ file, contentType: attachmentTypeForFilename(file.name) }))
+      .filter(
+        (c): c is { file: File; contentType: AllowedAttachmentType } =>
+          c.contentType !== null
+      )
       .slice(0, Math.max(0, remaining))
 
-    for (const file of files) {
+    for (const { file, contentType } of candidates) {
       const localId = crypto.randomUUID()
-      const previewUrl = URL.createObjectURL(file)
+      const isImage = isImageType(contentType)
       const controller = new AbortController()
       setItems((prev) => [
         ...prev,
-        { localId, name: file.name, previewUrl, status: 'uploading', controller },
+        {
+          localId,
+          name: file.name,
+          contentType,
+          isImage,
+          previewUrl: isImage ? URL.createObjectURL(file) : undefined,
+          status: 'uploading',
+          controller,
+        },
       ])
-      void uploadOne(file, localId, controller)
+      void uploadOne(file, localId, contentType, controller)
     }
 
     // Reset the input so selecting the same file again re-triggers onChange.
@@ -185,7 +209,7 @@ export function ImageUploader({
       // Cancel an in-flight upload, free the preview, and delete the object if
       // it already reached the bucket.
       target.controller.abort()
-      URL.revokeObjectURL(target.previewUrl)
+      if (target.previewUrl) URL.revokeObjectURL(target.previewUrl)
       const key = target.meta?.key ?? target.key
       if (key) void deleteUploadedObject(key)
     }
@@ -218,18 +242,20 @@ export function ImageUploader({
       {(keptExisting.length > 0 || items.length > 0) && (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {keptExisting.map((a) => (
-            <Thumbnail
+            <Tile
               key={a.id}
-              src={a.url}
-              label={a.name ?? 'Attachment'}
+              name={a.name ?? 'Attachment'}
+              contentType={a.contentType}
+              previewUrl={isImageType(a.contentType) ? a.url : undefined}
               onRemove={() => removeExisting(a.id)}
             />
           ))}
           {items.map((it) => (
-            <Thumbnail
+            <Tile
               key={it.localId}
-              src={it.previewUrl}
-              label={it.name}
+              name={it.name}
+              contentType={it.contentType}
+              previewUrl={it.previewUrl}
               status={it.status}
               error={it.error}
               onRemove={() => removeItem(it.localId)}
@@ -242,7 +268,7 @@ export function ImageUploader({
         <input
           ref={inputRef}
           type="file"
-          accept={ALLOWED_IMAGE_TYPES.join(',')}
+          accept={ATTACHMENT_ACCEPT}
           multiple
           className="sr-only"
           onChange={(e) => handleFiles(e.target.files)}
@@ -258,18 +284,17 @@ export function ImageUploader({
               : 'hover:border-foreground/30 hover:bg-muted/40'
           )}
         >
-          <RiImageAddLine
+          <RiUploadCloud2Line
             className="size-6 text-muted-foreground"
             aria-hidden="true"
           />
           <span className="text-sm font-medium text-foreground">
             {remaining <= 0
-              ? `Maximum of ${MAX_ATTACHMENTS_PER_WORK_ORDER} images reached`
-              : 'Add images'}
+              ? `Maximum of ${MAX_ATTACHMENTS_PER_WORK_ORDER} files reached`
+              : 'Add files'}
           </span>
           <span className="text-xs font-medium text-muted-foreground">
-            JPEG, PNG, or WebP · Up to {MAX_ATTACHMENTS_PER_WORK_ORDER} per work
-            order
+            Images, PDF, Word, Excel, or PowerPoint · Up to {MAX_MB} MB each
           </span>
         </button>
       </div>
@@ -277,32 +302,54 @@ export function ImageUploader({
   )
 }
 
-function Thumbnail({
-  src,
-  label,
+function Tile({
+  name,
+  contentType,
+  previewUrl,
   status = 'done',
   error,
   onRemove,
 }: {
-  src: string
-  label: string
+  name: string
+  contentType: string
+  previewUrl?: string
   status?: UploadItem['status']
   error?: string
   onRemove: () => void
 }) {
   return (
     <li className="group relative aspect-square overflow-hidden rounded-lg ring-1 ring-foreground/10">
-      {/* eslint-disable-next-line @next/next/no-img-element -- presigned URLs
-          are short-lived and already compressed, so Next image optimization
-          adds cost without benefit here. */}
-      <img
-        src={src}
-        alt={label}
-        className={cn(
-          'h-full w-full object-cover',
-          status !== 'done' && 'opacity-50'
-        )}
-      />
+      {previewUrl ? (
+        // Presigned and object URLs are short-lived and already compressed, so
+        // Next image optimization adds cost without benefit here.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={previewUrl}
+          alt={name}
+          className={cn(
+            'h-full w-full object-cover',
+            status !== 'done' && 'opacity-50'
+          )}
+        />
+      ) : (
+        <div
+          className={cn(
+            'flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/40 p-3 text-center',
+            status !== 'done' && 'opacity-50'
+          )}
+        >
+          <FileIcon
+            contentType={contentType}
+            className="size-8 text-muted-foreground"
+          />
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {extensionLabel(name)}
+          </span>
+          <span className="line-clamp-2 break-all text-xs text-foreground/80">
+            {name}
+          </span>
+        </div>
+      )}
 
       {status === 'uploading' && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/40">
@@ -325,7 +372,7 @@ function Thumbnail({
 
       <button
         type="button"
-        aria-label={`Remove ${label}`}
+        aria-label={`Remove ${name}`}
         onClick={onRemove}
         className="absolute right-1.5 top-1.5 rounded-full bg-background/80 p-1 text-foreground opacity-0 transition-opacity hover:bg-background group-hover:opacity-100 focus-visible:opacity-100"
       >

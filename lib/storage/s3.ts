@@ -11,7 +11,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
-import type { AllowedImageType } from '@/lib/schemas/attachment'
+import type { AllowedAttachmentType } from '@/lib/schemas/attachment'
 
 // How long a presigned URL stays valid. Uploads are immediate, so the PUT
 // window is short. Display URLs are minted per page render, so an hour balances
@@ -66,7 +66,7 @@ export function generateObjectKey(filename: string): string {
 // Content-Type it was signed with.
 export async function presignUploadUrl(
   key: string,
-  contentType: AllowedImageType
+  contentType: AllowedAttachmentType
 ): Promise<string> {
   const command = new PutObjectCommand({
     Bucket: getBucket(),
