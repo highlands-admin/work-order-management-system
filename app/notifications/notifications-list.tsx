@@ -194,14 +194,14 @@ export function NotificationsList({
                   <div className="min-w-0 flex-1">
                     <p
                       className={cn(
-                        'text-sm',
+                        'truncate text-sm',
                         unread ? 'font-semibold text-foreground' : 'text-foreground'
                       )}
                     >
                       {n.title}
                     </p>
                     {n.body ? (
-                      <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                      <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
                         {n.body}
                       </p>
                     ) : null}
