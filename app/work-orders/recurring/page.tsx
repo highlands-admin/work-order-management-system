@@ -13,12 +13,25 @@ import {
   fetchAssignableUsers,
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
+import {
+  applyRecurringFilters,
+  hasActiveRecurringFilters,
+  parseRecurringFilters,
+} from '@/lib/work-orders/recurring-filters'
+import {
+  parseRecurringSort,
+  RECURRING_SORT_COLUMNS,
+} from '@/lib/work-orders/recurring-sort'
 
 import { RecurringCalendar, type CalendarSchedule } from './recurring-calendar'
+import { RecurringFilterBar } from './recurring-filter-bar'
 import { RecurringTable } from './recurring-table'
 import { RecurringViewToggle } from './view-toggle'
 
 export const metadata: Metadata = { title: 'Recurring Schedules' }
+
+const RECURRING_COLUMNS =
+  'id, title, category, property, unit_number, provider, frequency, recurrence_interval, anchor_date, next_due_at, reminder_lead_days, reminder_recipients, assigned_to, active, created_by'
 
 type RecurringRow = {
   id: string
@@ -45,6 +58,10 @@ export default async function RecurringWorkOrdersPage({
 }) {
   const params = await searchParams
   const view = params.view === 'table' ? 'table' : 'calendar'
+  const isTable = view === 'table'
+  const filters = parseRecurringFilters(params)
+  const sort = parseRecurringSort(params)
+  const filtersActive = hasActiveRecurringFilters(filters)
 
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
@@ -54,15 +71,33 @@ export default async function RecurringWorkOrdersPage({
 
   if (!claims) redirect('/login')
 
-  const [{ data, error }, assignableUsers, timeZone] = await Promise.all([
-    supabase
-      .from('recurring_work_orders')
-      .select(
-        'id, title, category, property, unit_number, provider, frequency, recurrence_interval, anchor_date, next_due_at, reminder_lead_days, reminder_recipients, assigned_to, active, created_by'
-      )
+  // Search, filters, and sort apply to the table view only; the calendar always
+  // shows every schedule in its default active-first ordering.
+  let query = supabase.from('recurring_work_orders').select(RECURRING_COLUMNS)
+
+  if (isTable) {
+    query = applyRecurringFilters(query, filters)
+    if (sort) {
+      const column = RECURRING_SORT_COLUMNS[sort.key]
+      query = query
+        .order(column.column, {
+          ascending: sort.dir === 'asc',
+          nullsFirst: false,
+        })
+        .order('id', { ascending: true })
+    } else {
+      query = query
+        .order('active', { ascending: false })
+        .order('next_due_at', { ascending: true, nullsFirst: false })
+    }
+  } else {
+    query = query
       .order('active', { ascending: false })
       .order('next_due_at', { ascending: true, nullsFirst: false })
-      .returns<RecurringRow[]>(),
+  }
+
+  const [{ data, error }, assignableUsers, timeZone] = await Promise.all([
+    query,
     fetchAssignableUsers(supabase),
     getTimeZone(),
   ])
@@ -70,7 +105,11 @@ export default async function RecurringWorkOrdersPage({
   const userLabelById = new Map(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
-  const rows = data ?? []
+  const assigneeOptions = assignableUsers.map((u) => ({
+    value: u.user_id,
+    label: formatAssigneeLabel(u),
+  }))
+  const rows = (data ?? []) as RecurringRow[]
 
   // Administrators may edit any schedule; requesters only ones they created.
   // Schedules are only ever created by filers, so a created_by match is enough
@@ -113,19 +152,36 @@ export default async function RecurringWorkOrdersPage({
         <RecurringViewToggle view={view} />
       </div>
 
+      {isTable ? <RecurringFilterBar assigneeOptions={assigneeOptions} /> : null}
+
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>
       ) : view === 'calendar' ? (
         <RecurringCalendar schedules={calendarSchedules} />
       ) : rows.length === 0 ? (
-        <EmptyState />
+        filtersActive ? (
+          <NoMatches />
+        ) : (
+          <EmptyState />
+        )
       ) : (
         <RecurringTable
           schedules={tableRows}
           userLabelById={Object.fromEntries(userLabelById)}
           timeZone={timeZone}
+          sort={sort}
         />
       )}
+    </div>
+  )
+}
+
+function NoMatches() {
+  return (
+    <div className="rounded-xl bg-card px-6 py-12 text-center ring-1 ring-foreground/10">
+      <p className="text-sm text-muted-foreground">
+        No recurring schedules match these filters.
+      </p>
     </div>
   )
 }

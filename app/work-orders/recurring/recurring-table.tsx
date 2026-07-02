@@ -1,5 +1,11 @@
 'use client'
 
+import {
+  RiArrowDownSLine,
+  RiArrowUpSLine,
+  RiExpandUpDownLine,
+} from '@remixicon/react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, type PointerEvent } from 'react'
 
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +24,11 @@ import {
   type RecurrenceFrequency,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
+import {
+  isRecurringSortable,
+  type RecurringSort,
+  type SortDirection,
+} from '@/lib/work-orders/recurring-sort'
 
 import { RecurringRow } from './recurring-row'
 
@@ -65,15 +76,43 @@ export function RecurringTable({
   schedules,
   userLabelById,
   timeZone,
+  sort,
 }: {
   schedules: RecurringTableRow[]
   userLabelById: Record<string, string>
   timeZone: string
+  sort: RecurringSort | null
 }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
   const [widths, setWidths] = useState<number[]>(() =>
     COLUMNS.map((c) => c.width)
   )
   const [resizing, setResizing] = useState<ResizeState | null>(null)
+
+  // Sorting is server-side: cycle a column ascending -> descending -> default
+  // (the page's active-first ordering), and let the URL drive the query. Other
+  // params (view, filters) are preserved.
+  function toggleSort(key: string) {
+    if (!isRecurringSortable(key)) return
+    let nextDir: SortDirection | null
+    if (sort?.key !== key) nextDir = 'asc'
+    else if (sort.dir === 'asc') nextDir = 'desc'
+    else nextDir = null
+
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextDir === null) {
+      params.delete('sort')
+      params.delete('dir')
+    } else {
+      params.set('sort', key)
+      params.set('dir', nextDir)
+    }
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
 
   // Track the pointer on the window during a drag so it can leave the narrow
   // handle without dropping the resize. Same pattern as the work orders table.
@@ -122,25 +161,50 @@ export function RecurringTable({
         </colgroup>
         <TableHeader>
           <tr className="border-b bg-muted/40">
-            {COLUMNS.map((col, i) => (
-              <th
-                key={col.key}
-                className="relative h-10 select-none px-4 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground"
-              >
-                <span className="truncate">{col.label}</span>
-                {i < COLUMNS.length - 1 ? (
-                  <span
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label={`Resize ${col.label} column`}
-                    onPointerDown={(e) => startResize(i, e)}
-                    className="absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-stretch justify-center hover:bg-border/70 active:bg-border"
-                  >
-                    <span className="my-2 w-px bg-border" aria-hidden="true" />
-                  </span>
-                ) : null}
-              </th>
-            ))}
+            {COLUMNS.map((col, i) => {
+              const sortable = isRecurringSortable(col.key)
+              const active = sortable && sort?.key === col.key
+              return (
+                <th
+                  key={col.key}
+                  aria-sort={
+                    active
+                      ? sort?.dir === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : undefined
+                  }
+                  className="relative h-10 select-none px-4 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                >
+                  {sortable ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(col.key)}
+                      className="group/sort flex w-full items-center gap-1 pr-2 text-left uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <span className="truncate">{col.label}</span>
+                      <SortIndicator
+                        active={active}
+                        dir={active ? sort?.dir : undefined}
+                      />
+                    </button>
+                  ) : (
+                    <span className="truncate">{col.label}</span>
+                  )}
+                  {i < COLUMNS.length - 1 ? (
+                    <span
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label={`Resize ${col.label} column`}
+                      onPointerDown={(e) => startResize(i, e)}
+                      className="absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-stretch justify-center hover:bg-border/70 active:bg-border"
+                    >
+                      <span className="my-2 w-px bg-border" aria-hidden="true" />
+                    </span>
+                  ) : null}
+                </th>
+              )
+            })}
           </tr>
         </TableHeader>
         <TableBody>
@@ -214,5 +278,37 @@ export function RecurringTable({
         </TableBody>
       </Table>
     </div>
+  )
+}
+
+function SortIndicator({
+  active,
+  dir,
+}: {
+  active: boolean
+  dir?: SortDirection
+}) {
+  if (active && dir === 'asc') {
+    return (
+      <RiArrowUpSLine
+        className="size-4 shrink-0 text-foreground"
+        aria-hidden="true"
+      />
+    )
+  }
+  if (active && dir === 'desc') {
+    return (
+      <RiArrowDownSLine
+        className="size-4 shrink-0 text-foreground"
+        aria-hidden="true"
+      />
+    )
+  }
+  // Unsorted: a muted hint that the column is sortable, emphasized on hover.
+  return (
+    <RiExpandUpDownLine
+      className="size-4 shrink-0 text-muted-foreground/40 group-hover/sort:text-muted-foreground"
+      aria-hidden="true"
+    />
   )
 }
