@@ -31,6 +31,7 @@ const FIELD_LABELS: Record<string, string> = {
   due_at: 'Due date',
   resolution: 'Resolution',
   assigned_to: 'Assignee',
+  validated_by: 'Validated by',
   reported_by_name: 'Reporter name',
   reported_by_email: 'Reporter email',
   reported_by_phone: 'Reporter phone',
@@ -234,7 +235,8 @@ function formatValue(
   timeZone: string
 ): string {
   if (value === null || value === undefined || value === '') {
-    return field === 'assigned_to' ? 'Unassigned' : 'empty'
+    if (field === 'assigned_to') return 'Unassigned'
+    return 'None'
   }
 
   switch (field) {
@@ -254,6 +256,7 @@ function formatValue(
       )
     case 'assigned_to':
     case 'rejected_by':
+    case 'validated_by':
       return userLabelById[String(value)] ?? String(value).slice(0, 8)
     case 'due_at':
     case 'rejected_at':
