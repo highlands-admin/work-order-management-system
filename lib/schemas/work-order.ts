@@ -324,7 +324,7 @@ function requirePropertyUnlessIT<
     ctx.addIssue({
       code: 'custom',
       path: ['property'],
-      message: 'Select a property',
+      message: 'Select a facility',
     })
   }
 }

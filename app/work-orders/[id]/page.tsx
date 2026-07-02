@@ -347,7 +347,7 @@ export default async function WorkOrderDetailPage({
         <aside className="flex flex-col gap-6 lg:sticky lg:top-20 lg:self-start">
           <Section title="Details">
             <dl className="flex flex-col gap-4 text-sm">
-              <DetailItem label="Property">
+              <DetailItem label="Facility">
                 {data.property ? (
                   PROPERTY_LABELS[data.property]
                 ) : (

@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  RiArchiveLine,
   RiBarChartBoxLine,
   RiCheckDoubleLine,
   RiClipboardLine,
@@ -105,11 +106,19 @@ export function AppSidebar({
     href: '/work-orders/submissions',
     icon: RiCheckDoubleLine,
   }
+  // Rejected work orders live in their own view so the queue stays focused on
+  // items that still need a decision. RLS scopes the page: admins see all
+  // rejections, requesters see only their own.
+  const archiveItem: NavItem = {
+    title: 'Archive',
+    href: '/work-orders/rejected',
+    icon: RiArchiveLine,
+  }
 
   const workOrderNav = isAdmin
     ? [...workOrderItems, newWorkOrderItem]
     : canFile
-      ? [...workOrderItems, newWorkOrderItem, submissionsItem]
+      ? [...workOrderItems, newWorkOrderItem, submissionsItem, archiveItem]
       : workOrderItems
 
   const adminNav: NavItem[] = isAdmin
@@ -119,6 +128,7 @@ export function AppSidebar({
           href: '/work-orders/submissions',
           icon: RiCheckDoubleLine,
         },
+        archiveItem,
         ...adminItems,
       ]
     : adminItems

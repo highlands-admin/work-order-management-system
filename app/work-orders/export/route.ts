@@ -65,7 +65,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     'Category',
     'Status',
     'Priority',
-    'Property',
+    'Facility',
     'Unit',
     'Assigned To',
     'Reported By',

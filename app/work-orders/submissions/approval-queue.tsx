@@ -17,12 +17,10 @@ const ALL = 'all'
 
 export function ApprovalQueue({
   pending,
-  rejected,
   canModerate,
   timeZone,
 }: {
   pending: SubmissionCardWorkOrder[]
-  rejected: SubmissionCardWorkOrder[]
   canModerate: boolean
   timeZone: string
 }) {
@@ -54,7 +52,6 @@ export function ApprovalQueue({
       <TabsPanel value={ALL}>
         <QueueSections
           pending={pending}
-          rejected={rejected}
           canModerate={canModerate}
           timeZone={timeZone}
           emptyMessage={allEmptyMessage}
@@ -64,7 +61,6 @@ export function ApprovalQueue({
         <TabsPanel key={category} value={category}>
           <QueueSections
             pending={pending.filter((wo) => wo.category === category)}
-            rejected={rejected.filter((wo) => wo.category === category)}
             canModerate={canModerate}
             timeZone={timeZone}
             emptyMessage={
@@ -81,13 +77,11 @@ export function ApprovalQueue({
 
 function QueueSections({
   pending,
-  rejected,
   canModerate,
   timeZone,
   emptyMessage,
 }: {
   pending: SubmissionCardWorkOrder[]
-  rejected: SubmissionCardWorkOrder[]
   canModerate: boolean
   timeZone: string
   emptyMessage: string
@@ -111,22 +105,6 @@ function QueueSections({
           </div>
         )}
       </section>
-
-      {rejected.length > 0 ? (
-        <section className="flex flex-col gap-4">
-          <SectionHeading title="Recently rejected" count={rejected.length} />
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-            {rejected.map((wo) => (
-              <SubmissionCard
-                key={wo.id}
-                workOrder={wo}
-                canModerate={canModerate}
-                timeZone={timeZone}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
     </div>
   )
 }

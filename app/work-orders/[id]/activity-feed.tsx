@@ -26,7 +26,7 @@ const FIELD_LABELS: Record<string, string> = {
   category: 'Category',
   status: 'Status',
   priority: 'Priority',
-  property: 'Property',
+  property: 'Facility',
   unit_number: 'Unit',
   due_at: 'Due date',
   resolution: 'Resolution',
@@ -55,6 +55,10 @@ const LONG_FIELDS = new Set([
   'rejected_reason',
   'marketing_key_message',
 ])
+
+// Fields omitted from the diff. These are bookkeeping columns that duplicate
+// the Status change to Rejected shown in the same event.
+const HIDDEN_FIELDS = new Set(['rejected_at', 'rejected_by'])
 
 export function ActivityFeed({
   events,
@@ -149,7 +153,9 @@ function ActivityBody({
       string,
       { from: unknown; to: unknown }
     >
-    const entries = Object.entries(changes)
+    const entries = Object.entries(changes).filter(
+      ([field]) => !HIDDEN_FIELDS.has(field)
+    )
     if (entries.length === 0) return null
     return (
       <ul className="flex flex-col gap-1 text-sm text-foreground/90">

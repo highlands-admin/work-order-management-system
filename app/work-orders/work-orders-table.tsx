@@ -66,16 +66,12 @@ const COLUMNS: Column[] = [
   { key: 'category', label: 'Category', width: 130 },
   { key: 'status', label: 'Status', width: 120 },
   { key: 'priority', label: 'Priority', width: 130 },
-  { key: 'property', label: 'Property', width: 130 },
+  { key: 'property', label: 'Facility', width: 130 },
   { key: 'created', label: 'Created', width: 120 },
   { key: 'due', label: 'Due', width: 180 },
   { key: 'assignee', label: 'Assignee', width: 160 },
   { key: 'reporter', label: 'Reported by', width: 180 },
 ]
-
-// The "My Work Orders" table omits the assignee column (every row is the
-// viewer's). Precomputed so the column set is a stable reference.
-const COLUMNS_WITHOUT_ASSIGNEE = COLUMNS.filter((c) => c.key !== 'assignee')
 
 const MIN_WIDTH = 60
 
@@ -92,6 +88,7 @@ export function WorkOrdersTable({
   timeZone,
   sort,
   showAssignee = true,
+  showStatus = true,
 }: {
   workOrders: WorkOrderListItem[]
   emptyMessage: string
@@ -99,12 +96,21 @@ export function WorkOrdersTable({
   timeZone: string
   sort: ListSort | null
   showAssignee?: boolean
+  // The Archive lists only rejected work orders, so the Status column carries
+  // no information and is hidden there.
+  showStatus?: boolean
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const columns = showAssignee ? COLUMNS : COLUMNS_WITHOUT_ASSIGNEE
+  // The "My Work Orders" table omits the assignee column (every row is the
+  // viewer's), and the Archive omits the status column (every row is rejected).
+  const columns = COLUMNS.filter(
+    (c) =>
+      (showAssignee || c.key !== 'assignee') &&
+      (showStatus || c.key !== 'status')
+  )
 
   // The assignee label lives outside the row, so resolve it here.
   function assigneeLabel(assignedTo: string | null): string | null {
@@ -272,9 +278,11 @@ export function WorkOrdersTable({
               <TableCell className="truncate px-4 py-3">
                 {CATEGORY_LABELS[wo.category]}
               </TableCell>
-              <TableCell className="truncate px-4 py-3">
-                <StatusBadge status={wo.status} />
-              </TableCell>
+              {showStatus ? (
+                <TableCell className="truncate px-4 py-3">
+                  <StatusBadge status={wo.status} />
+                </TableCell>
+              ) : null}
               <TableCell className="truncate px-4 py-3">
                 <PriorityBadge priority={wo.priority} />
               </TableCell>

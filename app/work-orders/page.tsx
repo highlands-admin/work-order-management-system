@@ -96,7 +96,7 @@ export default async function WorkOrdersPage({
         <div>
           <h1 className="font-heading text-2xl font-semibold">Work Orders</h1>
           <p className="text-sm text-muted-foreground">
-            Every work order across all properties, active work first.
+            Every work order across all facilities, active work first.
           </p>
         </div>
         {canFile ? (

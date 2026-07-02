@@ -60,7 +60,7 @@ export default async function DashboardPage({
           Dashboard
         </h1>
         <p className="text-base text-muted-foreground">
-          Operations overview across all properties.
+          Operations overview across all facilities.
         </p>
       </div>
 

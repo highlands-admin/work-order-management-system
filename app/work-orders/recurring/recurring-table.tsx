@@ -45,7 +45,7 @@ const COLUMNS = [
   { key: 'category', label: 'Category', width: 200 },
   { key: 'provider', label: 'Provider', width: 160 },
   { key: 'frequency', label: 'Frequency', width: 130 },
-  { key: 'property', label: 'Property', width: 140 },
+  { key: 'property', label: 'Facility', width: 140 },
   { key: 'due', label: 'Next due', width: 180 },
   { key: 'alerts', label: 'Alerts', width: 110 },
   { key: 'recipients', label: 'Recipients', width: 120 },

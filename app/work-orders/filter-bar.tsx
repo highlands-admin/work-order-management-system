@@ -160,11 +160,35 @@ export function FilterBar({
   function renderFilters() {
     return (
       <>
+        {showAssignee ? (
+          <MultiSelectFilter
+            label="Assignee"
+            options={assigneeFilterOptions}
+            selected={draft.assignees}
+            onChange={(v) => setDraft((d) => withFilter(d, 'assignees', v))}
+          />
+        ) : null}
         <MultiSelectFilter
-          label="Status"
-          options={STATUS_OPTIONS}
-          selected={draft.statuses}
-          onChange={(v) => setDraft((d) => withFilter(d, 'statuses', v))}
+          label="Category"
+          options={CATEGORY_OPTIONS}
+          selected={draft.categories}
+          onChange={(v) => setDraft((d) => withFilter(d, 'categories', v))}
+        />
+        <DateRangeFilter
+          label="Created"
+          from={draft.createdFrom}
+          to={draft.createdTo}
+          onChange={({ from, to }) =>
+            setDraft((d) => ({ ...d, createdFrom: from, createdTo: to }))
+          }
+        />
+        <DateRangeFilter
+          label="Due date"
+          from={draft.dueFrom}
+          to={draft.dueTo}
+          onChange={({ from, to }) =>
+            setDraft((d) => ({ ...d, dueFrom: from, dueTo: to }))
+          }
         />
         <MultiSelectFilter
           label="Priority"
@@ -173,13 +197,7 @@ export function FilterBar({
           onChange={(v) => setDraft((d) => withFilter(d, 'priorities', v))}
         />
         <MultiSelectFilter
-          label="Category"
-          options={CATEGORY_OPTIONS}
-          selected={draft.categories}
-          onChange={(v) => setDraft((d) => withFilter(d, 'categories', v))}
-        />
-        <MultiSelectFilter
-          label="Property"
+          label="Facility"
           options={PROPERTY_OPTIONS}
           selected={draft.properties}
           onChange={(v) => setDraft((d) => withFilter(d, 'properties', v))}
@@ -190,29 +208,11 @@ export function FilterBar({
           selected={draft.sources}
           onChange={(v) => setDraft((d) => withFilter(d, 'sources', v))}
         />
-        {showAssignee ? (
-          <MultiSelectFilter
-            label="Assignee"
-            options={assigneeFilterOptions}
-            selected={draft.assignees}
-            onChange={(v) => setDraft((d) => withFilter(d, 'assignees', v))}
-          />
-        ) : null}
-        <DateRangeFilter
-          label="Due date"
-          from={draft.dueFrom}
-          to={draft.dueTo}
-          onChange={({ from, to }) =>
-            setDraft((d) => ({ ...d, dueFrom: from, dueTo: to }))
-          }
-        />
-        <DateRangeFilter
-          label="Created"
-          from={draft.createdFrom}
-          to={draft.createdTo}
-          onChange={({ from, to }) =>
-            setDraft((d) => ({ ...d, createdFrom: from, createdTo: to }))
-          }
+        <MultiSelectFilter
+          label="Status"
+          options={STATUS_OPTIONS}
+          selected={draft.statuses}
+          onChange={(v) => setDraft((d) => withFilter(d, 'statuses', v))}
         />
       </>
     )

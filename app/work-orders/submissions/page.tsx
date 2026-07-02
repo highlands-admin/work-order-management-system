@@ -59,21 +59,13 @@ function toCardData(row: SubmissionRow): SubmissionCardWorkOrder {
 export default async function SubmissionsPage() {
   const supabase = await createClient()
 
-  // Two parallel queries keep the rejection list on its own ordering (most
-  // recently rejected first) without complicating the pending sort.
-  const [claimsResult, pendingResult, rejectedResult] = await Promise.all([
+  const [claimsResult, pendingResult] = await Promise.all([
     supabase.auth.getClaims(),
     supabase
       .from('work_orders')
       .select(SUBMISSION_COLUMNS)
       .eq('status', 'pending')
       .order('created_at', { ascending: true }),
-    supabase
-      .from('work_orders')
-      .select(SUBMISSION_COLUMNS)
-      .eq('status', 'rejected')
-      .order('rejected_at', { ascending: false, nullsFirst: false })
-      .limit(50),
   ])
 
   const userRole = (claimsResult.data?.claims as { user_role?: string } | undefined)
@@ -81,8 +73,7 @@ export default async function SubmissionsPage() {
   const canModerate = userRole === 'administrator'
 
   const pending = ((pendingResult.data ?? []) as SubmissionRow[]).map(toCardData)
-  const rejected = ((rejectedResult.data ?? []) as SubmissionRow[]).map(toCardData)
-  const fetchError = pendingResult.error ?? rejectedResult.error
+  const fetchError = pendingResult.error
   const timeZone = await getTimeZone()
 
   return (
@@ -93,7 +84,7 @@ export default async function SubmissionsPage() {
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {canModerate
-            ? 'Work orders awaiting your review, plus recent rejections.'
+            ? 'Work orders awaiting your review.'
             : 'Your work orders awaiting administrator approval.'}
         </p>
       </div>
@@ -104,7 +95,6 @@ export default async function SubmissionsPage() {
 
       <ApprovalQueue
         pending={pending}
-        rejected={rejected}
         canModerate={canModerate}
         timeZone={timeZone}
       />
