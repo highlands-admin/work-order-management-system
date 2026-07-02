@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
+import { MINE_VIEW_COOKIE, resolveView } from '@/lib/work-orders/list-view'
 import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
 import {
   hasActiveFilters,
@@ -35,7 +37,13 @@ export default async function MyWorkOrdersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
-  const view = params.view === 'board' ? 'board' : 'table'
+  const cookieStore = await cookies()
+  const view = resolveView(
+    ['table', 'board'] as const,
+    params.view,
+    cookieStore.get(MINE_VIEW_COOKIE)?.value,
+    'table'
+  )
   // Every row here is already assigned to the current user, so the assignee
   // filter is dropped.
   const filters = { ...parseWorkOrderFilters(params), assignees: [] }

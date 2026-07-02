@@ -7,6 +7,10 @@ import {
 } from '@remixicon/react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
+import {
+  RECURRING_VIEW_COOKIE,
+  VIEW_COOKIE_MAX_AGE,
+} from '@/lib/work-orders/list-view'
 import { cn } from '@/lib/utils'
 
 type View = 'calendar' | 'table'
@@ -17,6 +21,9 @@ export function RecurringViewToggle({ view }: { view: View }) {
   const searchParams = useSearchParams()
 
   function setView(next: View) {
+    // Remember the choice so the next visit (e.g. from the sidebar, with no
+    // ?view param) opens in this view. The page reads the cookie server-side.
+    document.cookie = `${RECURRING_VIEW_COOKIE}=${next}; path=/; max-age=${VIEW_COOKIE_MAX_AGE}; samesite=lax`
     const params = new URLSearchParams(searchParams.toString())
     // Calendar is the default, so it carries no param.
     if (next === 'calendar') params.delete('view')

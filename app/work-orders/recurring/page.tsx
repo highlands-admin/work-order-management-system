@@ -1,8 +1,13 @@
 import { RiRepeatLine } from '@remixicon/react'
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { getTimeZone } from '@/lib/datetime/timezone'
+import {
+  RECURRING_VIEW_COOKIE,
+  resolveView,
+} from '@/lib/work-orders/list-view'
 import {
   type Property,
   type RecurrenceFrequency,
@@ -57,7 +62,13 @@ export default async function RecurringWorkOrdersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
-  const view = params.view === 'table' ? 'table' : 'calendar'
+  const cookieStore = await cookies()
+  const view = resolveView(
+    ['calendar', 'table'] as const,
+    params.view,
+    cookieStore.get(RECURRING_VIEW_COOKIE)?.value,
+    'calendar'
+  )
   const isTable = view === 'table'
   const filters = parseRecurringFilters(params)
   const sort = parseRecurringSort(params)
