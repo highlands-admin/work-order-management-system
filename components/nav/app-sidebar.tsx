@@ -98,8 +98,8 @@ export function AppSidebar({
   // The dashboard is an operations overview for administrators and supervisors.
   const isManager = isAdmin || userRole === 'supervisor'
 
-  // Admins reach the queue from the Administration group ("Approval Queue").
-  // Requesters reach it from the Work Orders group ("Submissions"), since
+  // Admins reach the queue from the Approvals group ("Approval Queue").
+  // Requesters reach it from their My Requests group ("Submissions"), since
   // for them it's a personal tracking view.
   const submissionsItem: NavItem = {
     title: 'Submissions',
@@ -115,23 +115,27 @@ export function AppSidebar({
     icon: RiArchiveLine,
   }
 
-  const workOrderNav = isAdmin
+  const workOrderNav = canFile
     ? [...workOrderItems, newWorkOrderItem]
-    : canFile
-      ? [...workOrderItems, newWorkOrderItem, submissionsItem, archiveItem]
-      : workOrderItems
+    : workOrderItems
 
-  const adminNav: NavItem[] = isAdmin
-    ? [
-        {
-          title: 'Approval Queue',
-          href: '/work-orders/submissions',
-          icon: RiCheckDoubleLine,
-        },
-        archiveItem,
-        ...adminItems,
-      ]
-    : adminItems
+  // Requesters track their own filed work in a separate "My Requests" group:
+  // pending submissions and the rejected archive. Admins get the same two
+  // views under Approvals instead, so this group is requester-only.
+  const requestsNav: NavItem[] = [submissionsItem, archiveItem]
+
+  // Admin navigation is split by concern: the work-order review lifecycle
+  // (pending queue plus rejected archive) and access administration (invites
+  // and user roles).
+  const approvalsNav: NavItem[] = [
+    {
+      title: 'Approval Queue',
+      href: '/work-orders/submissions',
+      icon: RiCheckDoubleLine,
+    },
+    archiveItem,
+  ]
+  const userManagementNav = adminItems
 
   return (
     <Sidebar {...props}>
@@ -182,12 +186,44 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {isAdmin ? (
+        {canFile && !isAdmin ? (
           <SidebarGroup>
-            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupLabel>My Requests</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminNav.map((item) => (
+                {requestsNav.map((item) => (
+                  <NavMenuItem
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
+        {isAdmin ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Approvals</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {approvalsNav.map((item) => (
+                  <NavMenuItem
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
+        {isAdmin ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>User Management</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {userManagementNav.map((item) => (
                   <NavMenuItem
                     key={item.href}
                     item={item}
