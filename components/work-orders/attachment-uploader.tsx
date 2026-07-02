@@ -7,7 +7,7 @@ import {
   RiUploadCloud2Line,
 } from '@remixicon/react'
 import imageCompression from 'browser-image-compression'
-import { useRef, useState } from 'react'
+import { useRef, useState, type DragEvent } from 'react'
 
 import { FileIcon } from '@/components/work-orders/file-icon'
 import {
@@ -78,6 +78,7 @@ export function AttachmentUploader({
   // Existing attachments the user chose to remove. Their IDs are submitted so
   // the update action deletes the rows and the underlying objects.
   const [removedIds, setRemovedIds] = useState<string[]>([])
+  const [isDragging, setIsDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const keptExisting = existing.filter((a) => !removedIds.includes(a.id))
@@ -220,6 +221,33 @@ export function AttachmentUploader({
     setRemovedIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
   }
 
+  function handleDragEnter(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    if (remaining > 0) setIsDragging(true)
+  }
+
+  function handleDragOver(event: DragEvent<HTMLButtonElement>) {
+    // Required for the element to be a valid drop target.
+    event.preventDefault()
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    // Dragging over a child fires dragleave on the parent; only clear the
+    // highlight when the pointer actually leaves the dropzone.
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDragging(false)
+    }
+  }
+
+  function handleDrop(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    setIsDragging(false)
+    // handleFiles filters by the extension allowlist and the remaining count,
+    // so dropped folders and videos are rejected the same as picked ones.
+    handleFiles(event.dataTransfer.files)
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* Hidden fields the create/update action reads. Only fully uploaded
@@ -276,12 +304,17 @@ export function AttachmentUploader({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
           disabled={remaining <= 0}
           className={cn(
             'flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-input bg-muted/20 px-4 py-8 text-center transition-colors',
             remaining <= 0
               ? 'cursor-not-allowed opacity-60'
-              : 'hover:border-foreground/30 hover:bg-muted/40'
+              : 'hover:border-foreground/30 hover:bg-muted/40',
+            isDragging && 'border-foreground/40 bg-muted/60'
           )}
         >
           <RiUploadCloud2Line
@@ -291,7 +324,9 @@ export function AttachmentUploader({
           <span className="text-sm font-medium text-foreground">
             {remaining <= 0
               ? `Maximum of ${MAX_ATTACHMENTS_PER_WORK_ORDER} files reached`
-              : 'Add files'}
+              : isDragging
+                ? 'Drop to upload'
+                : 'Drag and drop, or click to add files'}
           </span>
           <span className="text-xs font-medium text-muted-foreground">
             Images, PDF, Word, Excel, or PowerPoint · Up to {MAX_MB} MB each
