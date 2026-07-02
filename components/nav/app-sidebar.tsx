@@ -22,7 +22,9 @@ import {
   type ComponentType,
 } from 'react'
 
+import { buttonVariants } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 import {
   Sidebar,
   SidebarContent,
@@ -56,7 +58,7 @@ const workOrderItems: NavItem[] = [
 ]
 
 const newWorkOrderItem: NavItem = {
-  title: 'Create Work Order',
+  title: 'New Work Order',
   href: '/work-orders/new',
   icon: RiFileAddLine,
 }
@@ -115,9 +117,9 @@ export function AppSidebar({
     icon: RiArchiveLine,
   }
 
-  const workOrderNav = canFile
-    ? [...workOrderItems, newWorkOrderItem]
-    : workOrderItems
+  // New Work Order is elevated to a CTA button in the header (see below),
+  // so it is no longer part of the browsable Work Orders list.
+  const workOrderNav = workOrderItems
 
   // Requesters track their own filed work in a separate "My Requests" group:
   // pending submissions and the rejected archive. Admins get the same two
@@ -149,6 +151,24 @@ export function AppSidebar({
         >
           Cadence
         </Link>
+        {/* Gmail-style "Compose" CTA: the primary action gets a prominent,
+            elevated button pinned above the navigation rather than sitting as
+            one link among many. Only filers can create work orders. */}
+        {canFile ? (
+          <Link
+            href={newWorkOrderItem.href}
+            onClick={() => {
+              if (isMobile) setOpenMobile(false)
+            }}
+            className={cn(
+              buttonVariants({ size: 'cta' }),
+              'mt-1 mb-2 self-start gap-2 shadow-sm'
+            )}
+          >
+            <RiFileAddLine className="size-5" />
+            {newWorkOrderItem.title}
+          </Link>
+        ) : null}
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
