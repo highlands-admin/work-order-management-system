@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
+import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
 import {
   hasActiveFilters,
@@ -89,6 +90,8 @@ export default async function MyWorkOrdersPage({
 
   const timeZone = await getTimeZone()
   const filtersActive = hasActiveFilters(filters)
+  // The board's close flow needs the user directory for the Validated By field.
+  const assignableUsers = await fetchAssignableUsers(supabase)
 
   return (
     <div className="flex flex-col gap-6">
@@ -120,7 +123,11 @@ export default async function MyWorkOrdersPage({
             </p>
           </div>
         ) : (
-          <KanbanBoard workOrders={workOrders} timeZone={timeZone} />
+          <KanbanBoard
+            workOrders={workOrders}
+            timeZone={timeZone}
+            users={assignableUsers}
+          />
         )
       ) : (
         <>

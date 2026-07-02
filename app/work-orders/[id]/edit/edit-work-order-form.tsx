@@ -61,6 +61,7 @@ type WorkOrder = {
   description: string
   resolution: string | null
   assigned_to: string | null
+  validated_by: string | null
   reported_by_name: string | null
   reported_by_email: string | null
   reported_by_phone: string | null
@@ -112,6 +113,9 @@ export function EditWorkOrderForm({
   const [assignedToValue, setAssignedToValue] = useState<string>(
     state.values?.assignedTo ?? workOrder.assigned_to ?? ''
   )
+  const [validatedByValue, setValidatedByValue] = useState<string>(
+    state.values?.validatedBy ?? workOrder.validated_by ?? ''
+  )
   if (storedState !== state) {
     setStoredState(state)
     setCategoryValue(state.values?.category ?? workOrder.category)
@@ -119,6 +123,7 @@ export function EditWorkOrderForm({
     setPropertyValue(state.values?.property ?? workOrder.property ?? '')
     setStatusValue(state.values?.status ?? workOrder.status)
     setAssignedToValue(state.values?.assignedTo ?? workOrder.assigned_to ?? '')
+    setValidatedByValue(state.values?.validatedBy ?? workOrder.validated_by ?? '')
   }
 
   const titleError = getError('title')
@@ -127,6 +132,7 @@ export function EditWorkOrderForm({
   const propertyError = getError('property')
   const statusError = getError('status')
   const assignedToError = getError('assignedTo')
+  const validatedByError = getError('validatedBy')
   const unitNumberError = getError('unitNumber')
   const dueAtError = getError('dueAt')
   const descriptionError = getError('description')
@@ -469,7 +475,11 @@ export function EditWorkOrderForm({
           <Field data-invalid={resolutionError ? 'true' : undefined}>
             <FieldLabel htmlFor="resolution">
               Resolution{' '}
-              {statusValue === 'done' ? <Required /> : <Optional />}
+              {statusValue === 'done' || statusValue === 'closed' ? (
+                <Required />
+              ) : (
+                <Optional />
+              )}
             </FieldLabel>
             <Textarea
               id="resolution"
@@ -479,12 +489,45 @@ export function EditWorkOrderForm({
               onChange={() => markEdited('resolution')}
               aria-invalid={resolutionError ? true : undefined}
               placeholder={
-                statusValue === 'done'
+                statusValue === 'done' || statusValue === 'closed'
                   ? 'Required: describe how this work order was resolved.'
                   : 'What was done to resolve this ticket?'
               }
             />
             <FieldError>{resolutionError}</FieldError>
+          </Field>
+
+          <Field data-invalid={validatedByError ? 'true' : undefined}>
+            <FieldLabel htmlFor="validatedBy">
+              Validated by{' '}
+              {statusValue === 'closed' ? <Required /> : <Optional />}
+            </FieldLabel>
+            <Select
+              name="validatedBy"
+              items={assigneeItems}
+              value={validatedByValue}
+              onValueChange={(v) => {
+                setValidatedByValue(typeof v === 'string' ? v : '')
+                markEdited('validatedBy')
+              }}
+            >
+              <SelectTrigger
+                id="validatedBy"
+                className="w-full sm:max-w-sm"
+                aria-invalid={validatedByError ? true : undefined}
+              >
+                <SelectValue placeholder="Not validated" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={null}>Not validated</SelectItem>
+                {assignableUsers.map((u) => (
+                  <SelectItem key={u.user_id} value={u.user_id}>
+                    {formatAssigneeLabel(u)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldError>{validatedByError}</FieldError>
           </Field>
         </FieldGroup>
       </FormSection>

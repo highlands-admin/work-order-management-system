@@ -459,18 +459,31 @@ export const createWorkOrderSchema = z
 
 export type CreateWorkOrderInput = z.infer<typeof createWorkOrderSchema>
 
-// Editors (admin / requester) may change any field, including status and
-// resolution. Inputs share the create shape (assignee included, which is
-// optional); status and resolution are appended.
+// The Validated By field: an optional user id, shaped like the assignee field
+// so the same dropdown of users populates it.
+const validatedByField = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (v && v.length > 0 ? v : undefined))
+  .pipe(z.uuid({ message: 'Select who validated this work order' }).optional())
+
+// Editors (admin / requester) may change any field, including status,
+// resolution, and the validator. Inputs share the create shape (assignee
+// included, which is optional); status, resolution, and validatedBy are
+// appended.
 export const updateWorkOrderSchema = z
   .object({
     ...baseWorkOrderFields,
     status: z.enum(WORK_ORDER_STATUSES, { message: 'Select a status' }),
     resolution: trimmedOptional.pipe(z.string().max(5000).optional()),
+    validatedBy: validatedByField,
   })
   .superRefine(requirePropertyUnlessIT)
   .superRefine(requireMarketingFields)
   .superRefine(requireResolutionOnDone)
+  .superRefine(requireResolutionOnClosed)
+  .superRefine(requireValidatedByOnClosed)
 
 export type UpdateWorkOrderInput = z.infer<typeof updateWorkOrderSchema>
 
@@ -542,6 +555,35 @@ function requireResolutionOnDone<
   }
 }
 
+// Closing a work order requires recording who validated the completed work.
+function requireValidatedByOnClosed<
+  T extends { status: WorkOrderStatus; validatedBy?: string }
+>(data: T, ctx: z.RefinementCtx) {
+  if (data.status === 'closed' && !data.validatedBy) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['validatedBy'],
+      message: 'Select who validated this work order to close it.',
+    })
+  }
+}
+
+// Closing also requires a resolution. Used where the resolution is entered on
+// the same form (the full edit form). The imperative status paths check the
+// existing resolution in the action instead, since a done work order already
+// has one.
+function requireResolutionOnClosed<
+  T extends { status: WorkOrderStatus; resolution?: string }
+>(data: T, ctx: z.RefinementCtx) {
+  if (data.status === 'closed' && !data.resolution) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['resolution'],
+      message: 'A resolution is required to close a work order.',
+    })
+  }
+}
+
 // Status-only transitions for technicians and inspectors. The action checks the
 // caller's role against the target status; RLS and a trigger enforce the same
 // rules at the database boundary. A resolution is required (and permitted) when
@@ -550,20 +592,26 @@ export const transitionStatusSchema = z
   .object({
     status: z.enum(WORK_ORDER_STATUSES, { message: 'Select a status' }),
     resolution: trimmedOptional.pipe(z.string().max(5000).optional()),
+    validatedBy: validatedByField,
   })
   .superRefine(requireResolutionOnDone)
+  .superRefine(requireValidatedByOnClosed)
 
 export type TransitionStatusInput = z.infer<typeof transitionStatusSchema>
 
 // Inline status change from the detail page and kanban board: admins, assignees,
 // and creators move an approved work order between the main workflow statuses.
-// Moving to Done requires a resolution.
+// Moving to Done requires a resolution; moving to Closed requires a validator
+// (and a resolution, which the action supplies from the existing row when the
+// work order is already Done).
 export const changeStatusSchema = z
   .object({
     status: z.enum(MAIN_TABLE_STATUSES, { message: 'Select a status' }),
     resolution: trimmedOptional.pipe(z.string().max(5000).optional()),
+    validatedBy: validatedByField,
   })
   .superRefine(requireResolutionOnDone)
+  .superRefine(requireValidatedByOnClosed)
 
 export const addWorkOrderNoteSchema = z.object({
   body: z

@@ -34,6 +34,7 @@ type WorkOrderRow = {
   description: string
   resolution: string | null
   assigned_to: string | null
+  validated_by: string | null
   created_by: string
   reported_by_name: string | null
   reported_by_email: string | null
@@ -68,7 +69,7 @@ export default async function EditWorkOrderPage({
     supabase
       .from('work_orders')
       .select(
-        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, reported_by_name, reported_by_email, reported_by_phone, provider, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other'
+        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, validated_by, created_by, reported_by_name, reported_by_email, reported_by_phone, provider, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other'
       )
       .eq('id', id)
       .maybeSingle<WorkOrderRow>(),
@@ -147,6 +148,7 @@ export default async function EditWorkOrderPage({
           workOrderId={data.id}
           currentStatus={data.status}
           role={role as 'technician' | 'inspector'}
+          assignableUsers={assignableUsers}
         />
       ) : (
         <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10 shadow-md dark:shadow-none">

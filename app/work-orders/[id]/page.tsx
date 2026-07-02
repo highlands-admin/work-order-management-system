@@ -60,6 +60,7 @@ type WorkOrderRow = {
   description: string
   resolution: string | null
   assigned_to: string | null
+  validated_by: string | null
   created_by: string
   updated_by: string
   reported_by_name: string | null
@@ -111,7 +112,7 @@ export default async function WorkOrderDetailPage({
     supabase
       .from('work_orders')
       .select(
-        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, provider, recurring_work_order_id, recurring:recurring_work_orders(frequency, next_due_at), created_at, updated_at'
+        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, validated_by, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, provider, recurring_work_order_id, recurring:recurring_work_orders(frequency, next_due_at), created_at, updated_at'
       )
       .eq('id', id)
       .maybeSingle<WorkOrderRow>(),
@@ -214,7 +215,11 @@ export default async function WorkOrderDetailPage({
         </h1>
         <div className="flex flex-wrap items-center gap-2">
           {statusControlShown ? (
-            <StatusControl workOrderId={data.id} status={data.status} />
+            <StatusControl
+              workOrderId={data.id}
+              status={data.status}
+              users={assignableUsers}
+            />
           ) : (
             <StatusBadge
               status={data.status}
@@ -385,6 +390,11 @@ export default async function WorkOrderDetailPage({
                   <span className="text-muted-foreground">Unassigned</span>
                 )}
               </DetailItem>
+              {data.validated_by ? (
+                <DetailItem label="Validated by">
+                  {formatUser(data.validated_by, userById)}
+                </DetailItem>
+              ) : null}
             </dl>
           </Section>
 

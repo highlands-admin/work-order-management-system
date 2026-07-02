@@ -410,6 +410,7 @@ export async function updateWorkOrderAction(
     provider: String(formData.get('provider') ?? ''),
     status: String(formData.get('status') ?? ''),
     resolution: String(formData.get('resolution') ?? ''),
+    validatedBy: String(formData.get('validatedBy') ?? ''),
     marketingRequestType: String(formData.get('marketingRequestType') ?? ''),
     marketingRequestTypeOther: String(
       formData.get('marketingRequestTypeOther') ?? ''
@@ -499,6 +500,7 @@ export async function updateWorkOrderAction(
       reported_by_phone: parsed.data.reportedByPhone ?? null,
       status: parsed.data.status,
       resolution: parsed.data.resolution ?? null,
+      validated_by: parsed.data.validatedBy ?? null,
       marketing_request_type: parsed.data.marketingRequestType ?? null,
       marketing_request_type_other:
         parsed.data.marketingRequestTypeOther ?? null,
@@ -568,6 +570,7 @@ export async function transitionWorkOrderStatusAction(
   const raw = {
     status: String(formData.get('status') ?? ''),
     resolution: String(formData.get('resolution') ?? ''),
+    validatedBy: String(formData.get('validatedBy') ?? ''),
   }
   const parsed = transitionStatusSchema.safeParse(raw)
   if (!parsed.success) {
@@ -616,6 +619,11 @@ export async function transitionWorkOrderStatusAction(
       ...(parsed.data.status === 'done'
         ? { resolution: parsed.data.resolution ?? null }
         : {}),
+      // Closing (inspector: done -> closed) records who validated the work. The
+      // resolution is already present from the earlier move to Done.
+      ...(parsed.data.status === 'closed'
+        ? { validated_by: parsed.data.validatedBy }
+        : {}),
       updated_by: claims.sub,
     })
     .eq('id', workOrderId)
@@ -637,9 +645,10 @@ export async function transitionWorkOrderStatusAction(
 export async function changeWorkOrderStatusAction(
   workOrderId: string,
   status: string,
-  resolution?: string
+  resolution?: string,
+  validatedBy?: string
 ): Promise<{ status: 'success' | 'error'; message?: string }> {
-  const parsed = changeStatusSchema.safeParse({ status, resolution })
+  const parsed = changeStatusSchema.safeParse({ status, resolution, validatedBy })
   if (!parsed.success) {
     return {
       status: 'error',
@@ -657,12 +666,13 @@ export async function changeWorkOrderStatusAction(
 
   const { data: existing } = await supabase
     .from('work_orders')
-    .select('created_by, assigned_to, status')
+    .select('created_by, assigned_to, status, resolution')
     .eq('id', workOrderId)
     .maybeSingle<{
       created_by: string
       assigned_to: string | null
       status: WorkOrderStatus
+      resolution: string | null
     }>()
 
   if (!existing) {
@@ -688,6 +698,24 @@ export async function changeWorkOrderStatusAction(
     }
   }
 
+  // Closing records who validated the work and requires a resolution. A work
+  // order already Done carries one from that step; moving straight from Open or
+  // In Progress to Closed supplies it now (the dialog collects it).
+  let closureFields: Record<string, unknown> = {}
+  if (parsed.data.status === 'closed') {
+    const effectiveResolution = parsed.data.resolution ?? existing.resolution
+    if (!effectiveResolution) {
+      return {
+        status: 'error',
+        message: 'A resolution is required to close a work order.',
+      }
+    }
+    closureFields = {
+      resolution: effectiveResolution,
+      validated_by: parsed.data.validatedBy,
+    }
+  }
+
   const { error } = await supabase
     .from('work_orders')
     .update({
@@ -696,6 +724,7 @@ export async function changeWorkOrderStatusAction(
       ...(parsed.data.status === 'done'
         ? { resolution: parsed.data.resolution ?? null }
         : {}),
+      ...closureFields,
       updated_by: claims.sub,
     })
     .eq('id', workOrderId)

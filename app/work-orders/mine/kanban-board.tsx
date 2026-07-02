@@ -18,6 +18,7 @@ import { RiCalendarEventLine } from '@remixicon/react'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 
+import { CloseDialog } from '@/components/work-orders/close-dialog'
 import { ResolutionDialog } from '@/components/work-orders/resolution-dialog'
 import { PriorityBadge } from '@/components/work-orders/work-order-badge'
 import { formatDate } from '@/lib/datetime/format'
@@ -28,6 +29,7 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { cn } from '@/lib/utils'
+import type { AssignableUser } from '@/lib/work-orders/assignable-users'
 
 import { changeWorkOrderStatusAction } from '../actions'
 import { type WorkOrderListItem } from '../work-orders-table'
@@ -56,9 +58,11 @@ function signature(items: WorkOrderListItem[]): string {
 export function KanbanBoard({
   workOrders,
   timeZone,
+  users,
 }: {
   workOrders: WorkOrderListItem[]
   timeZone: string
+  users: AssignableUser[]
 }) {
   const [board, setBoard] = useState<Board>(() => groupByStatus(workOrders))
   const [serverSig, setServerSig] = useState(() => signature(workOrders))
@@ -67,6 +71,13 @@ export function KanbanBoard({
   // A drop into the Done column is held here until the resolution modal is
   // confirmed; the card only moves once a resolution is provided.
   const [doneMove, setDoneMove] = useState<{
+    cardId: string
+    from: WorkOrderStatus
+    card: WorkOrderListItem
+  } | null>(null)
+  // A drop into the Closed column is held here until the close modal (validator,
+  // plus a resolution when the card is not already Done) is confirmed.
+  const [closeMove, setCloseMove] = useState<{
     cardId: string
     from: WorkOrderStatus
     card: WorkOrderListItem
@@ -110,7 +121,8 @@ export function KanbanBoard({
     from: WorkOrderStatus,
     to: WorkOrderStatus,
     card: WorkOrderListItem,
-    resolution?: string
+    resolution?: string,
+    validatedBy?: string
   ) {
     setBoard((prev) => ({
       ...prev,
@@ -120,7 +132,12 @@ export function KanbanBoard({
     setError(null)
 
     startTransition(async () => {
-      const result = await changeWorkOrderStatusAction(cardId, to, resolution)
+      const result = await changeWorkOrderStatusAction(
+        cardId,
+        to,
+        resolution,
+        validatedBy
+      )
       if (result.status === 'error') {
         // Revert the card to its original column.
         setBoard((prev) => ({
@@ -155,6 +172,12 @@ export function KanbanBoard({
     // Moving to Done requires a resolution: hold the move and prompt first.
     if (to === 'done') {
       setDoneMove({ cardId, from, card })
+      return
+    }
+    // Moving to Closed requires a validator (and a resolution unless already
+    // Done): hold the move and prompt first.
+    if (to === 'closed') {
+      setCloseMove({ cardId, from, card })
       return
     }
 
@@ -216,6 +239,29 @@ export function KanbanBoard({
           setDoneMove(null)
         }}
         onCancel={() => setDoneMove(null)}
+      />
+
+      <CloseDialog
+        open={closeMove !== null}
+        onOpenChange={(open) => {
+          if (!open) setCloseMove(null)
+        }}
+        users={users}
+        requireResolution={closeMove ? closeMove.from !== 'done' : true}
+        pending={isPending}
+        onConfirm={({ resolution, validatedBy }) => {
+          if (!closeMove) return
+          commitMove(
+            closeMove.cardId,
+            closeMove.from,
+            'closed',
+            closeMove.card,
+            resolution,
+            validatedBy
+          )
+          setCloseMove(null)
+        }}
+        onCancel={() => setCloseMove(null)}
       />
     </div>
   )

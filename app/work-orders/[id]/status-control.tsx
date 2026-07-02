@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { CloseDialog } from '@/components/work-orders/close-dialog'
 import { ResolutionDialog } from '@/components/work-orders/resolution-dialog'
 import { STATUS_COLOR } from '@/components/work-orders/work-order-badge'
 import {
@@ -18,6 +19,7 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { cn } from '@/lib/utils'
+import type { AssignableUser } from '@/lib/work-orders/assignable-users'
 
 import { changeWorkOrderStatusAction } from '../actions'
 
@@ -28,13 +30,16 @@ import { changeWorkOrderStatusAction } from '../actions'
 export function StatusControl({
   workOrderId,
   status,
+  users,
 }: {
   workOrderId: string
   status: WorkOrderStatus
+  users: AssignableUser[]
 }) {
   const [serverStatus, setServerStatus] = useState<WorkOrderStatus>(status)
   const [value, setValue] = useState<WorkOrderStatus>(status)
   const [doneDialogOpen, setDoneDialogOpen] = useState(false)
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   // Re-sync to the server value after a revalidation delivers a new prop.
@@ -43,14 +48,19 @@ export function StatusControl({
     setValue(status)
   }
 
-  function commit(next: WorkOrderStatus, resolution?: string) {
+  function commit(
+    next: WorkOrderStatus,
+    resolution?: string,
+    validatedBy?: string
+  ) {
     const previous = value
     setValue(next)
     startTransition(async () => {
       const result = await changeWorkOrderStatusAction(
         workOrderId,
         next,
-        resolution
+        resolution,
+        validatedBy
       )
       if (result.status === 'error') {
         setValue(previous)
@@ -63,10 +73,15 @@ export function StatusControl({
 
   function onChange(next: WorkOrderStatus) {
     if (next === value) return
-    // Moving to Done requires a resolution: collect it in a modal, then commit.
-    // The select stays on its current value until the change is confirmed.
+    // Moving to Done requires a resolution; moving to Closed requires a
+    // validator (and a resolution unless already Done). Collect these in a
+    // modal, then commit. The select stays on its current value until confirmed.
     if (next === 'done') {
       setDoneDialogOpen(true)
+      return
+    }
+    if (next === 'closed') {
+      setCloseDialogOpen(true)
       return
     }
     commit(next)
@@ -105,6 +120,20 @@ export function StatusControl({
         onConfirm={(resolution) => {
           setDoneDialogOpen(false)
           commit('done', resolution)
+        }}
+      />
+
+      <CloseDialog
+        open={closeDialogOpen}
+        onOpenChange={setCloseDialogOpen}
+        users={users}
+        // A work order already Done carries a resolution; a direct move from
+        // Open / In Progress must supply one now.
+        requireResolution={serverStatus !== 'done'}
+        pending={isPending}
+        onConfirm={({ resolution, validatedBy }) => {
+          setCloseDialogOpen(false)
+          commit('closed', resolution, validatedBy)
         }}
       />
     </div>
