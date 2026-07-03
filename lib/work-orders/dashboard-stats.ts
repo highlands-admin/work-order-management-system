@@ -25,6 +25,12 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 
+// Categories shown in the "By Category" chart. Preventative Maintenance and
+// License/Permit are omitted to keep the axis readable.
+const CATEGORY_CHART_KEYS = WORK_ORDER_CATEGORIES.filter(
+  (c) => c !== 'preventative_maintenance' && c !== 'license'
+)
+
 // Minimal row shape the dashboard needs from work_orders.
 export type DashboardRow = {
   status: WorkOrderStatus
@@ -121,7 +127,7 @@ export function computeDashboardStats(
 
   const byCategory = buildStacked(
     categoryStatus,
-    WORK_ORDER_CATEGORIES,
+    CATEGORY_CHART_KEYS,
     CATEGORY_LABELS
   )
 

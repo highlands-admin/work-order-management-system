@@ -177,10 +177,14 @@ function StatusStackedCard({
   title,
   description,
   breakdown,
+  angledLabels = false,
 }: {
   title: string
   description: string
   breakdown: StackedBreakdown
+  // Angle the x-axis labels for groups with many long names (categories) so
+  // every label fits without Recharts dropping some to avoid overlap.
+  angledLabels?: boolean
 }) {
   const config: ChartConfig = Object.fromEntries(
     breakdown.statuses.map((s) => [
@@ -201,7 +205,11 @@ function StatusStackedCard({
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            tick={{ style: { fill: 'var(--foreground)' } }}
+            interval={0}
+            angle={angledLabels ? -30 : 0}
+            textAnchor={angledLabels ? 'end' : 'middle'}
+            height={angledLabels ? 84 : 30}
+            tick={{ style: { fill: 'var(--foreground)' }, fontSize: 12 }}
           />
           <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
           <ChartLegend content={<ChartLegendContent />} />

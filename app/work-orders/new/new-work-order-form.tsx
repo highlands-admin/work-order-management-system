@@ -543,7 +543,9 @@ export function NewWorkOrderForm({
           title="Attachments"
           description="Optional. Attach a photo or document so reviewers can see the problem."
         >
-          <AttachmentUploader />
+          <AttachmentUploader
+            compressImages={categoryValue !== 'marketing'}
+          />
         </FormSection>
       </StepPanel>
 

@@ -30,6 +30,7 @@ import {
   type WorkOrderPriority,
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
+import { cn } from '@/lib/utils'
 import {
   isSortable,
   type ListSort,
@@ -292,7 +293,15 @@ export function WorkOrdersTable({
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {formatDate(wo.created_at, timeZone)}
               </TableCell>
-              <TableCell className="truncate px-4 py-3 text-muted-foreground">
+              <TableCell
+                suppressHydrationWarning
+                className={cn(
+                  'truncate px-4 py-3',
+                  isOverdue(wo.due_at, wo.status)
+                    ? 'font-medium text-destructive'
+                    : 'text-muted-foreground'
+                )}
+              >
                 {wo.due_at ? formatDateTime(wo.due_at, timeZone) : '—'}
               </TableCell>
               {showAssignee ? (
@@ -313,6 +322,15 @@ export function WorkOrdersTable({
       </Table>
     </div>
   )
+}
+
+// A work order is overdue when its due date has passed and it is still open or
+// in progress; done and closed work is never overdue. The clock read lives in
+// this helper so it isn't flagged as an impure call during render.
+function isOverdue(dueAt: string | null, status: WorkOrderStatus): boolean {
+  if (!dueAt) return false
+  if (status !== 'open' && status !== 'in_progress') return false
+  return new Date(dueAt).getTime() < Date.now()
 }
 
 function SortIndicator({

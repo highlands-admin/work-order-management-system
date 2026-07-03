@@ -537,7 +537,10 @@ export function EditWorkOrderForm({
         title="Attachments"
         description="Photos or documents for this work order. Add new ones or remove existing files."
       >
-        <AttachmentUploader existing={attachments} />
+        <AttachmentUploader
+          existing={attachments}
+          compressImages={categoryValue !== 'marketing'}
+        />
       </FormSection>
 
       <FormSection

@@ -71,8 +71,12 @@ async function compressImage(
 
 export function AttachmentUploader({
   existing = [],
+  compressImages = true,
 }: {
   existing?: ExistingAttachment[]
+  // Marketing work orders keep full-resolution assets, so image compression is
+  // turned off for them.
+  compressImages?: boolean
 }) {
   const [items, setItems] = useState<UploadItem[]>([])
   // Existing attachments the user chose to remove. Their IDs are submitted so
@@ -99,9 +103,10 @@ export function AttachmentUploader({
     controller: AbortController
   ) {
     try {
-      const prepared = isImageType(contentType)
-        ? await compressImage(file, contentType)
-        : file
+      const prepared =
+        isImageType(contentType) && compressImages
+          ? await compressImage(file, contentType)
+          : file
 
       if (prepared.size > MAX_ATTACHMENT_BYTES) {
         throw new Error(`File is too large (max ${MAX_MB} MB).`)
