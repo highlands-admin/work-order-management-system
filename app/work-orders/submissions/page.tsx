@@ -9,7 +9,7 @@ import {
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
 
-import { type QueueEntry } from './queue-detail'
+import { type QueueBucket, type QueueEntry } from './queue-detail'
 import { SubmissionQueue } from './submission-queue'
 
 export const metadata: Metadata = { title: 'Submissions' }
@@ -55,7 +55,32 @@ function compareQueue(a: QueueEntry, b: QueueEntry): number {
   return a.createdAt.localeCompare(b.createdAt)
 }
 
-function toEntry(row: SubmissionRow): QueueEntry {
+const DAY_MS = 86_400_000
+
+// Kept out of the component body so the clock read isn't flagged as an impure
+// call during render (same pattern as computeIsOverdue on the detail page).
+function currentTime(): number {
+  return Date.now()
+}
+
+// Which urgency section a submission belongs to. Urgent work, anything overdue,
+// and anything due within three days needs a decision now; the next tier is due
+// within the week; the rest has no near-term deadline.
+function bucketFor(
+  priority: WorkOrderPriority,
+  dueAt: string | null,
+  now: number
+): QueueBucket {
+  if (priority === 'urgent') return 'immediate'
+  if (dueAt) {
+    const diff = new Date(dueAt).getTime() - now
+    if (diff <= 3 * DAY_MS) return 'immediate'
+    if (diff <= 7 * DAY_MS) return 'soon'
+  }
+  return 'later'
+}
+
+function toEntry(row: SubmissionRow, now: number): QueueEntry {
   return {
     id: row.id,
     workOrderCode: row.work_order_code,
@@ -70,6 +95,7 @@ function toEntry(row: SubmissionRow): QueueEntry {
     reporterEmail: row.reported_by_email,
     reporterPhone: row.reported_by_phone,
     createdAt: row.created_at,
+    bucket: bucketFor(row.priority, row.due_at, now),
   }
 }
 
@@ -89,8 +115,9 @@ export default async function SubmissionsPage() {
     ?.user_role
   const canModerate = userRole === 'administrator'
 
+  const now = currentTime()
   const pending = ((pendingResult.data ?? []) as SubmissionRow[])
-    .map(toEntry)
+    .map((row) => toEntry(row, now))
     .sort(compareQueue)
   const fetchError = pendingResult.error
   const timeZone = await getTimeZone()

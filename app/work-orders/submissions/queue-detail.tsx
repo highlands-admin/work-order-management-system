@@ -35,6 +35,10 @@ import type { AuthState } from '../../(auth)/auth-state'
 import { initialAuthState } from '../../(auth)/auth-state'
 import { approveWorkOrderAction, rejectWorkOrderAction } from '../actions'
 
+// Urgency section a submission falls into. Assigned on the server (it depends
+// on the current date) and used to group the queue list.
+export type QueueBucket = 'immediate' | 'soon' | 'later'
+
 export type QueueEntry = {
   id: string
   workOrderCode: string
@@ -49,6 +53,7 @@ export type QueueEntry = {
   reporterEmail: string | null
   reporterPhone: string | null
   createdAt: string
+  bucket: QueueBucket
 }
 
 // The expanded detail for one submission, revealed inline beneath its list row.

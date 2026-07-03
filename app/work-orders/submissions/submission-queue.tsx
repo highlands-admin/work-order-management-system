@@ -13,7 +13,7 @@ import {
 } from '@/lib/schemas/work-order'
 import { cn } from '@/lib/utils'
 
-import { QueueDetail, type QueueEntry } from './queue-detail'
+import { QueueDetail, type QueueBucket, type QueueEntry } from './queue-detail'
 
 const ALL = 'all'
 
@@ -24,6 +24,14 @@ const PRIORITY_DOT: Record<WorkOrderPriority, string> = {
   high: 'bg-orange-500',
   medium: 'bg-amber-400',
   low: 'bg-zinc-300 dark:bg-zinc-600',
+}
+
+// Urgency sections, most pressing first. Only non-empty sections render.
+const BUCKET_ORDER: QueueBucket[] = ['immediate', 'soon', 'later']
+const BUCKET_LABELS: Record<QueueBucket, string> = {
+  immediate: 'Needs Immediate Attention',
+  soon: 'Due This Week',
+  later: 'Backlog',
 }
 
 export function SubmissionQueue({
@@ -71,21 +79,38 @@ export function SubmissionQueue({
       {list.length === 0 ? (
         <EmptyState message={emptyMessage} />
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border bg-card">
-          {list.map((item) => (
-            <QueueListRow
-              key={item.id}
-              item={item}
-              expanded={expandedId === item.id}
-              canModerate={canModerate}
-              timeZone={timeZone}
-              onToggle={() =>
-                setExpandedId((prev) => (prev === item.id ? null : item.id))
-              }
-              onDone={() => setExpandedId(null)}
-            />
-          ))}
-        </ul>
+        <div className="flex flex-col gap-6">
+          {BUCKET_ORDER.map((bucket) => {
+            const items = list.filter((item) => item.bucket === bucket)
+            if (items.length === 0) return null
+            return (
+              <section key={bucket} className="flex flex-col gap-2">
+                <SectionHeading
+                  label={BUCKET_LABELS[bucket]}
+                  count={items.length}
+                  urgent={bucket === 'immediate'}
+                />
+                <ul className="divide-y divide-border overflow-hidden rounded-xl border bg-card">
+                  {items.map((item) => (
+                    <QueueListRow
+                      key={item.id}
+                      item={item}
+                      expanded={expandedId === item.id}
+                      canModerate={canModerate}
+                      timeZone={timeZone}
+                      onToggle={() =>
+                        setExpandedId((prev) =>
+                          prev === item.id ? null : item.id
+                        )
+                      }
+                      onDone={() => setExpandedId(null)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )
+          })}
+        </div>
       )}
     </div>
   )
@@ -188,6 +213,32 @@ function AccordionPanel({
       >
         {children}
       </div>
+    </div>
+  )
+}
+
+function SectionHeading({
+  label,
+  count,
+  urgent,
+}: {
+  label: string
+  count: number
+  urgent: boolean
+}) {
+  return (
+    <div className="flex items-center gap-2 px-1">
+      <h3
+        className={cn(
+          'text-sm font-semibold',
+          urgent ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'
+        )}
+      >
+        {label}
+      </h3>
+      <span className="text-xs tabular-nums text-muted-foreground/60">
+        {count}
+      </span>
     </div>
   )
 }
