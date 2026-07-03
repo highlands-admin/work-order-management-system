@@ -1,8 +1,8 @@
 'use client'
 
 import { format, parseISO } from 'date-fns'
-import { RiCalendarLine } from '@remixicon/react'
-import { useState, type ChangeEvent } from 'react'
+import { RiCalendarLine, RiCloseLine } from '@remixicon/react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -25,6 +25,7 @@ export function DateTimePicker({
   placeholder = 'Pick a date and time',
   ariaInvalid,
   className,
+  defaultOffsetHours,
 }: {
   id?: string
   name?: string
@@ -33,6 +34,9 @@ export function DateTimePicker({
   placeholder?: string
   ariaInvalid?: boolean
   className?: string
+  // When set and no `value` is provided, default the field to now + this many
+  // hours (e.g. 24 for "same time tomorrow").
+  defaultOffsetHours?: number
 }) {
   const initialDate = value ? safeParseDate(value) : undefined
   const [date, setDate] = useState<Date | undefined>(initialDate)
@@ -43,6 +47,21 @@ export function DateTimePicker({
   function emit(nextDate: Date | undefined, nextTime: string) {
     onChange?.(composeIso(nextDate, nextTime))
   }
+
+  // Apply the default after mount so the server render stays empty and reading
+  // the clock never causes a hydration mismatch. Only fires when uncontrolled
+  // and still empty, so it won't clobber an existing value or user input.
+  useEffect(() => {
+    if (defaultOffsetHours === undefined || value || date !== undefined) return
+    const next = new Date(Date.now() + defaultOffsetHours * 60 * 60 * 1000)
+    const nextTime = format(next, 'HH:mm')
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setDate(next)
+    setTime(nextTime)
+    /* eslint-enable react-hooks/set-state-in-effect */
+    emit(next, nextTime)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function handleDateSelect(next: Date | undefined) {
     setDate(next)
@@ -59,6 +78,12 @@ export function DateTimePicker({
     emit(date, e.target.value)
   }
 
+  function handleClear() {
+    setDate(undefined)
+    setTime('')
+    onChange?.('')
+  }
+
   const display =
     date && time
       ? `${format(date, 'PPP')} · ${formatTime12(time)}`
@@ -70,51 +95,68 @@ export function DateTimePicker({
 
   return (
     <>
-      <Popover>
-        <PopoverTrigger
-          render={
-            <Button
-              id={id}
-              type="button"
-              variant="outline"
-              aria-invalid={ariaInvalid}
-              className={cn(
-                // Match the input/select fields: 16px on mobile to avoid the
-                // iOS focus zoom, 14px from md up.
-                'w-full justify-start text-base font-normal md:text-sm',
-                !date && 'text-muted-foreground',
-                className
-              )}
-            >
-              <RiCalendarLine className="mr-2 size-4 shrink-0" />
-              <span className="truncate">{display ?? placeholder}</span>
-            </Button>
-          }
-        />
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={handleDateSelect}
-            autoFocus
+      <div className={cn('relative', className)}>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                id={id}
+                type="button"
+                variant="outline"
+                aria-invalid={ariaInvalid}
+                className={cn(
+                  // Match the input/select fields: 16px on mobile to avoid the
+                  // iOS focus zoom, 14px from md up.
+                  'w-full justify-start text-base font-normal md:text-sm',
+                  !date && 'text-muted-foreground',
+                  // Room for the clear button so the date text doesn't run under it.
+                  date && 'pr-9'
+                )}
+              >
+                <RiCalendarLine className="mr-2 size-4 shrink-0" />
+                <span className="truncate">{display ?? placeholder}</span>
+              </Button>
+            }
           />
-          <div className="flex items-center gap-3 border-t px-3 py-3">
-            <Label
-              htmlFor={timeInputId}
-              className="text-xs font-medium text-muted-foreground"
-            >
-              Time
-            </Label>
-            <Input
-              id={timeInputId}
-              type="time"
-              value={time}
-              onChange={handleTimeChange}
-              className="h-8 w-32"
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={handleDateSelect}
+              autoFocus
             />
-          </div>
-        </PopoverContent>
-      </Popover>
+            <div className="flex items-center gap-3 border-t px-3 py-3">
+              <Label
+                htmlFor={timeInputId}
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Time
+              </Label>
+              <Input
+                id={timeInputId}
+                type="time"
+                value={time}
+                onChange={handleTimeChange}
+                className="w-auto"
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
+        {date ? (
+          <button
+            type="button"
+            aria-label="Clear date"
+            onClick={(e) => {
+              // Sits on top of the trigger; stop the click from opening it.
+              e.stopPropagation()
+              handleClear()
+            }}
+            className="absolute top-1/2 right-1.5 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <RiCloseLine className="size-4" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
       {name ? (
         <input type="hidden" name={name} value={composeIso(date, time)} />
       ) : null}

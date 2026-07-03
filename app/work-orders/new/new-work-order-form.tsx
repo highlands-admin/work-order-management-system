@@ -451,6 +451,7 @@ export function NewWorkOrderForm({
                 ariaInvalid={dueAtError ? true : undefined}
                 onChange={() => editField('dueAt')}
                 className="sm:max-w-sm"
+                defaultOffsetHours={24}
               />
               <FieldError>{dueAtError}</FieldError>
             </Field>
