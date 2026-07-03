@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Figtree, Manrope } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -23,6 +23,13 @@ export const metadata: Metadata = {
     template: "%s | Work Order Management System",
   },
   description: "Work Order Management System for Senior Living Communities.",
+};
+
+// Explicit so small screens always render at device width (initial-scale 1)
+// rather than zooming out a desktop-width layout, which reads as tiny text.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 // Applied before paint so the theme never flashes the wrong colors on load.

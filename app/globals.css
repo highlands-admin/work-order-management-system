@@ -137,7 +137,16 @@
   }
   html {
     @apply font-sans;
-    font-size: 1rem;
+    /* ~17.6px base. On the root element rem resolves against the initial 16px,
+       so 1.1rem = 17.6px. The whole UI is rem-based, so type and rem spacing
+       scale together. */
+    font-size: 1.1rem;
+    /* Always show the vertical scrollbar so content that grows past the viewport
+       (e.g. expanding an accordion) doesn't reflow sideways when the scrollbar
+       appears. overflow-y: scroll is supported everywhere; scrollbar-gutter is
+       not yet reliable across browsers. On overlay-scrollbar systems this shows
+       no permanent track and still avoids any shift. */
+    overflow-y: scroll;
   }
   body {
     text-rendering: optimizeLegibility;

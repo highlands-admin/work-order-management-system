@@ -1,7 +1,7 @@
 'use client'
 
 import { RiArrowDownSLine, RiInboxLine } from '@remixicon/react'
-import { useState } from 'react'
+import { memo, useCallback, useState } from 'react'
 
 import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
 import { formatDate } from '@/lib/datetime/format'
@@ -31,7 +31,7 @@ const BUCKET_ORDER: QueueBucket[] = ['immediate', 'soon', 'later']
 const BUCKET_LABELS: Record<QueueBucket, string> = {
   immediate: 'Needs Immediate Attention',
   soon: 'Due This Week',
-  later: 'Backlog',
+  later: 'Due Later',
 }
 
 export function SubmissionQueue({
@@ -45,6 +45,14 @@ export function SubmissionQueue({
 }) {
   const [active, setActive] = useState<string>(ALL)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  // Stable identities so memoized rows don't all re-render on every toggle; a
+  // click then only re-renders the two rows whose expanded state changed, so the
+  // animation starts instantly instead of behind a full-list reconcile.
+  const handleToggle = useCallback((id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id))
+  }, [])
+  const handleDone = useCallback(() => setExpandedId(null), [])
 
   const byCategory = countByCategory(pending)
   const list =
@@ -98,12 +106,8 @@ export function SubmissionQueue({
                       expanded={expandedId === item.id}
                       canModerate={canModerate}
                       timeZone={timeZone}
-                      onToggle={() =>
-                        setExpandedId((prev) =>
-                          prev === item.id ? null : item.id
-                        )
-                      }
-                      onDone={() => setExpandedId(null)}
+                      onToggle={handleToggle}
+                      onDone={handleDone}
                     />
                   ))}
                 </ul>
@@ -116,7 +120,7 @@ export function SubmissionQueue({
   )
 }
 
-function QueueListRow({
+const QueueListRow = memo(function QueueListRow({
   item,
   expanded,
   canModerate,
@@ -128,7 +132,7 @@ function QueueListRow({
   expanded: boolean
   canModerate: boolean
   timeZone: string
-  onToggle: () => void
+  onToggle: (id: string) => void
   onDone: () => void
 }) {
   const requester =
@@ -144,7 +148,7 @@ function QueueListRow({
     <li>
       <button
         type="button"
-        onClick={onToggle}
+        onClick={() => onToggle(item.id)}
         aria-expanded={expanded}
         className={cn(
           'flex w-full items-start gap-2.5 px-4 py-3 text-left transition-colors hover:bg-muted/50',
@@ -184,7 +188,7 @@ function QueueListRow({
       </AccordionPanel>
     </li>
   )
-}
+})
 
 // Animates height between collapsed and expanded using the grid-template-rows
 // 0fr -> 1fr trick, so it eases smoothly to the content's natural height with no
@@ -206,7 +210,7 @@ function AccordionPanel({
     >
       <div
         className={cn(
-          'overflow-hidden transition-opacity duration-200 motion-reduce:transition-none',
+          'overflow-hidden transition-opacity duration-300 ease-out motion-reduce:transition-none',
           open ? 'opacity-100' : 'opacity-0'
         )}
         inert={!open}
@@ -230,13 +234,20 @@ function SectionHeading({
     <div className="flex items-center gap-2 px-1">
       <h3
         className={cn(
-          'text-sm font-semibold',
+          'font-heading text-[0.9375rem] font-bold',
           urgent ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'
         )}
       >
         {label}
       </h3>
-      <span className="text-xs tabular-nums text-muted-foreground/60">
+      <span
+        className={cn(
+          'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums',
+          urgent
+            ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
+            : 'bg-muted text-muted-foreground'
+        )}
+      >
         {count}
       </span>
     </div>
