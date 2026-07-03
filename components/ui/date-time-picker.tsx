@@ -107,7 +107,7 @@ export function DateTimePicker({
                 className={cn(
                   // Match the input/select fields: 16px on mobile to avoid the
                   // iOS focus zoom, 14px from md up.
-                  'w-full justify-start text-base font-normal md:text-sm',
+                  'w-full justify-start text-[16px] font-normal md:text-[14px]',
                   !date && 'text-muted-foreground',
                   // Room for the clear button so the date text doesn't run under it.
                   date && 'pr-9'

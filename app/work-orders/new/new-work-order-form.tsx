@@ -541,7 +541,7 @@ export function NewWorkOrderForm({
         <FormSection
           id="attachments"
           title="Attachments"
-          description="Optional. Attach photos or documents, or skip this step."
+          description="Optional. Attach a photo or document so reviewers can see the problem."
         >
           <AttachmentUploader />
         </FormSection>
