@@ -78,10 +78,14 @@ const SOURCE_OPTIONS: Option<WorkOrderSource>[] = WORK_ORDER_SOURCES.map((v) => 
 export function FilterBar({
   assigneeOptions = [],
   showAssignee = true,
+  showStatus = true,
   exportPath,
 }: {
   assigneeOptions?: Option<string>[]
   showAssignee?: boolean
+  // The Archive lists only rejected work orders, so the status facet carries no
+  // information and is hidden there.
+  showStatus?: boolean
   // When set, render an "Export CSV" link that carries the current filters so
   // the download matches the table. Omitted on views without an export route.
   exportPath?: string
@@ -208,12 +212,14 @@ export function FilterBar({
           selected={draft.sources}
           onChange={(v) => setDraft((d) => withFilter(d, 'sources', v))}
         />
-        <MultiSelectFilter
-          label="Status"
-          options={STATUS_OPTIONS}
-          selected={draft.statuses}
-          onChange={(v) => setDraft((d) => withFilter(d, 'statuses', v))}
-        />
+        {showStatus ? (
+          <MultiSelectFilter
+            label="Status"
+            options={STATUS_OPTIONS}
+            selected={draft.statuses}
+            onChange={(v) => setDraft((d) => withFilter(d, 'statuses', v))}
+          />
+        ) : null}
       </>
     )
   }
@@ -221,7 +227,7 @@ export function FilterBar({
   // Count of active facets, shown as a badge on the "Filters" button. Search is
   // excluded because it has its own always-visible input.
   const activeFilterCount =
-    filters.statuses.length +
+    (showStatus ? filters.statuses.length : 0) +
     filters.priorities.length +
     filters.categories.length +
     filters.properties.length +

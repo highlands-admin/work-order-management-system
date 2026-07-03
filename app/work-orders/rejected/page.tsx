@@ -6,6 +6,11 @@ import {
   fetchAssignableUsers,
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
+import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
+import {
+  hasActiveFilters,
+  parseWorkOrderFilters,
+} from '@/lib/work-orders/filters'
 import {
   PAGE_SIZE,
   parsePage,
@@ -14,6 +19,7 @@ import {
   type ListSort,
 } from '@/lib/work-orders/list-sort'
 
+import { FilterBar } from '../filter-bar'
 import { TablePagination } from '../table-pagination'
 import {
   WorkOrdersTable,
@@ -33,6 +39,9 @@ export default async function ArchivePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
+  // Every row here is already rejected, so the status facet is dropped.
+  const filters = { ...parseWorkOrderFilters(params), statuses: [] }
+  const filtersActive = hasActiveFilters(filters)
   const sort = parseSort(params)
   const page = parsePage(params)
 
@@ -48,6 +57,8 @@ export default async function ArchivePage({
       { count: 'exact' }
     )
     .eq('status', 'rejected')
+
+  query = applyWorkOrderFilters(query, filters)
 
   const order = sort ?? DEFAULT_ARCHIVE_SORT
   const from = (page - 1) * PAGE_SIZE
@@ -75,6 +86,10 @@ export default async function ArchivePage({
   const userLabelById: Record<string, string> = Object.fromEntries(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
+  const assigneeOptions = assignableUsers.map((u) => ({
+    value: u.user_id,
+    label: formatAssigneeLabel(u),
+  }))
   const timeZone = await getTimeZone()
 
   return (
@@ -88,6 +103,8 @@ export default async function ArchivePage({
         </p>
       </div>
 
+      <FilterBar assigneeOptions={assigneeOptions} showStatus={false} />
+
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>
       ) : null}
@@ -99,9 +116,11 @@ export default async function ArchivePage({
         sort={sort}
         showStatus={false}
         emptyMessage={
-          canModerate
-            ? 'No rejected work orders.'
-            : 'None of your submissions have been rejected.'
+          filtersActive
+            ? 'No archived work orders match these filters.'
+            : canModerate
+              ? 'No rejected work orders.'
+              : 'None of your submissions have been rejected.'
         }
       />
 
