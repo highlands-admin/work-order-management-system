@@ -23,7 +23,6 @@ import {
 } from '@/lib/work-orders/list-sort'
 
 import { FilterBar } from './filter-bar'
-import { TablePagination } from './table-pagination'
 import { WorkOrdersTable, type WorkOrderListItem } from './work-orders-table'
 
 export const metadata: Metadata = { title: 'Cadence' }
@@ -124,14 +123,13 @@ export default async function WorkOrdersPage({
         userLabelById={userLabelById}
         timeZone={timeZone}
         sort={sort}
+        pagination={{ page, pageSize: PAGE_SIZE, total: count ?? 0 }}
         emptyMessage={
           filtersActive
             ? 'No work orders match these filters.'
             : 'No work orders yet.'
         }
       />
-
-      <TablePagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} />
     </div>
   )
 }

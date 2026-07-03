@@ -20,7 +20,6 @@ import {
 } from '@/lib/work-orders/list-sort'
 
 import { FilterBar } from '../filter-bar'
-import { TablePagination } from '../table-pagination'
 import { WorkOrdersTable, type WorkOrderListItem } from '../work-orders-table'
 import { KanbanBoard } from './kanban-board'
 import { ViewToggle } from './view-toggle'
@@ -145,14 +144,13 @@ export default async function MyWorkOrdersPage({
             timeZone={timeZone}
             sort={sort}
             showAssignee={false}
+            pagination={{ page, pageSize: PAGE_SIZE, total: count }}
             emptyMessage={
               filtersActive
                 ? 'No work orders match these filters.'
                 : "You don't have any work orders assigned yet."
             }
           />
-
-          <TablePagination page={page} pageSize={PAGE_SIZE} total={count} />
         </>
       )}
     </div>

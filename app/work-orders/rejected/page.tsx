@@ -20,7 +20,6 @@ import {
 } from '@/lib/work-orders/list-sort'
 
 import { FilterBar } from '../filter-bar'
-import { TablePagination } from '../table-pagination'
 import {
   WorkOrdersTable,
   type WorkOrderListItem,
@@ -115,6 +114,7 @@ export default async function ArchivePage({
         timeZone={timeZone}
         sort={sort}
         showStatus={false}
+        pagination={{ page, pageSize: PAGE_SIZE, total: count ?? 0 }}
         emptyMessage={
           filtersActive
             ? 'No archived work orders match these filters.'
@@ -123,8 +123,6 @@ export default async function ArchivePage({
               : 'None of your submissions have been rejected.'
         }
       />
-
-      <TablePagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} />
     </div>
   )
 }

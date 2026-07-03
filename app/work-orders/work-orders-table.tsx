@@ -37,6 +37,7 @@ import {
   type SortDirection,
 } from '@/lib/work-orders/list-sort'
 
+import { TablePagination } from './table-pagination'
 import { WorkOrderRow } from './work-order-row'
 
 export type WorkOrderListItem = {
@@ -90,6 +91,7 @@ export function WorkOrdersTable({
   sort,
   showAssignee = true,
   showStatus = true,
+  pagination,
 }: {
   workOrders: WorkOrderListItem[]
   emptyMessage: string
@@ -100,6 +102,9 @@ export function WorkOrdersTable({
   // The Archive lists only rejected work orders, so the Status column carries
   // no information and is hidden there.
   showStatus?: boolean
+  // Rendered inside the table's width container so the page/prev/next controls
+  // align to the table's right edge instead of the page's.
+  pagination?: { page: number; pageSize: number; total: number }
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -190,10 +195,11 @@ export function WorkOrdersTable({
   const totalWidth = widths.reduce((sum, w) => sum + w, 0)
 
   return (
-    <div
-      className="w-fit max-w-full overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none"
-      style={resizing ? { userSelect: 'none', cursor: 'col-resize' } : undefined}
-    >
+    <div className="flex max-w-full flex-col gap-4" style={{ width: totalWidth }}>
+      <div
+        className="w-full overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none"
+        style={resizing ? { userSelect: 'none', cursor: 'col-resize' } : undefined}
+      >
       <Table className="table-fixed" style={{ width: totalWidth }}>
         <colgroup>
           {columns.map((col, i) => (
@@ -320,6 +326,14 @@ export function WorkOrdersTable({
           ))}
         </TableBody>
       </Table>
+      </div>
+      {pagination ? (
+        <TablePagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={pagination.total}
+        />
+      ) : null}
     </div>
   )
 }
