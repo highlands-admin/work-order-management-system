@@ -41,6 +41,7 @@ import {
 import {
   EMPTY_FILTERS,
   hasActiveFilters,
+  PARAM,
   parseWorkOrderFilters,
   toSearchParams,
   UNASSIGNED,
@@ -151,7 +152,17 @@ export function FilterBar({
 
   function commit(next: WorkOrderFilters) {
     setFilters(next)
-    const query = toSearchParams(next).toString()
+    const params = toSearchParams(next)
+    // A user's saved facility preference defaults this list's facility filter
+    // on a page they've never touched. Once they interact with the filter bar
+    // at all, keep the `property` key in the URL even when it's empty, so
+    // clearing the facility filter reads as "show every facility" rather than
+    // looking identical to a fresh, untouched visit that would re-apply the
+    // default.
+    if (!params.has(PARAM.property)) {
+      params.set(PARAM.property, next.properties.join(','))
+    }
+    const query = params.toString()
     startTransition(() => {
       router.replace(query ? `${pathname}?${query}` : pathname, {
         scroll: false,

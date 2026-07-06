@@ -22,6 +22,7 @@ import {
   applyRecurringFilters,
   hasActiveRecurringFilters,
   parseRecurringFilters,
+  RECURRING_PARAM,
 } from '@/lib/work-orders/recurring-filters'
 import {
   parseRecurringSort,
@@ -83,10 +84,12 @@ export default async function RecurringWorkOrdersPage({
 
   if (!claims) redirect('/login')
 
-  // Fresh visit: default to the user's preferred facilities. The redirect adds a
-  // ?property filter that both views below honor; the calendar/table choice is
-  // cookie-driven, so it survives.
-  if (Object.keys(params).length === 0) {
+  // Default to the user's preferred facilities, but only while the facility
+  // filter has never been touched (the `property` param is absent). The filter
+  // bar always keeps `property` in the URL once the user interacts with it,
+  // even set to empty, so clearing the facility filter sticks instead of
+  // looking like a fresh visit and snapping back to the default.
+  if (!(RECURRING_PARAM.property in params)) {
     const preferred = await fetchFacilityPreferences(supabase)
     if (preferred.length > 0) {
       redirect(`/work-orders/recurring?property=${preferred.join(',')}`)

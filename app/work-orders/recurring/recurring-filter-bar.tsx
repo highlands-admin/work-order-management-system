@@ -93,6 +93,15 @@ export function RecurringFilterBar({
     toRecurringSearchParams(next).forEach((value, key) => {
       params.set(key, value)
     })
+    // A user's saved facility preference defaults this list's facility filter
+    // on a page they've never touched. Once they interact with the filter bar
+    // at all, keep the `property` key in the URL even when it's empty, so
+    // clearing the facility filter reads as "show every facility" rather than
+    // looking identical to a fresh, untouched visit that would re-apply the
+    // default.
+    if (!params.has(RECURRING_PARAM.property)) {
+      params.set(RECURRING_PARAM.property, next.properties.join(','))
+    }
     const query = params.toString()
     startTransition(() => {
       router.replace(query ? `${pathname}?${query}` : pathname, {
