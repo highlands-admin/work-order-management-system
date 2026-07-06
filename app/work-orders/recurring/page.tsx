@@ -27,6 +27,7 @@ import {
   parseRecurringSort,
   RECURRING_SORT_COLUMNS,
 } from '@/lib/work-orders/recurring-sort'
+import { fetchFacilityPreferences } from '@/lib/work-orders/user-preferences'
 
 import { RecurringCalendar, type CalendarSchedule } from './recurring-calendar'
 import { RecurringFilterBar } from './recurring-filter-bar'
@@ -82,8 +83,19 @@ export default async function RecurringWorkOrdersPage({
 
   if (!claims) redirect('/login')
 
-  // Search, filters, and sort apply to the table view only; the calendar always
-  // shows every schedule in its default active-first ordering.
+  // Fresh visit: default to the user's preferred facilities. The redirect adds a
+  // ?property filter that both views below honor; the calendar/table choice is
+  // cookie-driven, so it survives.
+  if (Object.keys(params).length === 0) {
+    const preferred = await fetchFacilityPreferences(supabase)
+    if (preferred.length > 0) {
+      redirect(`/work-orders/recurring?property=${preferred.join(',')}`)
+    }
+  }
+
+  // Search, sort, and the in-page filters apply to the table view only. The
+  // facility filter also constrains the calendar, so both views match the user's
+  // preferred facilities.
   let query = supabase.from('recurring_work_orders').select(RECURRING_COLUMNS)
 
   if (isTable) {
@@ -102,6 +114,11 @@ export default async function RecurringWorkOrdersPage({
         .order('next_due_at', { ascending: true, nullsFirst: false })
     }
   } else {
+    // The calendar has no filter bar, but it still honors the facility filter so
+    // it reflects the user's preferred facilities (or an explicit ?property).
+    if (filters.properties.length) {
+      query = query.in('property', filters.properties)
+    }
     query = query
       .order('active', { ascending: false })
       .order('next_due_at', { ascending: true, nullsFirst: false })

@@ -1,6 +1,7 @@
 import { RiAddLine } from '@remixicon/react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
 import { buttonVariants } from '@/components/ui/button'
 import { getTimeZone } from '@/lib/datetime/timezone'
@@ -9,6 +10,7 @@ import {
   fetchAssignableUsers,
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
+import { fetchFacilityPreferences } from '@/lib/work-orders/user-preferences'
 import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
 import {
   hasActiveFilters,
@@ -35,11 +37,21 @@ export default async function WorkOrdersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
+  const supabase = await createClient()
+
+  // On a fresh visit (no filters/sort/page yet), default the view to the user's
+  // preferred facilities. It's a starting point, not a lock: they can change or
+  // clear the facility filter from here.
+  if (Object.keys(params).length === 0) {
+    const preferred = await fetchFacilityPreferences(supabase)
+    if (preferred.length > 0) {
+      redirect(`/work-orders?property=${preferred.join(',')}`)
+    }
+  }
+
   const filters = parseWorkOrderFilters(params)
   const sort = parseSort(params)
   const page = parsePage(params)
-
-  const supabase = await createClient()
 
   // pending / rejected submissions live on /work-orders/submissions; this
   // page is the operational view of approved work.

@@ -12,6 +12,7 @@ import {
   RiMailSendLine,
   RiNotification3Line,
   RiRepeatLine,
+  RiUser3Line,
 } from '@remixicon/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -192,6 +193,14 @@ export function AppSidebar({
                 }}
                 pathname={pathname}
                 badge={unreadCount}
+              />
+              <NavMenuItem
+                item={{
+                  title: 'Profile',
+                  href: '/profile',
+                  icon: RiUser3Line,
+                }}
+                pathname={pathname}
               />
             </SidebarMenu>
           </SidebarGroupContent>
