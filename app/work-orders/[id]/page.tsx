@@ -18,6 +18,7 @@ import {
   MARKETING_SIZE_FORMAT_LABELS,
   MARKETING_TARGET_AUDIENCE_LABELS,
   PROPERTY_LABELS,
+  REJECTABLE_MAIN_STATUSES,
   type MarketingRequestType,
   type MarketingSizeFormat,
   type MarketingTargetAudience,
@@ -40,6 +41,7 @@ import { NotesSection, type NoteRow } from '../notes-section'
 import { ActivityFeed, type ActivityEvent } from './activity-feed'
 import { ApproveButton } from './approve-button'
 import { BackButton } from './back-button'
+import { RejectButton } from './reject-button'
 import { StatusControl } from './status-control'
 
 export const metadata: Metadata = { title: 'Work Order' }
@@ -185,6 +187,14 @@ export default async function WorkOrderDetailPage({
   // Administrators can approve a pending work order directly from the detail
   // page, mirroring the approval queue.
   const canApprove = data.status === 'pending' && role === 'administrator'
+  // Administrators can also reject a work order that's already active (e.g.
+  // one an admin created directly, bypassing the approval queue) -- done and
+  // closed work is excluded, since rejecting finished work has no effect.
+  const canReject =
+    role === 'administrator' &&
+    (REJECTABLE_MAIN_STATUSES as readonly WorkOrderStatus[]).includes(
+      data.status
+    )
   const isOverdue = computeIsOverdue(data.due_at, data.status)
   const timeZone = await getTimeZone()
 
@@ -208,6 +218,7 @@ export default async function WorkOrderDetailPage({
             </Link>
           ) : null}
           {canApprove ? <ApproveButton workOrderId={data.id} /> : null}
+          {canReject ? <RejectButton workOrderId={data.id} /> : null}
         </div>
       </div>
 

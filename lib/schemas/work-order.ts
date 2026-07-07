@@ -60,6 +60,16 @@ export const MAIN_TABLE_STATUSES = [
   'closed',
 ] as const satisfies readonly WorkOrderStatus[]
 
+// Statuses an administrator may manually reject a work order from -- e.g. one
+// an admin created directly, bypassing the approval queue, that another admin
+// later decides shouldn't proceed. Done and closed work is already finished,
+// so it's excluded; rejecting it would have no meaningful effect.
+export const REJECTABLE_MAIN_STATUSES = [
+  'open',
+  'in_progress',
+  'on_hold',
+] as const satisfies readonly WorkOrderStatus[]
+
 // Roles whose submissions need administrator approval before joining the
 // main work-order flow. Admins bypass this and create work orders directly.
 export const APPROVAL_REQUIRED_ROLES = new Set(['requester'] as const)

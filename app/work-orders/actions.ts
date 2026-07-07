@@ -12,6 +12,7 @@ import {
 import {
   APPROVAL_REQUIRED_ROLES,
   MAIN_TABLE_STATUSES,
+  REJECTABLE_MAIN_STATUSES,
   addWorkOrderNoteSchema,
   changeStatusSchema,
   createWorkOrderSchema,
@@ -816,6 +817,11 @@ export async function approveWorkOrderAction(
   return { status: 'success', message: 'Approved.' }
 }
 
+// Approval-queue reject: only ever called against a pending submission. The
+// status filter on the update is the enforcement -- if the row has already
+// moved (approved, or rejected a moment ago by someone else), zero rows match
+// and this returns a friendly error instead of silently rejecting whatever the
+// row has become.
 export async function rejectWorkOrderAction(
   workOrderId: string,
   _prev: AuthState,
@@ -840,7 +846,7 @@ export async function rejectWorkOrderAction(
     return formError(undefined, raw, 'Only administrators can reject work orders.')
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('work_orders')
     .update({
       status: 'rejected',
@@ -850,13 +856,77 @@ export async function rejectWorkOrderAction(
       updated_by: claims.sub,
     })
     .eq('id', workOrderId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     return formError(undefined, raw, error.message)
   }
+  if (!updated) {
+    return formError(undefined, raw, 'This submission is no longer pending.')
+  }
 
   revalidatePath('/work-orders/submissions')
   revalidatePath('/work-orders')
+  return { status: 'success', message: 'Rejected.' }
+}
+
+// Admin-only: reject a work order that's already active in the main table --
+// e.g. one an admin created directly, bypassing the approval queue, that
+// another admin later decides shouldn't proceed. Imperative (positional args,
+// no FormData) to match changeWorkOrderStatusAction's calling convention, since
+// this is invoked the same way: from a confirm dialog on the detail page.
+export async function rejectApprovedWorkOrderAction(
+  workOrderId: string,
+  reason: string
+): Promise<AuthState> {
+  const raw = { reason }
+  const parsed = rejectWorkOrderSchema.safeParse(raw)
+  if (!parsed.success) {
+    return formError(z4FieldErrors(parsed.error), raw)
+  }
+
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as ActorClaims | undefined
+
+  if (!claims?.sub) {
+    return formError(undefined, raw, 'You must be signed in to reject.')
+  }
+  if (claims.user_role !== 'administrator') {
+    return formError(undefined, raw, 'Only administrators can reject work orders.')
+  }
+
+  const { data: updated, error } = await supabase
+    .from('work_orders')
+    .update({
+      status: 'rejected',
+      rejected_reason: parsed.data.reason,
+      rejected_at: new Date().toISOString(),
+      rejected_by: claims.sub,
+      updated_by: claims.sub,
+    })
+    .eq('id', workOrderId)
+    .in('status', REJECTABLE_MAIN_STATUSES as readonly string[])
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    return formError(undefined, raw, error.message)
+  }
+  if (!updated) {
+    return formError(
+      undefined,
+      raw,
+      'This work order can no longer be rejected -- it may have already moved to Done or Closed.'
+    )
+  }
+
+  revalidatePath('/work-orders')
+  revalidatePath('/work-orders/mine')
+  revalidatePath('/work-orders/rejected')
+  revalidatePath(`/work-orders/${workOrderId}`)
   return { status: 'success', message: 'Rejected.' }
 }
 

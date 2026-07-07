@@ -302,7 +302,7 @@ function ScheduleChip({
         </div>
 
         {canEdit ? (
-          <div className="border-t p-2">
+          <div className="border-t p-1">
             <Link
               href={`/work-orders/recurring/${schedule.id}/edit`}
               className={buttonVariants({
