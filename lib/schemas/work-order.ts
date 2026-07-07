@@ -31,6 +31,7 @@ export const WORK_ORDER_STATUSES = [
   'pending',
   'open',
   'in_progress',
+  'on_hold',
   'done',
   'closed',
   'rejected',
@@ -42,6 +43,7 @@ export const STATUS_LABELS: Record<WorkOrderStatus, string> = {
   pending: 'Pending',
   open: 'Open',
   in_progress: 'In Progress',
+  on_hold: 'On Hold',
   done: 'Done',
   closed: 'Closed',
   rejected: 'Rejected',
@@ -53,6 +55,7 @@ export const STATUS_LABELS: Record<WorkOrderStatus, string> = {
 export const MAIN_TABLE_STATUSES = [
   'open',
   'in_progress',
+  'on_hold',
   'done',
   'closed',
 ] as const satisfies readonly WorkOrderStatus[]

@@ -40,6 +40,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: '#f59e0b',
   open: '#0ea5e9',
   in_progress: '#8b5cf6',
+  on_hold: '#f97316',
   done: '#10b981',
   closed: '#71717a',
   rejected: '#f43f5e',

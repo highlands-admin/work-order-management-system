@@ -45,7 +45,13 @@ import { StatusControl } from './status-control'
 export const metadata: Metadata = { title: 'Work Order' }
 
 const TRANSITION_ROLES = new Set(['technician', 'inspector'])
-const CLOSED_STATUSES = new Set<WorkOrderStatus>(['done', 'closed'])
+// Statuses that never count as overdue: closed work is done, and on_hold is a
+// deliberate pause (waiting on a part, vendor, access) rather than neglect.
+const OVERDUE_EXEMPT_STATUSES = new Set<WorkOrderStatus>([
+  'done',
+  'closed',
+  'on_hold',
+])
 
 type WorkOrderRow = {
   id: string
@@ -530,11 +536,11 @@ function formatUser(
 
 // Kept out of the component body so the date read isn't flagged as an impure
 // call during render. A work order is overdue when its due date has passed and
-// it isn't already done or closed.
+// it isn't already done, closed, or on hold.
 function computeIsOverdue(
   dueAt: string | null,
   status: WorkOrderStatus
 ): boolean {
-  if (!dueAt || CLOSED_STATUSES.has(status)) return false
+  if (!dueAt || OVERDUE_EXEMPT_STATUSES.has(status)) return false
   return new Date(dueAt).getTime() < Date.now()
 }

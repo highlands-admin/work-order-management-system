@@ -56,10 +56,16 @@ export const RANGE_LABELS: Record<DashboardRange, string> = {
 }
 
 const ACTIVE_STATUSES = new Set<WorkOrderStatus>(['open', 'in_progress'])
-const CLOSED_STATUSES = new Set<WorkOrderStatus>(['done', 'closed'])
+// Statuses that never count as overdue: closed work is done, and on_hold is a
+// deliberate pause (waiting on a part, vendor, access) rather than neglect.
+const OVERDUE_EXEMPT_STATUSES = new Set<WorkOrderStatus>([
+  'done',
+  'closed',
+  'on_hold',
+])
 
 function isOverdue(row: DashboardRow, now: number): boolean {
-  if (!row.due_at || CLOSED_STATUSES.has(row.status)) return false
+  if (!row.due_at || OVERDUE_EXEMPT_STATUSES.has(row.status)) return false
   return new Date(row.due_at).getTime() < now
 }
 
