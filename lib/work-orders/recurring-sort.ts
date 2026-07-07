@@ -45,6 +45,11 @@ function readString(params: RawParams, key: string): string {
   return value ?? ''
 }
 
+// See hasSortParams in list-sort.ts -- same purpose, for the recurring list.
+export function hasRecurringSortParams(params: RawParams): boolean {
+  return 'sort' in params
+}
+
 // Returns the explicit sort from the URL, or null when none is set. The page
 // falls back to its default ordering (active schedules first, soonest due next)
 // for the query while the table shows no column indicator.

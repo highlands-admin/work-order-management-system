@@ -17,16 +17,26 @@ import {
   parseWorkOrderFilters,
 } from '@/lib/work-orders/filters'
 import {
+  parseWidthsCookieValue,
+  WORK_ORDERS_WIDTHS_COOKIE,
+} from '@/lib/work-orders/list-column-widths-cookie'
+import {
   FILTERS_COOKIE,
   normalizeFilterQuery,
 } from '@/lib/work-orders/list-filters-cookie'
 import {
   DEFAULT_SORT,
+  hasSortParams,
+  isSortable,
   PAGE_SIZE,
   parsePage,
   parseSort,
   SORT_COLUMNS,
 } from '@/lib/work-orders/list-sort'
+import {
+  parseSortCookieValue,
+  SORT_COOKIE,
+} from '@/lib/work-orders/list-sort-cookie'
 
 import { FilterBar } from './filter-bar'
 import { WorkOrdersTable, type WorkOrderListItem } from './work-orders-table'
@@ -48,9 +58,10 @@ export default async function WorkOrdersPage({
   // Explicit URL params always win; otherwise, on a list that's never been
   // touched, fall back to whatever was last persisted (even an explicitly
   // cleared, empty state).
+  const cookieStore = await cookies()
+
   let filters = parseWorkOrderFilters(params)
   if (!hasFilterParams(params)) {
-    const cookieStore = await cookies()
     const persisted = cookieStore.get(FILTERS_COOKIE)
     if (persisted) {
       filters = parseWorkOrderFilters(
@@ -59,7 +70,19 @@ export default async function WorkOrdersPage({
     }
   }
 
-  const sort = parseSort(params)
+  // Same no-redirect resolution as the filters: an explicit ?sort wins;
+  // otherwise fall back to a persisted sort (including an explicit reset to
+  // this list's default, which the cookie stores as an empty value).
+  let sort = parseSort(params)
+  if (!hasSortParams(params)) {
+    const persisted = cookieStore.get(SORT_COOKIE)
+    if (persisted) sort = parseSortCookieValue(persisted.value, isSortable)
+  }
+
+  const columnWidths = parseWidthsCookieValue(
+    cookieStore.get(WORK_ORDERS_WIDTHS_COOKIE)?.value
+  )
+
   const page = parsePage(params)
 
   // pending / rejected submissions live on /work-orders/submissions; this
@@ -146,6 +169,7 @@ export default async function WorkOrdersPage({
         timeZone={timeZone}
         sort={sort}
         pagination={{ page, pageSize: PAGE_SIZE, total: count ?? 0 }}
+        initialColumnWidths={columnWidths}
         emptyMessage={
           filtersActive
             ? 'No work orders match these filters.'

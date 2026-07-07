@@ -19,9 +19,17 @@ import {
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
 import {
+  parseWidthsCookieValue,
+  RECURRING_WIDTHS_COOKIE,
+} from '@/lib/work-orders/list-column-widths-cookie'
+import {
   normalizeFilterQuery,
   RECURRING_FILTERS_COOKIE,
 } from '@/lib/work-orders/list-filters-cookie'
+import {
+  parseSortCookieValue,
+  RECURRING_SORT_COOKIE,
+} from '@/lib/work-orders/list-sort-cookie'
 import {
   applyRecurringFilters,
   hasActiveRecurringFilters,
@@ -30,6 +38,8 @@ import {
   type RecurringFilters,
 } from '@/lib/work-orders/recurring-filters'
 import {
+  hasRecurringSortParams,
+  isRecurringSortable,
   parseRecurringSort,
   RECURRING_SORT_COLUMNS,
 } from '@/lib/work-orders/recurring-sort'
@@ -91,7 +101,22 @@ export default async function RecurringWorkOrdersPage({
       )
     }
   }
-  const sort = parseRecurringSort(params)
+
+  // Same no-redirect resolution as the filters: an explicit ?sort wins;
+  // otherwise fall back to a persisted sort (including an explicit reset to
+  // this list's default, which the cookie stores as an empty value).
+  let sort = parseRecurringSort(params)
+  if (!hasRecurringSortParams(params)) {
+    const persisted = cookieStore.get(RECURRING_SORT_COOKIE)
+    if (persisted) {
+      sort = parseSortCookieValue(persisted.value, isRecurringSortable)
+    }
+  }
+
+  const columnWidths = parseWidthsCookieValue(
+    cookieStore.get(RECURRING_WIDTHS_COOKIE)?.value
+  )
+
   const filtersActive = hasActiveRecurringFilters(filters)
 
   const supabase = await createClient()
@@ -211,6 +236,7 @@ export default async function RecurringWorkOrdersPage({
           userLabelById={Object.fromEntries(userLabelById)}
           timeZone={timeZone}
           sort={sort}
+          initialColumnWidths={columnWidths}
         />
       )}
     </div>

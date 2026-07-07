@@ -8,7 +8,7 @@ import {
 } from '@remixicon/react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import {
@@ -31,14 +31,31 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { cn } from '@/lib/utils'
+import { WORK_ORDERS_WIDTHS_COOKIE, writeWidthsCookie } from '@/lib/work-orders/list-column-widths-cookie'
 import {
   isSortable,
   type ListSort,
   type SortDirection,
 } from '@/lib/work-orders/list-sort'
+import {
+  ARCHIVE_SORT_COOKIE,
+  MINE_SORT_COOKIE,
+  SORT_COOKIE,
+  writeSortCookie,
+} from '@/lib/work-orders/list-sort-cookie'
 
 import { TablePagination } from './table-pagination'
 import { WorkOrderRow } from './work-order-row'
+
+// This table is shared across three lists; each remembers its own sort
+// independently, keyed off which one is currently rendering it. Column widths
+// are NOT split the same way -- all three render the identical column set, so
+// one shared preference (see WORK_ORDERS_WIDTHS_COOKIE) is what a user expects.
+function sortCookieForPath(pathname: string): string {
+  if (pathname.startsWith('/work-orders/mine')) return MINE_SORT_COOKIE
+  if (pathname.startsWith('/work-orders/rejected')) return ARCHIVE_SORT_COOKIE
+  return SORT_COOKIE
+}
 
 export type WorkOrderListItem = {
   id: string
@@ -77,8 +94,10 @@ const COLUMNS: Column[] = [
 
 const MIN_WIDTH = 60
 
+// Keyed by column key rather than index, so a resize survives a column being
+// conditionally hidden (My Work Orders omits Assignee, Archive omits Status).
 type ResizeState = {
-  index: number
+  key: string
   startX: number
   startWidth: number
 }
@@ -92,6 +111,7 @@ export function WorkOrdersTable({
   showAssignee = true,
   showStatus = true,
   pagination,
+  initialColumnWidths,
 }: {
   workOrders: WorkOrderListItem[]
   emptyMessage: string
@@ -105,6 +125,10 @@ export function WorkOrdersTable({
   // Rendered inside the table's width container so the page/prev/next controls
   // align to the table's right edge instead of the page's.
   pagination?: { page: number; pageSize: number; total: number }
+  // Server-resolved persisted widths, keyed by column key. Passed down (rather
+  // than read from the cookie on the client) so the first client render
+  // already matches the server-rendered markup -- no post-hydration snap.
+  initialColumnWidths?: Record<string, number>
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -123,19 +147,36 @@ export function WorkOrdersTable({
     if (!assignedTo) return null
     return userLabelById[assignedTo] ?? assignedTo.slice(0, 8)
   }
-  const [widths, setWidths] = useState<number[]>(() =>
-    columns.map((c) => c.width)
-  )
+  const [widths, setWidths] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {}
+    for (const c of columns) initial[c.key] = initialColumnWidths?.[c.key] ?? c.width
+    return initial
+  })
+  // Read inside the resize-end handler, which runs in an event listener set up
+  // by an effect that doesn't depend on `widths` -- without the ref, it would
+  // close over the width from when the drag started, not the latest one.
+  const widthsRef = useRef(widths)
+  useEffect(() => {
+    widthsRef.current = widths
+  }, [widths])
   const [resizing, setResizing] = useState<ResizeState | null>(null)
 
   // Sorting is server-side: cycle a column ascending -> descending -> default
   // (newest first), reset to the first page, and let the URL drive the query.
+  // Persisted the same way as the filters: remember the choice (including an
+  // explicit reset to default) so returning via a plain navigation restores it
+  // instead of resetting.
   function toggleSort(key: string) {
     if (!isSortable(key)) return
     let nextDir: SortDirection | null
     if (sort?.key !== key) nextDir = 'asc'
     else if (sort.dir === 'asc') nextDir = 'desc'
     else nextDir = null
+
+    writeSortCookie(
+      sortCookieForPath(pathname),
+      nextDir === null ? null : { key, dir: nextDir }
+    )
 
     const params = new URLSearchParams(searchParams.toString())
     params.delete('page')
@@ -160,15 +201,12 @@ export function WorkOrdersTable({
     function onMove(event: globalThis.PointerEvent) {
       const delta = event.clientX - resizing!.startX
       const nextWidth = Math.max(MIN_WIDTH, resizing!.startWidth + delta)
-      setWidths((prev) => {
-        const next = [...prev]
-        next[resizing!.index] = nextWidth
-        return next
-      })
+      setWidths((prev) => ({ ...prev, [resizing!.key]: nextWidth }))
     }
 
     function onUp() {
       setResizing(null)
+      writeWidthsCookie(WORK_ORDERS_WIDTHS_COOKIE, widthsRef.current)
     }
 
     window.addEventListener('pointermove', onMove)
@@ -179,9 +217,9 @@ export function WorkOrdersTable({
     }
   }, [resizing])
 
-  function startResize(index: number, event: PointerEvent<HTMLSpanElement>) {
+  function startResize(key: string, event: PointerEvent<HTMLSpanElement>) {
     event.preventDefault()
-    setResizing({ index, startX: event.clientX, startWidth: widths[index] })
+    setResizing({ key, startX: event.clientX, startWidth: widths[key] })
   }
 
   if (workOrders.length === 0) {
@@ -192,7 +230,7 @@ export function WorkOrdersTable({
     )
   }
 
-  const totalWidth = widths.reduce((sum, w) => sum + w, 0)
+  const totalWidth = columns.reduce((sum, c) => sum + widths[c.key], 0)
 
   return (
     <div className="flex max-w-full flex-col gap-4" style={{ width: totalWidth }}>
@@ -202,8 +240,8 @@ export function WorkOrdersTable({
       >
       <Table className="table-fixed" style={{ width: totalWidth }}>
         <colgroup>
-          {columns.map((col, i) => (
-            <col key={col.key} style={{ width: widths[i] }} />
+          {columns.map((col) => (
+            <col key={col.key} style={{ width: widths[col.key] }} />
           ))}
         </colgroup>
         <TableHeader>
@@ -245,7 +283,7 @@ export function WorkOrdersTable({
                       role="separator"
                       aria-orientation="vertical"
                       aria-label={`Resize ${col.label} column`}
-                      onPointerDown={(e) => startResize(i, e)}
+                      onPointerDown={(e) => startResize(col.key, e)}
                       className="absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-stretch justify-center hover:bg-border/70 active:bg-border"
                     >
                       <span className="my-2 w-px bg-border" aria-hidden="true" />

@@ -15,16 +15,26 @@ import {
   type WorkOrderFilters,
 } from '@/lib/work-orders/filters'
 import {
+  parseWidthsCookieValue,
+  WORK_ORDERS_WIDTHS_COOKIE,
+} from '@/lib/work-orders/list-column-widths-cookie'
+import {
   ARCHIVE_FILTERS_COOKIE,
   normalizeFilterQuery,
 } from '@/lib/work-orders/list-filters-cookie'
 import {
+  hasSortParams,
+  isSortable,
   PAGE_SIZE,
   parsePage,
   parseSort,
   SORT_COLUMNS,
   type ListSort,
 } from '@/lib/work-orders/list-sort'
+import {
+  ARCHIVE_SORT_COOKIE,
+  parseSortCookieValue,
+} from '@/lib/work-orders/list-sort-cookie'
 
 import { FilterBar } from '../filter-bar'
 import {
@@ -45,6 +55,7 @@ export default async function ArchivePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
+  const cookieStore = await cookies()
 
   // Resolve the filters for this request without a redirect -- a redirect
   // would cost an extra round trip and flash the unfiltered view first.
@@ -57,7 +68,6 @@ export default async function ArchivePage({
     statuses: [],
   }
   if (!hasFilterParams(params)) {
-    const cookieStore = await cookies()
     const persisted = cookieStore.get(ARCHIVE_FILTERS_COOKIE)
     if (persisted) {
       filters = {
@@ -69,7 +79,20 @@ export default async function ArchivePage({
     }
   }
   const filtersActive = hasActiveFilters(filters)
-  const sort = parseSort(params)
+
+  // Same no-redirect resolution as the filters: an explicit ?sort wins;
+  // otherwise fall back to a persisted sort (including an explicit reset to
+  // this list's default, which the cookie stores as an empty value).
+  let sort = parseSort(params)
+  if (!hasSortParams(params)) {
+    const persisted = cookieStore.get(ARCHIVE_SORT_COOKIE)
+    if (persisted) sort = parseSortCookieValue(persisted.value, isSortable)
+  }
+
+  const columnWidths = parseWidthsCookieValue(
+    cookieStore.get(WORK_ORDERS_WIDTHS_COOKIE)?.value
+  )
+
   const page = parsePage(params)
 
   const supabase = await createClient()
@@ -147,6 +170,7 @@ export default async function ArchivePage({
         sort={sort}
         showStatus={false}
         pagination={{ page, pageSize: PAGE_SIZE, total: count ?? 0 }}
+        initialColumnWidths={columnWidths}
         emptyMessage={
           filtersActive
             ? 'No archived work orders match these filters.'

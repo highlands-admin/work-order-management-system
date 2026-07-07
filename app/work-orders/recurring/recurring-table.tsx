@@ -6,7 +6,7 @@ import {
   RiExpandUpDownLine,
 } from '@remixicon/react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import {
@@ -24,6 +24,14 @@ import {
   type RecurrenceFrequency,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
+import {
+  RECURRING_WIDTHS_COOKIE,
+  writeWidthsCookie,
+} from '@/lib/work-orders/list-column-widths-cookie'
+import {
+  RECURRING_SORT_COOKIE,
+  writeSortCookie,
+} from '@/lib/work-orders/list-sort-cookie'
 import {
   isRecurringSortable,
   type RecurringSort,
@@ -66,8 +74,10 @@ const COLUMNS = [
 
 const MIN_WIDTH = 60
 
+// Keyed by column key rather than index, matching the main work orders table,
+// so a resize survives if the column set ever changes.
 type ResizeState = {
-  index: number
+  key: string
   startX: number
   startWidth: number
 }
@@ -77,30 +87,49 @@ export function RecurringTable({
   userLabelById,
   timeZone,
   sort,
+  initialColumnWidths,
 }: {
   schedules: RecurringTableRow[]
   userLabelById: Record<string, string>
   timeZone: string
   sort: RecurringSort | null
+  // Server-resolved persisted widths, keyed by column key -- see the same prop
+  // on WorkOrdersTable for why this is passed down rather than read from the
+  // cookie on the client.
+  initialColumnWidths?: Record<string, number>
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const [widths, setWidths] = useState<number[]>(() =>
-    COLUMNS.map((c) => c.width)
-  )
+  const [widths, setWidths] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {}
+    for (const c of COLUMNS) initial[c.key] = initialColumnWidths?.[c.key] ?? c.width
+    return initial
+  })
+  // Read inside the resize-end handler -- see the same ref on WorkOrdersTable.
+  const widthsRef = useRef(widths)
+  useEffect(() => {
+    widthsRef.current = widths
+  }, [widths])
   const [resizing, setResizing] = useState<ResizeState | null>(null)
 
   // Sorting is server-side: cycle a column ascending -> descending -> default
   // (the page's active-first ordering), and let the URL drive the query. Other
-  // params (view, filters) are preserved.
+  // params (view, filters) are preserved. Persisted the same way as the
+  // filters: remember the choice (including an explicit reset to default) so
+  // returning via a plain navigation restores it instead of resetting.
   function toggleSort(key: string) {
     if (!isRecurringSortable(key)) return
     let nextDir: SortDirection | null
     if (sort?.key !== key) nextDir = 'asc'
     else if (sort.dir === 'asc') nextDir = 'desc'
     else nextDir = null
+
+    writeSortCookie(
+      RECURRING_SORT_COOKIE,
+      nextDir === null ? null : { key, dir: nextDir }
+    )
 
     const params = new URLSearchParams(searchParams.toString())
     if (nextDir === null) {
@@ -122,15 +151,12 @@ export function RecurringTable({
     function onMove(event: globalThis.PointerEvent) {
       const delta = event.clientX - resizing!.startX
       const nextWidth = Math.max(MIN_WIDTH, resizing!.startWidth + delta)
-      setWidths((prev) => {
-        const next = [...prev]
-        next[resizing!.index] = nextWidth
-        return next
-      })
+      setWidths((prev) => ({ ...prev, [resizing!.key]: nextWidth }))
     }
 
     function onUp() {
       setResizing(null)
+      writeWidthsCookie(RECURRING_WIDTHS_COOKIE, widthsRef.current)
     }
 
     window.addEventListener('pointermove', onMove)
@@ -141,12 +167,12 @@ export function RecurringTable({
     }
   }, [resizing])
 
-  function startResize(index: number, event: PointerEvent<HTMLSpanElement>) {
+  function startResize(key: string, event: PointerEvent<HTMLSpanElement>) {
     event.preventDefault()
-    setResizing({ index, startX: event.clientX, startWidth: widths[index] })
+    setResizing({ key, startX: event.clientX, startWidth: widths[key] })
   }
 
-  const totalWidth = widths.reduce((sum, w) => sum + w, 0)
+  const totalWidth = COLUMNS.reduce((sum, c) => sum + widths[c.key], 0)
 
   return (
     <div
@@ -155,8 +181,8 @@ export function RecurringTable({
     >
       <Table className="table-fixed" style={{ width: totalWidth }}>
         <colgroup>
-          {COLUMNS.map((col, i) => (
-            <col key={col.key} style={{ width: widths[i] }} />
+          {COLUMNS.map((col) => (
+            <col key={col.key} style={{ width: widths[col.key] }} />
           ))}
         </colgroup>
         <TableHeader>
@@ -196,7 +222,7 @@ export function RecurringTable({
                       role="separator"
                       aria-orientation="vertical"
                       aria-label={`Resize ${col.label} column`}
-                      onPointerDown={(e) => startResize(i, e)}
+                      onPointerDown={(e) => startResize(col.key, e)}
                       className="absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-stretch justify-center hover:bg-border/70 active:bg-border"
                     >
                       <span className="my-2 w-px bg-border" aria-hidden="true" />

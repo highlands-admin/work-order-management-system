@@ -13,16 +13,26 @@ import {
   parseWorkOrderFilters,
 } from '@/lib/work-orders/filters'
 import {
+  parseWidthsCookieValue,
+  WORK_ORDERS_WIDTHS_COOKIE,
+} from '@/lib/work-orders/list-column-widths-cookie'
+import {
   MINE_FILTERS_COOKIE,
   normalizeFilterQuery,
 } from '@/lib/work-orders/list-filters-cookie'
 import {
   DEFAULT_SORT,
+  hasSortParams,
+  isSortable,
   PAGE_SIZE,
   parsePage,
   parseSort,
   SORT_COLUMNS,
 } from '@/lib/work-orders/list-sort'
+import {
+  MINE_SORT_COOKIE,
+  parseSortCookieValue,
+} from '@/lib/work-orders/list-sort-cookie'
 
 import { FilterBar } from '../filter-bar'
 import { WorkOrdersTable, type WorkOrderListItem } from '../work-orders-table'
@@ -68,7 +78,19 @@ export default async function MyWorkOrdersPage({
       }
     }
   }
-  const sort = parseSort(params)
+  // Same no-redirect resolution as the filters: an explicit ?sort wins;
+  // otherwise fall back to a persisted sort (including an explicit reset to
+  // this list's default, which the cookie stores as an empty value).
+  let sort = parseSort(params)
+  if (!hasSortParams(params)) {
+    const persisted = cookieStore.get(MINE_SORT_COOKIE)
+    if (persisted) sort = parseSortCookieValue(persisted.value, isSortable)
+  }
+
+  const columnWidths = parseWidthsCookieValue(
+    cookieStore.get(WORK_ORDERS_WIDTHS_COOKIE)?.value
+  )
+
   const page = parsePage(params)
 
   const supabase = await createClient()
@@ -167,6 +189,7 @@ export default async function MyWorkOrdersPage({
             sort={sort}
             showAssignee={false}
             pagination={{ page, pageSize: PAGE_SIZE, total: count }}
+            initialColumnWidths={columnWidths}
             emptyMessage={
               filtersActive
                 ? 'No work orders match these filters.'

@@ -55,6 +55,14 @@ function readString(params: RawParams, key: string): string {
   return value ?? ''
 }
 
+// Whether the URL carries a `sort` param at all, regardless of value. Used to
+// tell "this list's sort has been explicitly set (or reset)" apart from
+// "never touched", which decides whether a fresh visit should rehydrate a
+// persisted sort cookie.
+export function hasSortParams(params: RawParams): boolean {
+  return 'sort' in params
+}
+
 // Returns the explicit sort from the URL, or null when none is set (the caller
 // falls back to DEFAULT_SORT for the query but shows no column indicator).
 export function parseSort(params: RawParams): ListSort | null {
