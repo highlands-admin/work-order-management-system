@@ -31,6 +31,10 @@ import {
 } from '@/lib/schemas/work-order'
 import { UNASSIGNED } from '@/lib/work-orders/filters'
 import {
+  RECURRING_FILTERS_COOKIE,
+  writeFilterCookie,
+} from '@/lib/work-orders/list-filters-cookie'
+import {
   EMPTY_RECURRING_FILTERS,
   hasActiveRecurringFilters,
   parseRecurringFilters,
@@ -56,18 +60,45 @@ const FREQUENCY_OPTIONS = RECURRENCE_FREQUENCIES.map((v) => ({
 
 export function RecurringFilterBar({
   assigneeOptions,
+  initialFilters,
 }: {
   assigneeOptions: Option<string>[]
+  // The server-resolved effective filters for the first render: the URL's, or
+  // a persisted cookie's when the URL carries none. Seeds the optimistic state
+  // so the panel and chips match what's already showing, with no URL round
+  // trip.
+  initialFilters?: RecurringFilters
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
-  const filters = useMemo(
+  const urlFilters = useMemo(
     () => parseRecurringFilters(searchParams),
     [searchParams]
   )
+  const urlKey = useMemo(
+    () => toRecurringSearchParams(urlFilters).toString(),
+    [urlFilters]
+  )
+
+  // The URL is the source of truth, but we keep an optimistic local copy
+  // seeded from the server-resolved filters, so a persisted-cookie default
+  // doesn't need a redirect (and its round trip) to show up correctly.
+  const [filters, setFilters] = useState(initialFilters ?? urlFilters)
+  const [lastSyncedUrlKey, setLastSyncedUrlKey] = useState(urlKey)
+
+  // When the URL changes for any reason other than a commit we just made
+  // (back/forward, external navigation, clearing to a bare URL), adopt the
+  // URL's filters -- see the identical pattern in ../filter-bar.tsx.
+  if (lastSyncedUrlKey !== urlKey) {
+    setLastSyncedUrlKey(urlKey)
+    const localKey = toRecurringSearchParams(filters).toString()
+    if (localKey !== urlKey) {
+      setFilters(urlFilters)
+    }
+  }
 
   // "Unassigned" is always offered, ahead of the user list.
   const assigneeFilterOptions = useMemo<Option<string>[]>(
@@ -83,25 +114,22 @@ export function RecurringFilterBar({
   // Staged copy of the filters edited inside the panel. Nothing reaches the
   // table until "Apply"; opening the panel re-syncs the draft to whatever is
   // applied, so closing without applying discards the edits.
-  const [draft, setDraft] = useState(filters)
+  const [draft, setDraft] = useState(initialFilters ?? urlFilters)
 
   // Set the filter params from `next`, preserving everything else in the URL
   // (view, sort, dir), then navigate.
   function commit(next: RecurringFilters) {
+    setFilters(next)
     const params = new URLSearchParams(searchParams.toString())
     for (const key of Object.values(RECURRING_PARAM)) params.delete(key)
     toRecurringSearchParams(next).forEach((value, key) => {
       params.set(key, value)
     })
-    // A user's saved facility preference defaults this list's facility filter
-    // on a page they've never touched. Once they interact with the filter bar
-    // at all, keep the `property` key in the URL even when it's empty, so
-    // clearing the facility filter reads as "show every facility" rather than
-    // looking identical to a fresh, untouched visit that would re-apply the
-    // default.
-    if (!params.has(RECURRING_PARAM.property)) {
-      params.set(RECURRING_PARAM.property, next.properties.join(','))
-    }
+    // Remember this list's filters (including an explicit clear-to-empty) so
+    // returning via a plain navigation, e.g. another sidebar tab and back,
+    // restores them instead of resetting. Must happen before the navigation
+    // below, so it can't race a redirect that reads a stale cookie.
+    writeFilterCookie(RECURRING_FILTERS_COOKIE, toRecurringSearchParams(next).toString())
     const query = params.toString()
     startTransition(() => {
       router.replace(query ? `${pathname}?${query}` : pathname, {

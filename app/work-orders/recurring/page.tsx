@@ -19,16 +19,20 @@ import {
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
 import {
+  normalizeFilterQuery,
+  RECURRING_FILTERS_COOKIE,
+} from '@/lib/work-orders/list-filters-cookie'
+import {
   applyRecurringFilters,
   hasActiveRecurringFilters,
+  hasRecurringFilterParams,
   parseRecurringFilters,
-  RECURRING_PARAM,
+  type RecurringFilters,
 } from '@/lib/work-orders/recurring-filters'
 import {
   parseRecurringSort,
   RECURRING_SORT_COLUMNS,
 } from '@/lib/work-orders/recurring-sort'
-import { fetchFacilityPreferences } from '@/lib/work-orders/user-preferences'
 
 import { RecurringCalendar, type CalendarSchedule } from './recurring-calendar'
 import { RecurringFilterBar } from './recurring-filter-bar'
@@ -72,7 +76,21 @@ export default async function RecurringWorkOrdersPage({
     'calendar'
   )
   const isTable = view === 'table'
-  const filters = parseRecurringFilters(params)
+
+  // Resolve the filters for this request without a redirect -- a redirect
+  // would cost an extra round trip and flash the unfiltered view first.
+  // Explicit URL params always win; otherwise, on a list that's never been
+  // touched, fall back to whatever was last persisted (even an explicitly
+  // cleared, empty state).
+  let filters: RecurringFilters = parseRecurringFilters(params)
+  if (!hasRecurringFilterParams(params)) {
+    const persisted = cookieStore.get(RECURRING_FILTERS_COOKIE)
+    if (persisted) {
+      filters = parseRecurringFilters(
+        new URLSearchParams(normalizeFilterQuery(persisted.value))
+      )
+    }
+  }
   const sort = parseRecurringSort(params)
   const filtersActive = hasActiveRecurringFilters(filters)
 
@@ -84,21 +102,8 @@ export default async function RecurringWorkOrdersPage({
 
   if (!claims) redirect('/login')
 
-  // Default to the user's preferred facilities, but only while the facility
-  // filter has never been touched (the `property` param is absent). The filter
-  // bar always keeps `property` in the URL once the user interacts with it,
-  // even set to empty, so clearing the facility filter sticks instead of
-  // looking like a fresh visit and snapping back to the default.
-  if (!(RECURRING_PARAM.property in params)) {
-    const preferred = await fetchFacilityPreferences(supabase)
-    if (preferred.length > 0) {
-      redirect(`/work-orders/recurring?property=${preferred.join(',')}`)
-    }
-  }
-
   // Search, sort, and the in-page filters apply to the table view only. The
-  // facility filter also constrains the calendar, so both views match the user's
-  // preferred facilities.
+  // facility filter also constrains the calendar, so both views stay in sync.
   let query = supabase.from('recurring_work_orders').select(RECURRING_COLUMNS)
 
   if (isTable) {
@@ -117,8 +122,8 @@ export default async function RecurringWorkOrdersPage({
         .order('next_due_at', { ascending: true, nullsFirst: false })
     }
   } else {
-    // The calendar has no filter bar, but it still honors the facility filter so
-    // it reflects the user's preferred facilities (or an explicit ?property).
+    // The calendar has no filter bar, but it still honors the facility filter
+    // when one carries over from the table view (an explicit ?property).
     if (filters.properties.length) {
       query = query.in('property', filters.properties)
     }
@@ -183,7 +188,12 @@ export default async function RecurringWorkOrdersPage({
         <RecurringViewToggle view={view} />
       </div>
 
-      {isTable ? <RecurringFilterBar assigneeOptions={assigneeOptions} /> : null}
+      {isTable ? (
+        <RecurringFilterBar
+          assigneeOptions={assigneeOptions}
+          initialFilters={filters}
+        />
+      ) : null}
 
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>

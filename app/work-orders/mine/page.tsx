@@ -9,8 +9,13 @@ import { MINE_VIEW_COOKIE, resolveView } from '@/lib/work-orders/list-view'
 import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
 import {
   hasActiveFilters,
+  hasFilterParams,
   parseWorkOrderFilters,
 } from '@/lib/work-orders/filters'
+import {
+  MINE_FILTERS_COOKIE,
+  normalizeFilterQuery,
+} from '@/lib/work-orders/list-filters-cookie'
 import {
   DEFAULT_SORT,
   PAGE_SIZE,
@@ -37,15 +42,32 @@ export default async function MyWorkOrdersPage({
 }) {
   const params = await searchParams
   const cookieStore = await cookies()
+
   const view = resolveView(
     ['table', 'board'] as const,
     params.view,
     cookieStore.get(MINE_VIEW_COOKIE)?.value,
     'table'
   )
-  // Every row here is already assigned to the current user, so the assignee
-  // filter is dropped.
-  const filters = { ...parseWorkOrderFilters(params), assignees: [] }
+
+  // Resolve the filters for this request without a redirect -- a redirect
+  // would cost an extra round trip and flash the unfiltered view first.
+  // Explicit URL params always win; otherwise, on a list that's never been
+  // touched, fall back to whatever was last persisted (even an explicitly
+  // cleared, empty state). Every row here is already assigned to the current
+  // user, so the assignee filter is always dropped.
+  let filters = { ...parseWorkOrderFilters(params), assignees: [] as string[] }
+  if (!hasFilterParams(params)) {
+    const persisted = cookieStore.get(MINE_FILTERS_COOKIE)
+    if (persisted) {
+      filters = {
+        ...parseWorkOrderFilters(
+          new URLSearchParams(normalizeFilterQuery(persisted.value))
+        ),
+        assignees: [],
+      }
+    }
+  }
   const sort = parseSort(params)
   const page = parsePage(params)
 
@@ -114,7 +136,7 @@ export default async function MyWorkOrdersPage({
         <ViewToggle view={view} />
       </div>
 
-      <FilterBar showAssignee={false} />
+      <FilterBar showAssignee={false} initialFilters={filters} />
 
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>

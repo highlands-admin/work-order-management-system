@@ -7,7 +7,6 @@ import { SubmitButton } from '@/components/auth/submit-button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
-import { type Property } from '@/lib/schemas/work-order'
 
 import type { AuthState } from '../(auth)/auth-state'
 import { initialAuthState } from '../(auth)/auth-state'
@@ -17,21 +16,15 @@ export function ProfileForm({
   email,
   firstName,
   lastName,
-  selectedFacilities,
-  facilities,
 }: {
   email: string
   firstName: string
   lastName: string
-  selectedFacilities: Property[]
-  facilities: { value: Property; label: string }[]
 }) {
   const [state, action] = useActionState(updateProfileAction, initialAuthState)
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
   const firstNameError = getError('firstName')
   const lastNameError = getError('lastName')
-
-  const selected = new Set(selectedFacilities)
 
   const prev = useRef<AuthState>(initialAuthState)
   useEffect(() => {
@@ -46,8 +39,8 @@ export function ProfileForm({
 
   return (
     <form action={action} noValidate className="flex flex-col gap-6">
-      <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
-        <section className="flex flex-col gap-5 p-6">
+      <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10">
+        <div className="flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field data-invalid={firstNameError ? 'true' : undefined}>
               <FieldLabel htmlFor="firstName">First name</FieldLabel>
@@ -84,34 +77,7 @@ export function ProfileForm({
               Contact an administrator to change your email.
             </p>
           </Field>
-        </section>
-
-        <section className="flex flex-col gap-4 p-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-sm font-medium">Your Facilities</h2>
-            <p className="text-sm text-muted-foreground">
-              Your work order lists open filtered to these. Leave empty to see
-              all facilities.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {facilities.map((f) => (
-              <label key={f.value} className="cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="facilities"
-                  value={f.value}
-                  defaultChecked={selected.has(f.value)}
-                  className="peer sr-only"
-                />
-                <span className="inline-flex items-center rounded-full border border-input px-3.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted/60 peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring/50">
-                  {f.label}
-                </span>
-              </label>
-            ))}
-          </div>
-        </section>
+        </div>
       </div>
 
       <div className="flex justify-end">

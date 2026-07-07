@@ -169,6 +169,18 @@ export function toSearchParams(filters: WorkOrderFilters): URLSearchParams {
   return params
 }
 
+// Whether any filter-facet param key is present in the raw URL params,
+// regardless of value -- an empty value (e.g. `?property=`) still counts, since
+// it means the user explicitly cleared that facet. Used to tell "this list has
+// been filtered at least once" apart from "never touched", which decides
+// whether a fresh visit should rehydrate a persisted filter cookie or a
+// facility-preference default.
+export function hasFilterParams(
+  source: Record<string, string | string[] | undefined>
+): boolean {
+  return Object.values(PARAM).some((key) => key in source)
+}
+
 export function hasActiveFilters(filters: WorkOrderFilters): boolean {
   return (
     filters.statuses.length > 0 ||

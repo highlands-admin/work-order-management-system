@@ -1,7 +1,7 @@
 import { RiAddLine } from '@remixicon/react'
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 
 import { buttonVariants } from '@/components/ui/button'
 import { getTimeZone } from '@/lib/datetime/timezone'
@@ -10,13 +10,16 @@ import {
   fetchAssignableUsers,
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
-import { fetchFacilityPreferences } from '@/lib/work-orders/user-preferences'
 import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
 import {
   hasActiveFilters,
-  PARAM,
+  hasFilterParams,
   parseWorkOrderFilters,
 } from '@/lib/work-orders/filters'
+import {
+  FILTERS_COOKIE,
+  normalizeFilterQuery,
+} from '@/lib/work-orders/list-filters-cookie'
 import {
   DEFAULT_SORT,
   PAGE_SIZE,
@@ -40,19 +43,22 @@ export default async function WorkOrdersPage({
   const params = await searchParams
   const supabase = await createClient()
 
-  // Default the view to the user's preferred facilities, but only while the
-  // facility filter has never been touched (the `property` param is absent).
-  // The filter bar always keeps `property` in the URL once the user interacts
-  // with it, even set to empty, so clearing the facility filter sticks instead
-  // of looking like a fresh visit and snapping back to the default.
-  if (!(PARAM.property in params)) {
-    const preferred = await fetchFacilityPreferences(supabase)
-    if (preferred.length > 0) {
-      redirect(`/work-orders?property=${preferred.join(',')}`)
+  // Resolve the filters for this request without a redirect -- a redirect
+  // would cost an extra round trip and flash the unfiltered view first.
+  // Explicit URL params always win; otherwise, on a list that's never been
+  // touched, fall back to whatever was last persisted (even an explicitly
+  // cleared, empty state).
+  let filters = parseWorkOrderFilters(params)
+  if (!hasFilterParams(params)) {
+    const cookieStore = await cookies()
+    const persisted = cookieStore.get(FILTERS_COOKIE)
+    if (persisted) {
+      filters = parseWorkOrderFilters(
+        new URLSearchParams(normalizeFilterQuery(persisted.value))
+      )
     }
   }
 
-  const filters = parseWorkOrderFilters(params)
   const sort = parseSort(params)
   const page = parsePage(params)
 
@@ -127,6 +133,7 @@ export default async function WorkOrdersPage({
       <FilterBar
         assigneeOptions={assigneeOptions}
         exportPath="/work-orders/export"
+        initialFilters={filters}
       />
 
       {error ? (

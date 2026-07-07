@@ -126,6 +126,13 @@ export function toRecurringSearchParams(
   return params
 }
 
+// See hasFilterParams in filters.ts -- same purpose, for the recurring list.
+export function hasRecurringFilterParams(
+  source: Record<string, string | string[] | undefined>
+): boolean {
+  return Object.values(RECURRING_PARAM).some((key) => key in source)
+}
+
 export function hasActiveRecurringFilters(filters: RecurringFilters): boolean {
   return (
     filters.categories.length > 0 ||

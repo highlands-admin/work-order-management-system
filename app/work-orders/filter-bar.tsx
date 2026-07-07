@@ -41,7 +41,6 @@ import {
 import {
   EMPTY_FILTERS,
   hasActiveFilters,
-  PARAM,
   parseWorkOrderFilters,
   toSearchParams,
   UNASSIGNED,
@@ -50,6 +49,12 @@ import {
   type WorkOrderFilters,
   type WorkOrderSource,
 } from '@/lib/work-orders/filters'
+import {
+  ARCHIVE_FILTERS_COOKIE,
+  FILTERS_COOKIE,
+  MINE_FILTERS_COOKIE,
+  writeFilterCookie,
+} from '@/lib/work-orders/list-filters-cookie'
 
 import { DateRangeFilter } from './date-range-filter'
 import { MultiSelectFilter, type Option } from './multi-select-filter'
@@ -76,11 +81,20 @@ const SOURCE_OPTIONS: Option<WorkOrderSource>[] = WORK_ORDER_SOURCES.map((v) => 
   label: SOURCE_LABELS[v],
 }))
 
+// This FilterBar is shared across three lists; each remembers its own filters
+// independently, keyed off which one is currently rendering it.
+function filtersCookieForPath(pathname: string): string {
+  if (pathname.startsWith('/work-orders/mine')) return MINE_FILTERS_COOKIE
+  if (pathname.startsWith('/work-orders/rejected')) return ARCHIVE_FILTERS_COOKIE
+  return FILTERS_COOKIE
+}
+
 export function FilterBar({
   assigneeOptions = [],
   showAssignee = true,
   showStatus = true,
   exportPath,
+  initialFilters,
 }: {
   assigneeOptions?: Option<string>[]
   showAssignee?: boolean
@@ -90,6 +104,10 @@ export function FilterBar({
   // When set, render an "Export CSV" link that carries the current filters so
   // the download matches the table. Omitted on views without an export route.
   exportPath?: string
+  // The server-resolved effective filters for the first render: the URL's, or a
+  // persisted cookie's when the URL carries none. Seeds the optimistic state so
+  // the panel and chips match what's already showing, with no URL round trip.
+  initialFilters?: WorkOrderFilters
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -120,13 +138,13 @@ export function FilterBar({
     [urlFilters]
   )
 
-  const [filters, setFilters] = useState(urlFilters)
+  const [filters, setFilters] = useState(initialFilters ?? urlFilters)
   const [lastSyncedUrlKey, setLastSyncedUrlKey] = useState(urlKey)
 
   // Staged copy of the filters edited inside the Filters panel. Nothing reaches
   // the table until "Apply"; opening the panel re-syncs the draft to whatever
   // is currently applied, so closing without applying discards the edits.
-  const [draft, setDraft] = useState(urlFilters)
+  const [draft, setDraft] = useState(initialFilters ?? urlFilters)
 
   // When the URL changes for any reason other than a commit we just made
   // (back/forward, external navigation, the table page refresh re-running
@@ -152,17 +170,12 @@ export function FilterBar({
 
   function commit(next: WorkOrderFilters) {
     setFilters(next)
-    const params = toSearchParams(next)
-    // A user's saved facility preference defaults this list's facility filter
-    // on a page they've never touched. Once they interact with the filter bar
-    // at all, keep the `property` key in the URL even when it's empty, so
-    // clearing the facility filter reads as "show every facility" rather than
-    // looking identical to a fresh, untouched visit that would re-apply the
-    // default.
-    if (!params.has(PARAM.property)) {
-      params.set(PARAM.property, next.properties.join(','))
-    }
-    const query = params.toString()
+    const query = toSearchParams(next).toString()
+    // Remember this list's filters (including an explicit clear-to-empty) so
+    // returning via a plain navigation, e.g. another sidebar tab and back,
+    // restores them instead of resetting. Must happen before the navigation
+    // below, so it can't race a redirect that reads a stale cookie.
+    writeFilterCookie(filtersCookieForPath(pathname), query)
     startTransition(() => {
       router.replace(query ? `${pathname}?${query}` : pathname, {
         scroll: false,

@@ -2,13 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 
-import { PROPERTIES, type Property } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
 
 import type { AuthState } from '../(auth)/auth-state'
 
 const NAME_MAX = 80
-const PROPERTY_SET = new Set<string>(PROPERTIES)
 
 export async function updateProfileAction(
   _prev: AuthState,
@@ -16,10 +14,6 @@ export async function updateProfileAction(
 ): Promise<AuthState> {
   const firstName = String(formData.get('firstName') ?? '').trim()
   const lastName = String(formData.get('lastName') ?? '').trim()
-  const facilities = formData
-    .getAll('facilities')
-    .map(String)
-    .filter((f): f is Property => PROPERTY_SET.has(f))
 
   const values = { firstName, lastName }
   const fieldErrors: Record<string, string[]> = {}
@@ -56,17 +50,6 @@ export async function updateProfileAction(
     return { status: 'error', message: nameError.message, values }
   }
 
-  const { error: prefError } = await supabase
-    .from('user_preferences')
-    .upsert({ user_id: user.id, facilities }, { onConflict: 'user_id' })
-  if (prefError) {
-    return { status: 'error', message: prefError.message, values }
-  }
-
-  // Refresh the profile and the lists whose default facility filter depends on
-  // this preference.
   revalidatePath('/profile')
-  revalidatePath('/work-orders')
-  revalidatePath('/work-orders/mine')
   return { status: 'success', message: 'Profile updated.', values }
 }

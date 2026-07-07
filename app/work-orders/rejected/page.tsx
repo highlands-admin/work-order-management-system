@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 
 import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
@@ -9,8 +10,14 @@ import {
 import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
 import {
   hasActiveFilters,
+  hasFilterParams,
   parseWorkOrderFilters,
+  type WorkOrderFilters,
 } from '@/lib/work-orders/filters'
+import {
+  ARCHIVE_FILTERS_COOKIE,
+  normalizeFilterQuery,
+} from '@/lib/work-orders/list-filters-cookie'
 import {
   PAGE_SIZE,
   parsePage,
@@ -38,8 +45,29 @@ export default async function ArchivePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
-  // Every row here is already rejected, so the status facet is dropped.
-  const filters = { ...parseWorkOrderFilters(params), statuses: [] }
+
+  // Resolve the filters for this request without a redirect -- a redirect
+  // would cost an extra round trip and flash the unfiltered view first.
+  // Explicit URL params always win; otherwise, on a list that's never been
+  // touched, fall back to whatever was last persisted (even an explicitly
+  // cleared, empty state). Every row here is already rejected, so the status
+  // facet is always dropped.
+  let filters: WorkOrderFilters = {
+    ...parseWorkOrderFilters(params),
+    statuses: [],
+  }
+  if (!hasFilterParams(params)) {
+    const cookieStore = await cookies()
+    const persisted = cookieStore.get(ARCHIVE_FILTERS_COOKIE)
+    if (persisted) {
+      filters = {
+        ...parseWorkOrderFilters(
+          new URLSearchParams(normalizeFilterQuery(persisted.value))
+        ),
+        statuses: [],
+      }
+    }
+  }
   const filtersActive = hasActiveFilters(filters)
   const sort = parseSort(params)
   const page = parsePage(params)
@@ -102,7 +130,11 @@ export default async function ArchivePage({
         </p>
       </div>
 
-      <FilterBar assigneeOptions={assigneeOptions} showStatus={false} />
+      <FilterBar
+        assigneeOptions={assigneeOptions}
+        showStatus={false}
+        initialFilters={filters}
+      />
 
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>
