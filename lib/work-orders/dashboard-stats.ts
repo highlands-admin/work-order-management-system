@@ -99,7 +99,15 @@ export type DashboardStats = {
 
 export function computeDashboardStats(
   rows: DashboardRow[],
-  range: DashboardRange
+  range: DashboardRange,
+  // The dashboard's active category filter, if any. The rows passed in are
+  // already scoped to it at the query level, but the "By Category" chart's
+  // own key list defaults to every category regardless of what's in `rows`
+  // (so an unfiltered dashboard still shows a bar for a category with zero
+  // work orders) -- when a filter is active, narrow that list to just the
+  // selected categories, so filtered-out ones don't still show up as empty
+  // bars and labels.
+  categoryFilter?: WorkOrderCategory[]
 ): DashboardStats {
   const now = Date.now()
 
@@ -131,11 +139,12 @@ export function computeDashboardStats(
     value: statusCounts.get(s) ?? 0,
   })).filter((s) => s.value > 0)
 
-  const byCategory = buildStacked(
-    categoryStatus,
-    CATEGORY_CHART_KEYS,
-    CATEGORY_LABELS
-  )
+  const categoryKeys =
+    categoryFilter && categoryFilter.length > 0
+      ? CATEGORY_CHART_KEYS.filter((c) => categoryFilter.includes(c))
+      : CATEGORY_CHART_KEYS
+
+  const byCategory = buildStacked(categoryStatus, categoryKeys, CATEGORY_LABELS)
 
   const byPriority = buildStacked(
     priorityStatus,

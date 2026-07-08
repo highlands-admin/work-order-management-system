@@ -75,7 +75,7 @@ export default async function DashboardPage({
   }
 
   const rows = (data ?? []) as DashboardRow[]
-  const stats = computeDashboardStats(rows, range)
+  const stats = computeDashboardStats(rows, range, categories)
   const categoryParam = categories.join(',')
 
   return (
