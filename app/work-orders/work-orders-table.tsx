@@ -39,6 +39,7 @@ import {
 } from '@/lib/work-orders/filter-options'
 import {
   UNASSIGNED,
+  hasFilterParams,
   parseWorkOrderFilters,
   toSearchParams,
   withFilter,
@@ -188,25 +189,19 @@ export function WorkOrdersTable({
 
   // Per-column filter icons (Notion-style): commit straight back to the URL,
   // the same cookie + navigation FilterBar uses, so both entry points into
-  // filtering stay in sync automatically. Seeded from initialFilters (falling
-  // back to the URL) rather than reading the URL directly, and re-adopting the
-  // URL's filters whenever they actually change -- the identical pattern
-  // FilterBar itself uses, and for the same reason: a cookie-restored filter
-  // doesn't necessarily show up in the URL (see initialFilters above), so
-  // reading the URL alone would show every column filter icon as inactive.
-  const urlFilters = useMemo(
-    () => parseWorkOrderFilters(searchParams),
+  // filtering stay in sync automatically. Derived fresh every render rather
+  // than held in state: once the URL carries any filter param, it's always
+  // the source of truth (no separate local copy to fall out of sync when
+  // something else, like a FilterBar chip removal, changes it); only a
+  // completely bare URL falls back to initialFilters, since that's the one
+  // case the URL can't speak for itself -- see the prop doc above.
+  const rawParams = useMemo(
+    () => Object.fromEntries(searchParams.entries()),
     [searchParams]
   )
-  const urlKey = useMemo(() => toSearchParams(urlFilters).toString(), [urlFilters])
-  const [filters, setFilters] = useState(initialFilters ?? urlFilters)
-  const [lastSyncedFiltersUrlKey, setLastSyncedFiltersUrlKey] = useState(urlKey)
-  if (lastSyncedFiltersUrlKey !== urlKey) {
-    setLastSyncedFiltersUrlKey(urlKey)
-    if (toSearchParams(filters).toString() !== urlKey) {
-      setFilters(urlFilters)
-    }
-  }
+  const filters = hasFilterParams(rawParams)
+    ? parseWorkOrderFilters(searchParams)
+    : (initialFilters ?? parseWorkOrderFilters(searchParams))
 
   const assigneeFilterOptions: Option<string>[] = [
     { value: UNASSIGNED, label: 'Unassigned' },
@@ -214,7 +209,6 @@ export function WorkOrdersTable({
   ]
 
   function commitFilter(next: WorkOrderFilters) {
-    setFilters(next)
     const query = toSearchParams(next).toString()
     writeFilterCookie(filtersCookieForPath(pathname), query)
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })

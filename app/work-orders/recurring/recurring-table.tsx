@@ -39,6 +39,7 @@ import {
   writeSortCookie,
 } from '@/lib/work-orders/list-sort-cookie'
 import {
+  hasRecurringFilterParams,
   parseRecurringFilters,
   RECURRING_PARAM,
   toRecurringSearchParams,
@@ -142,25 +143,15 @@ export function RecurringTable({
 
   // Per-column filter icons (Notion-style): commit straight back to the URL,
   // the same cookie + navigation RecurringFilterBar uses, so both entry points
-  // stay in sync automatically. Seeded from initialFilters (falling back to
-  // the URL) and re-adopted whenever the URL's filters actually change -- see
-  // the identical pattern on WorkOrdersTable for why.
-  const urlFilters = useMemo(
-    () => parseRecurringFilters(searchParams),
+  // stay in sync automatically. Derived fresh every render rather than held in
+  // state -- see the identical pattern (and why) on WorkOrdersTable.
+  const rawParams = useMemo(
+    () => Object.fromEntries(searchParams.entries()),
     [searchParams]
   )
-  const urlKey = useMemo(
-    () => toRecurringSearchParams(urlFilters).toString(),
-    [urlFilters]
-  )
-  const [filters, setFilters] = useState(initialFilters ?? urlFilters)
-  const [lastSyncedFiltersUrlKey, setLastSyncedFiltersUrlKey] = useState(urlKey)
-  if (lastSyncedFiltersUrlKey !== urlKey) {
-    setLastSyncedFiltersUrlKey(urlKey)
-    if (toRecurringSearchParams(filters).toString() !== urlKey) {
-      setFilters(urlFilters)
-    }
-  }
+  const filters = hasRecurringFilterParams(rawParams)
+    ? parseRecurringFilters(searchParams)
+    : (initialFilters ?? parseRecurringFilters(searchParams))
 
   const assigneeFilterOptions: Option<string>[] = [
     { value: UNASSIGNED, label: 'Unassigned' },
@@ -170,7 +161,6 @@ export function RecurringTable({
   // Set the filter params from `next`, preserving everything else in the URL
   // (view, sort, dir) -- matching RecurringFilterBar's own commit.
   function commitFilter(next: RecurringFilters) {
-    setFilters(next)
     const params = new URLSearchParams(searchParams.toString())
     for (const key of Object.values(RECURRING_PARAM)) params.delete(key)
     toRecurringSearchParams(next).forEach((value, key) => {
