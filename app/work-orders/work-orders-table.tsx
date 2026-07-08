@@ -61,6 +61,7 @@ import {
   writeSortCookie,
 } from '@/lib/work-orders/list-sort-cookie'
 
+import { DateRangeFilter } from './date-range-filter'
 import { TablePagination } from './table-pagination'
 import { WorkOrderRow } from './work-order-row'
 import {
@@ -101,18 +102,18 @@ type Column = {
 }
 
 // Default column widths in pixels. Users can drag the handles to resize.
-// Filterable columns (category/status/priority/property/assignee) are a bit
-// wider than their label alone needs, to comfortably fit the sort and filter
-// icons alongside it without crowding.
+// Filterable columns (category/status/priority/property/assignee/created/due)
+// are a bit wider than their label alone needs, to comfortably fit the sort
+// and filter icons alongside it without crowding.
 const COLUMNS: Column[] = [
   { key: 'code', label: 'ID', width: 120 },
   { key: 'title', label: 'Title', width: 200 },
-  { key: 'category', label: 'Category', width: 175 },
-  { key: 'status', label: 'Status', width: 165 },
-  { key: 'priority', label: 'Priority', width: 175 },
-  { key: 'property', label: 'Facility', width: 175 },
-  { key: 'created', label: 'Created', width: 120 },
-  { key: 'due', label: 'Due', width: 180 },
+  { key: 'category', label: 'Category', width: 160 },
+  { key: 'status', label: 'Status', width: 150 },
+  { key: 'priority', label: 'Priority', width: 150 },
+  { key: 'property', label: 'Facility', width: 150 },
+  { key: 'created', label: 'Created', width: 150 },
+  { key: 'due', label: 'Due', width: 190 },
   { key: 'assignee', label: 'Assignee', width: 200 },
   { key: 'reporter', label: 'Reported by', width: 180 },
 ]
@@ -292,6 +293,40 @@ export function WorkOrdersTable({
               <ColumnFilterTrigger
                 label="Assignee"
                 active={filters.assignees.length > 0}
+              />
+            }
+          />
+        )
+      case 'created':
+        return (
+          <DateRangeFilter
+            label="Created"
+            from={filters.createdFrom}
+            to={filters.createdTo}
+            onChange={({ from, to }) =>
+              commitFilter({ ...filters, createdFrom: from, createdTo: to })
+            }
+            trigger={
+              <ColumnFilterTrigger
+                label="Created"
+                active={Boolean(filters.createdFrom || filters.createdTo)}
+              />
+            }
+          />
+        )
+      case 'due':
+        return (
+          <DateRangeFilter
+            label="Due date"
+            from={filters.dueFrom}
+            to={filters.dueTo}
+            onChange={({ from, to }) =>
+              commitFilter({ ...filters, dueFrom: from, dueTo: to })
+            }
+            trigger={
+              <ColumnFilterTrigger
+                label="Due date"
+                active={Boolean(filters.dueFrom || filters.dueTo)}
               />
             }
           />

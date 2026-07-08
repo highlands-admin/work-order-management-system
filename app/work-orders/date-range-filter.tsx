@@ -1,6 +1,7 @@
 'use client'
 
 import { RiArrowDownSLine, RiCloseLine } from '@remixicon/react'
+import type { ReactElement } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,11 +18,15 @@ export function DateRangeFilter({
   from,
   to,
   onChange,
+  trigger,
 }: {
   label: string
   from: string | null
   to: string | null
   onChange: (next: { from: string | null; to: string | null }) => void
+  // Swap in a compact trigger (e.g. a column-header filter icon) in place of
+  // the default labeled button. The popover contents are unchanged.
+  trigger?: ReactElement
 }) {
   const active = Boolean(from || to)
   const summary = formatRange(from, to)
@@ -30,18 +35,20 @@ export function DateRangeFilter({
     <Popover>
       <PopoverTrigger
         render={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={cn(
-              'h-9 justify-between gap-1 font-normal',
-              active && 'border-foreground/30'
-            )}
-          >
-            <span className="truncate">{summary ?? label}</span>
-            <RiArrowDownSLine className="ml-1 size-4 opacity-60" />
-          </Button>
+          trigger ?? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(
+                'h-9 justify-between gap-1 font-normal',
+                active && 'border-foreground/30'
+              )}
+            >
+              <span className="truncate">{summary ?? label}</span>
+              <RiArrowDownSLine className="ml-1 size-4 opacity-60" />
+            </Button>
+          )
         }
       />
       <PopoverContent className="w-72 p-3" align="start">
