@@ -43,7 +43,7 @@ import {
   type RecurringFilters,
 } from '@/lib/work-orders/recurring-filters'
 
-import { MultiSelectFilter, type Option } from '../multi-select-filter'
+import { MultiSelectFilter, type Option } from '@/components/ui/multi-select-filter'
 
 const CATEGORY_OPTIONS = WORK_ORDER_CATEGORIES_BY_LABEL.map((v) => ({
   value: v,

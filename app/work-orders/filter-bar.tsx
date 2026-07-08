@@ -57,7 +57,7 @@ import {
 } from '@/lib/work-orders/list-filters-cookie'
 
 import { DateRangeFilter } from './date-range-filter'
-import { MultiSelectFilter, type Option } from './multi-select-filter'
+import { MultiSelectFilter, type Option } from '@/components/ui/multi-select-filter'
 
 // pending/rejected work orders live on /work-orders/submissions, so the
 // status filter on the main list only exposes the approved-stage statuses.
