@@ -238,6 +238,7 @@ export default async function RecurringWorkOrdersPage({
           sort={sort}
           initialColumnWidths={columnWidths}
           assigneeOptions={assigneeOptions}
+          initialFilters={filters}
         />
       )}
     </div>

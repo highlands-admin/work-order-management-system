@@ -172,6 +172,7 @@ export default async function ArchivePage({
         pagination={{ page, pageSize: PAGE_SIZE, total: count ?? 0 }}
         initialColumnWidths={columnWidths}
         assigneeOptions={assigneeOptions}
+        initialFilters={filters}
         emptyMessage={
           filtersActive
             ? 'No archived work orders match these filters.'

@@ -6,7 +6,7 @@ import {
   RiExpandUpDownLine,
 } from '@remixicon/react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import {
@@ -109,6 +109,7 @@ export function RecurringTable({
   sort,
   initialColumnWidths,
   assigneeOptions = [],
+  initialFilters,
 }: {
   schedules: RecurringTableRow[]
   userLabelById: Record<string, string>
@@ -122,6 +123,12 @@ export function RecurringTable({
   // filter icon hidden) on views that don't already build this list for the
   // Filters panel.
   assigneeOptions?: Option<string>[]
+  // The server-resolved effective filters for the first render: the URL's, or
+  // a persisted cookie's when the URL carries none (see the identical prop on
+  // RecurringFilterBar). Without this, the column filter icons read straight
+  // from the (possibly still-bare) URL and show as inactive even when a
+  // cookie-restored filter is already applied to the data.
+  initialFilters?: RecurringFilters
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -133,10 +140,28 @@ export function RecurringTable({
     return initial
   })
 
-  // Per-column filter icons (Notion-style): read straight from the URL and
-  // commit straight back to it, the same cookie + navigation
-  // RecurringFilterBar uses, so both entry points stay in sync automatically.
-  const filters = parseRecurringFilters(searchParams)
+  // Per-column filter icons (Notion-style): commit straight back to the URL,
+  // the same cookie + navigation RecurringFilterBar uses, so both entry points
+  // stay in sync automatically. Seeded from initialFilters (falling back to
+  // the URL) and re-adopted whenever the URL's filters actually change -- see
+  // the identical pattern on WorkOrdersTable for why.
+  const urlFilters = useMemo(
+    () => parseRecurringFilters(searchParams),
+    [searchParams]
+  )
+  const urlKey = useMemo(
+    () => toRecurringSearchParams(urlFilters).toString(),
+    [urlFilters]
+  )
+  const [filters, setFilters] = useState(initialFilters ?? urlFilters)
+  const [lastSyncedFiltersUrlKey, setLastSyncedFiltersUrlKey] = useState(urlKey)
+  if (lastSyncedFiltersUrlKey !== urlKey) {
+    setLastSyncedFiltersUrlKey(urlKey)
+    if (toRecurringSearchParams(filters).toString() !== urlKey) {
+      setFilters(urlFilters)
+    }
+  }
+
   const assigneeFilterOptions: Option<string>[] = [
     { value: UNASSIGNED, label: 'Unassigned' },
     ...assigneeOptions,
@@ -145,6 +170,7 @@ export function RecurringTable({
   // Set the filter params from `next`, preserving everything else in the URL
   // (view, sort, dir) -- matching RecurringFilterBar's own commit.
   function commitFilter(next: RecurringFilters) {
+    setFilters(next)
     const params = new URLSearchParams(searchParams.toString())
     for (const key of Object.values(RECURRING_PARAM)) params.delete(key)
     toRecurringSearchParams(next).forEach((value, key) => {

@@ -8,7 +8,7 @@ import {
 } from '@remixicon/react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import {
@@ -138,6 +138,7 @@ export function WorkOrdersTable({
   pagination,
   initialColumnWidths,
   assigneeOptions = [],
+  initialFilters,
 }: {
   workOrders: WorkOrderListItem[]
   emptyMessage: string
@@ -159,6 +160,12 @@ export function WorkOrdersTable({
   // filter icon hidden) on views that don't already build this list for the
   // Filters panel.
   assigneeOptions?: Option<string>[]
+  // The server-resolved effective filters for the first render: the URL's, or
+  // a persisted cookie's when the URL carries none (see FilterBar's identical
+  // prop). Without this, the column filter icons read straight from the
+  // (possibly still-bare) URL and show as inactive even when a cookie-restored
+  // filter is already applied to the data.
+  initialFilters?: WorkOrderFilters
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -178,16 +185,35 @@ export function WorkOrdersTable({
     return userLabelById[assignedTo] ?? assignedTo.slice(0, 8)
   }
 
-  // Per-column filter icons (Notion-style): read straight from the URL and
-  // commit straight back to it, the same cookie + navigation FilterBar uses,
-  // so both entry points into filtering stay in sync automatically.
-  const filters = parseWorkOrderFilters(searchParams)
+  // Per-column filter icons (Notion-style): commit straight back to the URL,
+  // the same cookie + navigation FilterBar uses, so both entry points into
+  // filtering stay in sync automatically. Seeded from initialFilters (falling
+  // back to the URL) rather than reading the URL directly, and re-adopting the
+  // URL's filters whenever they actually change -- the identical pattern
+  // FilterBar itself uses, and for the same reason: a cookie-restored filter
+  // doesn't necessarily show up in the URL (see initialFilters above), so
+  // reading the URL alone would show every column filter icon as inactive.
+  const urlFilters = useMemo(
+    () => parseWorkOrderFilters(searchParams),
+    [searchParams]
+  )
+  const urlKey = useMemo(() => toSearchParams(urlFilters).toString(), [urlFilters])
+  const [filters, setFilters] = useState(initialFilters ?? urlFilters)
+  const [lastSyncedFiltersUrlKey, setLastSyncedFiltersUrlKey] = useState(urlKey)
+  if (lastSyncedFiltersUrlKey !== urlKey) {
+    setLastSyncedFiltersUrlKey(urlKey)
+    if (toSearchParams(filters).toString() !== urlKey) {
+      setFilters(urlFilters)
+    }
+  }
+
   const assigneeFilterOptions: Option<string>[] = [
     { value: UNASSIGNED, label: 'Unassigned' },
     ...assigneeOptions,
   ]
 
   function commitFilter(next: WorkOrderFilters) {
+    setFilters(next)
     const query = toSearchParams(next).toString()
     writeFilterCookie(filtersCookieForPath(pathname), query)
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
