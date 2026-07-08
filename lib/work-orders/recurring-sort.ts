@@ -11,14 +11,16 @@ export type RecurringSortKey =
   | 'frequency'
   | 'property'
   | 'due'
+  | 'assignee'
   | 'state'
 
 export type RecurringSort = { key: RecurringSortKey; dir: SortDirection }
 
 // Maps a sortable column to its database column and whether it can hold nulls
-// (which always sort last). Assignee is intentionally absent: it is stored as a
-// user id and only resolves to a name through a separate directory, so the
-// database cannot order it the way users expect. Alerts and Recipients are
+// (which always sort last). Assignee sorts on assignee_name, a denormalized
+// snapshot of the resolved display name -- assigned_to is just a user id, and
+// the name it resolves to lives in auth.users, which isn't exposed to
+// PostgREST for the database to sort by directly. Alerts and Recipients are
 // array-length summaries, not meaningful sort keys.
 export const RECURRING_SORT_COLUMNS: Record<
   RecurringSortKey,
@@ -30,6 +32,7 @@ export const RECURRING_SORT_COLUMNS: Record<
   frequency: { column: 'frequency', nullable: false },
   property: { column: 'property', nullable: true },
   due: { column: 'next_due_at', nullable: true },
+  assignee: { column: 'assignee_name', nullable: true },
   state: { column: 'active', nullable: false },
 }
 

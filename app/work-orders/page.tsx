@@ -170,6 +170,7 @@ export default async function WorkOrdersPage({
         sort={sort}
         pagination={{ page, pageSize: PAGE_SIZE, total: count ?? 0 }}
         initialColumnWidths={columnWidths}
+        assigneeOptions={assigneeOptions}
         emptyMessage={
           filtersActive
             ? 'No work orders match these filters.'

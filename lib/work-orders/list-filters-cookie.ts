@@ -33,3 +33,12 @@ export function normalizeFilterQuery(raw: string | undefined): string {
 export function writeFilterCookie(name: string, query: string): void {
   document.cookie = `${name}=${query}; path=/; max-age=${FILTERS_COOKIE_MAX_AGE}; samesite=lax`
 }
+
+// The main work-order table is shared across three lists (FilterBar and the
+// table's own per-column filter icons both need this); each remembers its
+// own filters independently, keyed off which one is currently rendering.
+export function filtersCookieForPath(pathname: string): string {
+  if (pathname.startsWith('/work-orders/mine')) return MINE_FILTERS_COOKIE
+  if (pathname.startsWith('/work-orders/rejected')) return ARCHIVE_FILTERS_COOKIE
+  return FILTERS_COOKIE
+}

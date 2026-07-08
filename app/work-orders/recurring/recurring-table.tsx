@@ -24,21 +24,39 @@ import {
   type RecurrenceFrequency,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
+import { UNASSIGNED } from '@/lib/work-orders/filters'
+import { CATEGORY_OPTIONS, PROPERTY_OPTIONS } from '@/lib/work-orders/filter-options'
 import {
   RECURRING_WIDTHS_COOKIE,
   writeWidthsCookie,
 } from '@/lib/work-orders/list-column-widths-cookie'
 import {
+  RECURRING_FILTERS_COOKIE,
+  writeFilterCookie,
+} from '@/lib/work-orders/list-filters-cookie'
+import {
   RECURRING_SORT_COOKIE,
   writeSortCookie,
 } from '@/lib/work-orders/list-sort-cookie'
+import {
+  parseRecurringFilters,
+  RECURRING_PARAM,
+  toRecurringSearchParams,
+  type RecurringFilters,
+} from '@/lib/work-orders/recurring-filters'
 import {
   isRecurringSortable,
   type RecurringSort,
   type SortDirection,
 } from '@/lib/work-orders/recurring-sort'
 
+import { FREQUENCY_OPTIONS } from './recurring-filter-bar'
 import { RecurringRow } from './recurring-row'
+import {
+  ColumnFilterTrigger,
+  MultiSelectFilter,
+  type Option,
+} from '@/components/ui/multi-select-filter'
 
 export type RecurringTableRow = {
   id: string
@@ -57,18 +75,20 @@ export type RecurringTableRow = {
   editable: boolean
 }
 
-// Default column widths in pixels. Users drag the handles to resize, matching the
-// main work orders table.
+// Default column widths in pixels. Users drag the handles to resize, matching
+// the main work orders table. Filterable columns (category/property/
+// frequency/assignee) are a bit wider than their label alone needs, to
+// comfortably fit the sort and filter icons alongside it without crowding.
 const COLUMNS = [
   { key: 'title', label: 'Title', width: 200 },
   { key: 'category', label: 'Category', width: 200 },
   { key: 'provider', label: 'Provider', width: 160 },
-  { key: 'frequency', label: 'Frequency', width: 130 },
-  { key: 'property', label: 'Facility', width: 140 },
+  { key: 'frequency', label: 'Frequency', width: 175 },
+  { key: 'property', label: 'Facility', width: 185 },
   { key: 'due', label: 'Next due', width: 180 },
   { key: 'alerts', label: 'Alerts', width: 110 },
   { key: 'recipients', label: 'Recipients', width: 120 },
-  { key: 'assignee', label: 'Assignee', width: 160 },
+  { key: 'assignee', label: 'Assignee', width: 200 },
   { key: 'state', label: 'State', width: 110 },
 ] as const
 
@@ -88,6 +108,7 @@ export function RecurringTable({
   timeZone,
   sort,
   initialColumnWidths,
+  assigneeOptions = [],
 }: {
   schedules: RecurringTableRow[]
   userLabelById: Record<string, string>
@@ -97,6 +118,10 @@ export function RecurringTable({
   // on WorkOrdersTable for why this is passed down rather than read from the
   // cookie on the client.
   initialColumnWidths?: Record<string, number>
+  // Powers the Assignee column's per-column filter icon. Omitted (and that
+  // filter icon hidden) on views that don't already build this list for the
+  // Filters panel.
+  assigneeOptions?: Option<string>[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -107,6 +132,106 @@ export function RecurringTable({
     for (const c of COLUMNS) initial[c.key] = initialColumnWidths?.[c.key] ?? c.width
     return initial
   })
+
+  // Per-column filter icons (Notion-style): read straight from the URL and
+  // commit straight back to it, the same cookie + navigation
+  // RecurringFilterBar uses, so both entry points stay in sync automatically.
+  const filters = parseRecurringFilters(searchParams)
+  const assigneeFilterOptions: Option<string>[] = [
+    { value: UNASSIGNED, label: 'Unassigned' },
+    ...assigneeOptions,
+  ]
+
+  // Set the filter params from `next`, preserving everything else in the URL
+  // (view, sort, dir) -- matching RecurringFilterBar's own commit.
+  function commitFilter(next: RecurringFilters) {
+    const params = new URLSearchParams(searchParams.toString())
+    for (const key of Object.values(RECURRING_PARAM)) params.delete(key)
+    toRecurringSearchParams(next).forEach((value, key) => {
+      params.set(key, value)
+    })
+    writeFilterCookie(
+      RECURRING_FILTERS_COOKIE,
+      toRecurringSearchParams(next).toString()
+    )
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
+  function renderColumnFilter(key: string) {
+    switch (key) {
+      case 'category':
+        return (
+          <MultiSelectFilter
+            label="Category"
+            options={CATEGORY_OPTIONS}
+            selected={filters.categories}
+            onChange={(v) =>
+              commitFilter({ ...filters, categories: v })
+            }
+            trigger={
+              <ColumnFilterTrigger
+                label="Category"
+                active={filters.categories.length > 0}
+              />
+            }
+          />
+        )
+      case 'property':
+        return (
+          <MultiSelectFilter
+            label="Facility"
+            options={PROPERTY_OPTIONS}
+            selected={filters.properties}
+            onChange={(v) =>
+              commitFilter({ ...filters, properties: v })
+            }
+            trigger={
+              <ColumnFilterTrigger
+                label="Facility"
+                active={filters.properties.length > 0}
+              />
+            }
+          />
+        )
+      case 'frequency':
+        return (
+          <MultiSelectFilter
+            label="Frequency"
+            options={FREQUENCY_OPTIONS}
+            selected={filters.frequencies}
+            onChange={(v) =>
+              commitFilter({ ...filters, frequencies: v })
+            }
+            trigger={
+              <ColumnFilterTrigger
+                label="Frequency"
+                active={filters.frequencies.length > 0}
+              />
+            }
+          />
+        )
+      case 'assignee':
+        return (
+          <MultiSelectFilter
+            label="Assignee"
+            options={assigneeFilterOptions}
+            selected={filters.assignees}
+            onChange={(v) =>
+              commitFilter({ ...filters, assignees: v })
+            }
+            trigger={
+              <ColumnFilterTrigger
+                label="Assignee"
+                active={filters.assignees.length > 0}
+              />
+            }
+          />
+        )
+      default:
+        return null
+    }
+  }
   // Read inside the resize-end handler -- see the same ref on WorkOrdersTable.
   const widthsRef = useRef(widths)
   useEffect(() => {
@@ -202,21 +327,30 @@ export function RecurringTable({
                   }
                   className="relative h-10 select-none px-4 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground"
                 >
-                  {sortable ? (
-                    <button
-                      type="button"
-                      onClick={() => toggleSort(col.key)}
-                      className="group/sort flex w-full items-center gap-1 pr-2 text-left uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <span className="truncate">{col.label}</span>
-                      <SortIndicator
-                        active={active}
-                        dir={active ? sort?.dir : undefined}
-                      />
-                    </button>
-                  ) : (
-                    <span className="truncate">{col.label}</span>
-                  )}
+                  {/* A tight cluster (label + sort + filter), left-aligned and
+                      sized to its own content -- not stretched to fill the
+                      column -- so the filter icon reads as part of the same
+                      title group instead of drifting toward the resize handle. */}
+                  <div className="flex items-center gap-1">
+                    {sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(col.key)}
+                        className="group/sort flex shrink-0 items-center gap-1 text-left uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <span className="whitespace-nowrap">{col.label}</span>
+                        <SortIndicator
+                          active={active}
+                          dir={active ? sort?.dir : undefined}
+                        />
+                      </button>
+                    ) : (
+                      <span className="flex shrink-0 items-center gap-1 whitespace-nowrap uppercase tracking-wide">
+                        {col.label}
+                      </span>
+                    )}
+                    {renderColumnFilter(col.key)}
+                  </div>
                   {i < COLUMNS.length - 1 ? (
                     <span
                       role="separator"

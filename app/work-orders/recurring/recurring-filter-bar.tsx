@@ -25,11 +25,10 @@ import {
   CATEGORY_LABELS,
   FREQUENCY_LABELS,
   PROPERTY_LABELS,
-  PROPERTIES,
   RECURRENCE_FREQUENCIES,
-  WORK_ORDER_CATEGORIES_BY_LABEL,
 } from '@/lib/schemas/work-order'
 import { UNASSIGNED } from '@/lib/work-orders/filters'
+import { CATEGORY_OPTIONS, PROPERTY_OPTIONS } from '@/lib/work-orders/filter-options'
 import {
   RECURRING_FILTERS_COOKIE,
   writeFilterCookie,
@@ -45,15 +44,8 @@ import {
 
 import { MultiSelectFilter, type Option } from '@/components/ui/multi-select-filter'
 
-const CATEGORY_OPTIONS = WORK_ORDER_CATEGORIES_BY_LABEL.map((v) => ({
-  value: v,
-  label: CATEGORY_LABELS[v],
-}))
-const PROPERTY_OPTIONS = PROPERTIES.map((v) => ({
-  value: v,
-  label: PROPERTY_LABELS[v],
-}))
-const FREQUENCY_OPTIONS = RECURRENCE_FREQUENCIES.map((v) => ({
+// Shared with the table's own per-column filter icons.
+export const FREQUENCY_OPTIONS = RECURRENCE_FREQUENCIES.map((v) => ({
   value: v,
   label: FREQUENCY_LABELS[v],
 }))

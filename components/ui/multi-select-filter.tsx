@@ -1,6 +1,7 @@
 'use client'
 
-import { RiArrowDownSLine, RiCloseLine } from '@remixicon/react'
+import { RiArrowDownSLine, RiCloseLine, RiFilterFill, RiFilterLine } from '@remixicon/react'
+import type { ComponentProps, ReactElement } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -20,11 +21,15 @@ export function MultiSelectFilter<T extends string>({
   options,
   selected,
   onChange,
+  trigger,
 }: {
   label: string
   options: Option<T>[]
   selected: T[]
   onChange: (next: T[]) => void
+  // Swap in a compact trigger (e.g. a column-header filter icon) in place of
+  // the default labeled button. The popover contents are unchanged.
+  trigger?: ReactElement
 }) {
   const selectedSet = new Set<T>(selected)
 
@@ -43,23 +48,25 @@ export function MultiSelectFilter<T extends string>({
     <Popover>
       <PopoverTrigger
         render={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={cn(
-              'h-9 justify-between gap-1 font-normal',
-              selected.length > 0 && 'border-foreground/30'
-            )}
-          >
-            <span className="flex-1 text-left">{label}</span>
-            {selected.length > 0 ? (
-              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs font-medium text-background">
-                {selected.length}
-              </span>
-            ) : null}
-            <RiArrowDownSLine className="ml-1 size-4 opacity-60" />
-          </Button>
+          trigger ?? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(
+                'h-9 justify-between gap-1 font-normal',
+                selected.length > 0 && 'border-foreground/30'
+              )}
+            >
+              <span className="flex-1 text-left">{label}</span>
+              {selected.length > 0 ? (
+                <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs font-medium text-background">
+                  {selected.length}
+                </span>
+              ) : null}
+              <RiArrowDownSLine className="ml-1 size-4 opacity-60" />
+            </Button>
+          )
         }
       />
       <PopoverContent className="w-56 gap-1 p-1" align="start">
@@ -101,5 +108,38 @@ export function MultiSelectFilter<T extends string>({
         ) : null}
       </PopoverContent>
     </Popover>
+  )
+}
+
+// A compact icon-only trigger for a MultiSelectFilter, used next to a sort
+// icon in a table column header (Notion-style per-column filtering) instead
+// of the default labeled button, which is too wide for that context. Filled
+// and tinted when the facet has an active selection.
+export function ColumnFilterTrigger({
+  label,
+  active,
+  ...props
+}: {
+  label: string
+  active: boolean
+} & ComponentProps<'button'>) {
+  return (
+    <button
+      type="button"
+      aria-label={`Filter ${label}`}
+      className={cn(
+        'flex size-5 shrink-0 items-center justify-center rounded transition-colors hover:bg-muted',
+        active
+          ? 'text-primary'
+          : 'text-muted-foreground/50 hover:text-foreground'
+      )}
+      {...props}
+    >
+      {active ? (
+        <RiFilterFill className="size-3.5" />
+      ) : (
+        <RiFilterLine className="size-3.5" />
+      )}
+    </button>
   )
 }

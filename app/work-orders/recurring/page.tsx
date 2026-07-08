@@ -237,6 +237,7 @@ export default async function RecurringWorkOrdersPage({
           timeZone={timeZone}
           sort={sort}
           initialColumnWidths={columnWidths}
+          assigneeOptions={assigneeOptions}
         />
       )}
     </div>

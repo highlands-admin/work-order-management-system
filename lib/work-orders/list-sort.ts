@@ -16,14 +16,16 @@ export type SortKey =
   | 'property'
   | 'created'
   | 'due'
+  | 'assignee'
   | 'reporter'
 
 export type ListSort = { key: SortKey; dir: SortDirection }
 
 // Maps a sortable column to its database column and whether it can hold nulls
-// (which always sort last). The Assignee column is intentionally absent: it is
-// stored as a user id and only resolves to a name through a separate directory,
-// so the database cannot order it the way users expect.
+// (which always sort last). Assignee sorts on assignee_name, a denormalized
+// snapshot of the resolved display name -- assigned_to is just a user id, and
+// the name it resolves to lives in auth.users, which isn't exposed to
+// PostgREST for the database to sort by directly.
 export const SORT_COLUMNS: Record<
   SortKey,
   { column: string; nullable: boolean }
@@ -36,6 +38,7 @@ export const SORT_COLUMNS: Record<
   property: { column: 'property', nullable: true },
   created: { column: 'created_at', nullable: false },
   due: { column: 'due_at', nullable: true },
+  assignee: { column: 'assignee_name', nullable: true },
   reporter: { column: 'reported_by_name', nullable: true },
 }
 

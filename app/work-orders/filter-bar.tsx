@@ -29,14 +29,6 @@ import {
   PRIORITY_LABELS,
   PROPERTY_LABELS,
   STATUS_LABELS,
-  WORK_ORDER_CATEGORIES_BY_LABEL,
-  WORK_ORDER_PRIORITIES,
-  WORK_ORDER_STATUSES,
-  PROPERTIES,
-  type Property,
-  type WorkOrderCategory,
-  type WorkOrderPriority,
-  type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import {
   EMPTY_FILTERS,
@@ -50,28 +42,19 @@ import {
   type WorkOrderSource,
 } from '@/lib/work-orders/filters'
 import {
-  ARCHIVE_FILTERS_COOKIE,
-  FILTERS_COOKIE,
-  MINE_FILTERS_COOKIE,
+  CATEGORY_OPTIONS,
+  PRIORITY_OPTIONS,
+  PROPERTY_OPTIONS,
+  STATUS_OPTIONS,
+} from '@/lib/work-orders/filter-options'
+import {
+  filtersCookieForPath,
   writeFilterCookie,
 } from '@/lib/work-orders/list-filters-cookie'
 
 import { DateRangeFilter } from './date-range-filter'
 import { MultiSelectFilter, type Option } from '@/components/ui/multi-select-filter'
 
-// pending/rejected work orders live on /work-orders/submissions, so the
-// status filter on the main list only exposes the approved-stage statuses.
-const STATUS_OPTIONS: Option<WorkOrderStatus>[] = WORK_ORDER_STATUSES
-  .filter((s) => s !== 'pending' && s !== 'rejected')
-  .map((v) => ({ value: v, label: STATUS_LABELS[v] }))
-const PRIORITY_OPTIONS: Option<WorkOrderPriority>[] =
-  WORK_ORDER_PRIORITIES.map((v) => ({ value: v, label: PRIORITY_LABELS[v] }))
-const CATEGORY_OPTIONS: Option<WorkOrderCategory>[] =
-  WORK_ORDER_CATEGORIES_BY_LABEL.map((v) => ({ value: v, label: CATEGORY_LABELS[v] }))
-const PROPERTY_OPTIONS: Option<Property>[] = PROPERTIES.map((v) => ({
-  value: v,
-  label: PROPERTY_LABELS[v],
-}))
 const SOURCE_LABELS: Record<WorkOrderSource, string> = {
   recurring: 'Recurring',
   oneoff: 'One-off',
@@ -80,14 +63,6 @@ const SOURCE_OPTIONS: Option<WorkOrderSource>[] = WORK_ORDER_SOURCES.map((v) => 
   value: v,
   label: SOURCE_LABELS[v],
 }))
-
-// This FilterBar is shared across three lists; each remembers its own filters
-// independently, keyed off which one is currently rendering it.
-function filtersCookieForPath(pathname: string): string {
-  if (pathname.startsWith('/work-orders/mine')) return MINE_FILTERS_COOKIE
-  if (pathname.startsWith('/work-orders/rejected')) return ARCHIVE_FILTERS_COOKIE
-  return FILTERS_COOKIE
-}
 
 export function FilterBar({
   assigneeOptions = [],

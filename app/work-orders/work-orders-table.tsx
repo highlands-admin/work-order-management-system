@@ -31,7 +31,24 @@ import {
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
 import { cn } from '@/lib/utils'
+import {
+  CATEGORY_OPTIONS,
+  PRIORITY_OPTIONS,
+  PROPERTY_OPTIONS,
+  STATUS_OPTIONS,
+} from '@/lib/work-orders/filter-options'
+import {
+  UNASSIGNED,
+  parseWorkOrderFilters,
+  toSearchParams,
+  withFilter,
+  type WorkOrderFilters,
+} from '@/lib/work-orders/filters'
 import { WORK_ORDERS_WIDTHS_COOKIE, writeWidthsCookie } from '@/lib/work-orders/list-column-widths-cookie'
+import {
+  filtersCookieForPath,
+  writeFilterCookie,
+} from '@/lib/work-orders/list-filters-cookie'
 import {
   isSortable,
   type ListSort,
@@ -46,6 +63,11 @@ import {
 
 import { TablePagination } from './table-pagination'
 import { WorkOrderRow } from './work-order-row'
+import {
+  ColumnFilterTrigger,
+  MultiSelectFilter,
+  type Option,
+} from '@/components/ui/multi-select-filter'
 
 // This table is shared across three lists; each remembers its own sort
 // independently, keyed off which one is currently rendering it. Column widths
@@ -79,16 +101,19 @@ type Column = {
 }
 
 // Default column widths in pixels. Users can drag the handles to resize.
+// Filterable columns (category/status/priority/property/assignee) are a bit
+// wider than their label alone needs, to comfortably fit the sort and filter
+// icons alongside it without crowding.
 const COLUMNS: Column[] = [
   { key: 'code', label: 'ID', width: 120 },
   { key: 'title', label: 'Title', width: 200 },
-  { key: 'category', label: 'Category', width: 130 },
-  { key: 'status', label: 'Status', width: 120 },
-  { key: 'priority', label: 'Priority', width: 130 },
-  { key: 'property', label: 'Facility', width: 130 },
+  { key: 'category', label: 'Category', width: 175 },
+  { key: 'status', label: 'Status', width: 165 },
+  { key: 'priority', label: 'Priority', width: 175 },
+  { key: 'property', label: 'Facility', width: 175 },
   { key: 'created', label: 'Created', width: 120 },
   { key: 'due', label: 'Due', width: 180 },
-  { key: 'assignee', label: 'Assignee', width: 160 },
+  { key: 'assignee', label: 'Assignee', width: 200 },
   { key: 'reporter', label: 'Reported by', width: 180 },
 ]
 
@@ -112,6 +137,7 @@ export function WorkOrdersTable({
   showStatus = true,
   pagination,
   initialColumnWidths,
+  assigneeOptions = [],
 }: {
   workOrders: WorkOrderListItem[]
   emptyMessage: string
@@ -129,6 +155,10 @@ export function WorkOrdersTable({
   // than read from the cookie on the client) so the first client render
   // already matches the server-rendered markup -- no post-hydration snap.
   initialColumnWidths?: Record<string, number>
+  // Powers the Assignee column's per-column filter icon. Omitted (and that
+  // filter icon hidden) on views that don't already build this list for the
+  // Filters panel.
+  assigneeOptions?: Option<string>[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -146,6 +176,103 @@ export function WorkOrdersTable({
   function assigneeLabel(assignedTo: string | null): string | null {
     if (!assignedTo) return null
     return userLabelById[assignedTo] ?? assignedTo.slice(0, 8)
+  }
+
+  // Per-column filter icons (Notion-style): read straight from the URL and
+  // commit straight back to it, the same cookie + navigation FilterBar uses,
+  // so both entry points into filtering stay in sync automatically.
+  const filters = parseWorkOrderFilters(searchParams)
+  const assigneeFilterOptions: Option<string>[] = [
+    { value: UNASSIGNED, label: 'Unassigned' },
+    ...assigneeOptions,
+  ]
+
+  function commitFilter(next: WorkOrderFilters) {
+    const query = toSearchParams(next).toString()
+    writeFilterCookie(filtersCookieForPath(pathname), query)
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
+  function renderColumnFilter(key: string) {
+    switch (key) {
+      case 'category':
+        return (
+          <MultiSelectFilter
+            label="Category"
+            options={CATEGORY_OPTIONS}
+            selected={filters.categories}
+            onChange={(v) => commitFilter(withFilter(filters, 'categories', v))}
+            trigger={
+              <ColumnFilterTrigger
+                label="Category"
+                active={filters.categories.length > 0}
+              />
+            }
+          />
+        )
+      case 'status':
+        return (
+          <MultiSelectFilter
+            label="Status"
+            options={STATUS_OPTIONS}
+            selected={filters.statuses}
+            onChange={(v) => commitFilter(withFilter(filters, 'statuses', v))}
+            trigger={
+              <ColumnFilterTrigger
+                label="Status"
+                active={filters.statuses.length > 0}
+              />
+            }
+          />
+        )
+      case 'priority':
+        return (
+          <MultiSelectFilter
+            label="Priority"
+            options={PRIORITY_OPTIONS}
+            selected={filters.priorities}
+            onChange={(v) => commitFilter(withFilter(filters, 'priorities', v))}
+            trigger={
+              <ColumnFilterTrigger
+                label="Priority"
+                active={filters.priorities.length > 0}
+              />
+            }
+          />
+        )
+      case 'property':
+        return (
+          <MultiSelectFilter
+            label="Facility"
+            options={PROPERTY_OPTIONS}
+            selected={filters.properties}
+            onChange={(v) => commitFilter(withFilter(filters, 'properties', v))}
+            trigger={
+              <ColumnFilterTrigger
+                label="Facility"
+                active={filters.properties.length > 0}
+              />
+            }
+          />
+        )
+      case 'assignee':
+        return (
+          <MultiSelectFilter
+            label="Assignee"
+            options={assigneeFilterOptions}
+            selected={filters.assignees}
+            onChange={(v) => commitFilter(withFilter(filters, 'assignees', v))}
+            trigger={
+              <ColumnFilterTrigger
+                label="Assignee"
+                active={filters.assignees.length > 0}
+              />
+            }
+          />
+        )
+      default:
+        return null
+    }
   }
   const [widths, setWidths] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {}
@@ -261,23 +388,30 @@ export function WorkOrdersTable({
                   }
                   className="relative h-10 select-none px-4 text-left align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground"
                 >
-                  {sortable ? (
-                    <button
-                      type="button"
-                      onClick={() => toggleSort(col.key)}
-                      className="group/sort flex w-full items-center gap-1 pr-2 text-left uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <span className="truncate">{col.label}</span>
-                      <SortIndicator
-                        active={active}
-                        dir={active ? sort?.dir : undefined}
-                      />
-                    </button>
-                  ) : (
-                    <span className="flex w-full items-center gap-1 pr-2 uppercase tracking-wide">
-                      <span className="truncate">{col.label}</span>
-                    </span>
-                  )}
+                  {/* A tight cluster (label + sort + filter), left-aligned and
+                      sized to its own content -- not stretched to fill the
+                      column -- so the filter icon reads as part of the same
+                      title group instead of drifting toward the resize handle. */}
+                  <div className="flex items-center gap-1">
+                    {sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(col.key)}
+                        className="group/sort flex shrink-0 items-center gap-1 text-left uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <span className="whitespace-nowrap">{col.label}</span>
+                        <SortIndicator
+                          active={active}
+                          dir={active ? sort?.dir : undefined}
+                        />
+                      </button>
+                    ) : (
+                      <span className="flex shrink-0 items-center gap-1 uppercase tracking-wide">
+                        <span className="whitespace-nowrap">{col.label}</span>
+                      </span>
+                    )}
+                    {renderColumnFilter(col.key)}
+                  </div>
                   {i < columns.length - 1 ? (
                     <span
                       role="separator"
