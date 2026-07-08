@@ -1,6 +1,6 @@
 'use client'
 
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, startOfToday } from 'date-fns'
 import { RiCalendarLine, RiCloseLine } from '@remixicon/react'
 import { useEffect, useState, type ChangeEvent } from 'react'
 
@@ -26,6 +26,7 @@ export function DateTimePicker({
   ariaInvalid,
   className,
   defaultOffsetHours,
+  disablePast,
 }: {
   id?: string
   name?: string
@@ -37,6 +38,10 @@ export function DateTimePicker({
   // When set and no `value` is provided, default the field to now + this many
   // hours (e.g. 24 for "same time tomorrow").
   defaultOffsetHours?: number
+  // Grays out and blocks picking any day before today. Doesn't touch an
+  // already-set past value (e.g. an overdue work order's existing due date)
+  // -- it only stops a *new* past date from being picked.
+  disablePast?: boolean
 }) {
   const initialDate = value ? safeParseDate(value) : undefined
   const [date, setDate] = useState<Date | undefined>(initialDate)
@@ -123,6 +128,7 @@ export function DateTimePicker({
               mode="single"
               selected={date}
               onSelect={handleDateSelect}
+              disabled={disablePast ? { before: startOfToday() } : undefined}
               autoFocus
             />
             <div className="flex items-center gap-3 border-t px-3 py-3">

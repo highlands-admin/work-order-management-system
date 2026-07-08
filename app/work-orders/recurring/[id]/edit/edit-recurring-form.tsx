@@ -282,6 +282,7 @@ export function EditRecurringForm({
               value={state.values?.dueAt ?? schedule.next_due_at ?? undefined}
               ariaInvalid={dueAtError ? true : undefined}
               onChange={() => markEdited('dueAt')}
+              disablePast
             />
             <FieldError>{dueAtError}</FieldError>
           </Field>

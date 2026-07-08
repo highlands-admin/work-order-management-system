@@ -1,3 +1,4 @@
+import { startOfToday } from 'date-fns'
 import * as z from 'zod'
 
 export const WORK_ORDER_CATEGORIES = [
@@ -464,11 +465,29 @@ function requireRecurrenceAnchor<
   }
 }
 
+// Backstop for the date picker's disablePast restriction -- a new work order
+// has no pre-existing due date to protect, so this can reject outright.
+// Editing an existing work order deliberately skips this: an already-overdue
+// due date must stay saveable when some other field changes.
+function requireFutureDueDate<T extends { dueAt?: string }>(
+  data: T,
+  ctx: z.RefinementCtx
+) {
+  if (data.dueAt && new Date(data.dueAt) < startOfToday()) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['dueAt'],
+      message: 'Due date cannot be in the past',
+    })
+  }
+}
+
 export const createWorkOrderSchema = z
   .object({ ...baseWorkOrderFields, ...recurrenceFields })
   .superRefine(requirePropertyUnlessIT)
   .superRefine(requireMarketingFields)
   .superRefine(requireRecurrenceAnchor)
+  .superRefine(requireFutureDueDate)
 
 export type CreateWorkOrderInput = z.infer<typeof createWorkOrderSchema>
 

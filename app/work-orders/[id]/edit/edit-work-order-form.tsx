@@ -452,6 +452,7 @@ export function EditWorkOrderForm({
               ariaInvalid={dueAtError ? true : undefined}
               onChange={() => markEdited('dueAt')}
               className="sm:max-w-sm"
+              disablePast
             />
             <FieldError>{dueAtError}</FieldError>
           </Field>
