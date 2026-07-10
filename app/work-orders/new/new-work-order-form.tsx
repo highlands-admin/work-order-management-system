@@ -3,9 +3,11 @@
 import { RiCheckLine } from '@remixicon/react'
 import {
   useActionState,
+  useEffect,
   useRef,
   useState,
   type KeyboardEvent,
+  type ReactElement,
   type ReactNode,
 } from 'react'
 
@@ -30,6 +32,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { AttachmentUploader } from '@/components/work-orders/attachment-uploader'
+import { type AttachmentMetadata } from '@/lib/schemas/attachment'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
@@ -52,8 +55,15 @@ import {
   formatAssigneeLabel,
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
+import {
+  clearDraft,
+  readFormDraft,
+  readStoredDraft,
+  saveDraft,
+  type WorkOrderDraft,
+} from '@/lib/work-orders/draft'
 
-import { initialAuthState } from '../../(auth)/auth-state'
+import { initialAuthState, type AuthState } from '../../(auth)/auth-state'
 import { createWorkOrderAction } from '../actions'
 import { MarketingFields, emptyMarketingDefaults } from '../marketing-fields'
 import { RecurrenceReminders } from './recurrence-reminders'
@@ -101,27 +111,75 @@ type ReporterDefaults = {
   phone?: string
 }
 
-export function NewWorkOrderForm({
-  reporterDefaults,
-  assignableUsers,
-}: {
+type NewWorkOrderFormProps = {
   reporterDefaults?: ReporterDefaults
   assignableUsers: AssignableUser[]
-}) {
+}
+
+// Draft restore reads sessionStorage, which does not exist during SSR. Render
+// the form fresh first so the server and first client render match, then, once
+// mounted, remount it (via the key) seeded from any saved draft so React re-runs
+// the state initializers with the restored values.
+export function NewWorkOrderForm(props: NewWorkOrderFormProps): ReactElement {
+  const [initialDraft, setInitialDraft] = useState<WorkOrderDraft | null>(null)
+
+  useEffect(() => {
+    const stored = readStoredDraft()
+    // Deferred to after mount so the server render (no sessionStorage) matches
+    // the first client render; the resulting state change remounts the form
+    // seeded from the draft.
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
+    if (stored) setInitialDraft(stored)
+  }, [])
+
+  return (
+    <NewWorkOrderFormInner
+      key={initialDraft ? 'restored' : 'fresh'}
+      initialDraft={initialDraft}
+      {...props}
+    />
+  )
+}
+
+function NewWorkOrderFormInner({
+  reporterDefaults,
+  assignableUsers,
+  initialDraft,
+}: NewWorkOrderFormProps & { initialDraft: WorkOrderDraft | null }) {
   // Value -> label maps let the Select render the chosen option's label (not the
   // raw stored value) without the dropdown items being mounted, and still show
   // the placeholder when nothing is selected.
   const assigneeItems = Object.fromEntries(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
-  const [state, action] = useActionState(
-    createWorkOrderAction,
-    initialAuthState
-  )
+  // Seed from a restored draft when present, so every field wired to
+  // state.values rehydrates through the same path used for failed submissions.
+  const seededState: AuthState = initialDraft
+    ? { status: 'idle', values: initialDraft.values }
+    : initialAuthState
+  const [state, action] = useActionState(createWorkOrderAction, seededState)
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
 
-  // Notes are kept in local state so they survive failed form submissions.
-  const [notes, setNotes] = useState<string[]>([])
+  // Notes are kept in local state so they survive failed form submissions, and
+  // are seeded from a restored draft.
+  const [notes, setNotes] = useState<string[]>(initialDraft?.notes ?? [])
+
+  // Attachments restored from a draft: parse the stored metadata (bytes remain
+  // in the bucket) and drop any entry that no longer deserializes cleanly.
+  const restoredAttachments: AttachmentMetadata[] = (
+    initialDraft?.attachments ?? []
+  )
+    .map((raw) => {
+      try {
+        return JSON.parse(raw) as AttachmentMetadata
+      } catch {
+        return null
+      }
+    })
+    .filter(
+      (meta): meta is AttachmentMetadata =>
+        meta !== null && typeof meta.key === 'string'
+    )
 
   // Seed recurrence reminder defaults: a single 2-week alert on a fresh form, or
   // the echoed values after a failed submit so selections survive validation.
@@ -140,6 +198,32 @@ export function NewWorkOrderForm({
   // errors for display, and cleared as the user edits each field.
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({})
   const formRef = useRef<HTMLFormElement>(null)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Once the form is submitted the draft is cleared, so stop saving until the
+  // user edits again (which re-enables it after a validation error).
+  const submittedRef = useRef(false)
+
+  // Debounced snapshot of the whole form into sessionStorage.
+  function scheduleSave() {
+    if (submittedRef.current) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      const form = formRef.current
+      if (form) saveDraft(readFormDraft(form))
+    }, 400)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [])
+
+  // A returned action state means the submit did not redirect (validation
+  // failed), so re-enable draft saving as the user fixes the flagged fields.
+  useEffect(() => {
+    if (state.status === 'error') submittedRef.current = false
+  }, [state])
 
   // Selects must be controlled so Base UI doesn't warn when state.values flips
   // from undefined (first render) to a string (after a failed submission).
@@ -275,6 +359,7 @@ export function NewWorkOrderForm({
   // hiding to the existing hook.
   function editField(name: string) {
     markEdited(name)
+    scheduleSave()
     setStepErrors((prev) => {
       if (!(name in prev)) return prev
       const next = { ...prev }
@@ -308,12 +393,23 @@ export function NewWorkOrderForm({
     }
   }
 
+  // The action redirects on success (so the client never sees a success state)
+  // and returns a state on validation failure. Clearing on submit is safe: a
+  // failure re-seeds the form from state.values, and editing re-enables saving.
+  function handleSubmit() {
+    submittedRef.current = true
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    clearDraft()
+  }
+
   return (
     <form
       ref={formRef}
       action={action}
       noValidate
       onKeyDown={handleKeyDown}
+      onInput={scheduleSave}
+      onSubmit={handleSubmit}
       className="flex flex-col gap-6"
     >
       <StepIndicator current={step} onSelect={goToStep} />
@@ -449,6 +545,7 @@ export function NewWorkOrderForm({
               <DateTimePicker
                 id="dueAt"
                 name="dueAt"
+                value={state.values?.dueAt}
                 ariaInvalid={dueAtError ? true : undefined}
                 onChange={() => editField('dueAt')}
                 className="sm:max-w-sm"
@@ -547,6 +644,8 @@ export function NewWorkOrderForm({
         >
           <AttachmentUploader
             compressImages={categoryValue !== 'marketing'}
+            initialAttachments={restoredAttachments}
+            onChange={scheduleSave}
           />
         </FormSection>
       </StepPanel>
@@ -733,9 +832,10 @@ export function NewWorkOrderForm({
                     <button
                       type="button"
                       aria-label="Remove note"
-                      onClick={() =>
+                      onClick={() => {
                         setNotes(notes.filter((_, i) => i !== index))
-                      }
+                        scheduleSave()
+                      }}
                       className="mt-1.5 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
                       <span aria-hidden="true" className="text-lg leading-none">

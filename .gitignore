@@ -176,3 +176,6 @@ pids
 *.seed
 *.pid.lock
 presentation/*
+
+# Disposable local bucket gallery from scripts/list-bucket-images.mjs
+bucket-gallery.html

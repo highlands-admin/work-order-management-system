@@ -7,7 +7,7 @@ import {
   RiUploadCloud2Line,
 } from '@remixicon/react'
 import imageCompression from 'browser-image-compression'
-import { useRef, useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 
 import { FileIcon } from '@/components/work-orders/file-icon'
 import {
@@ -72,13 +72,34 @@ async function compressImage(
 export function AttachmentUploader({
   existing = [],
   compressImages = true,
+  initialAttachments = [],
+  onChange,
 }: {
   existing?: ExistingAttachment[]
   // Marketing work orders keep full-resolution assets, so image compression is
   // turned off for them.
   compressImages?: boolean
+  // Already-uploaded files restored from a saved draft. Their bytes are still in
+  // the bucket, so they are re-created as completed items (without an image
+  // preview, since the local object URL does not survive navigation).
+  initialAttachments?: AttachmentMetadata[]
+  // Fired when the set of uploaded files changes, so a parent can persist a
+  // draft. Rendering a hidden input does not emit a DOM input event, so the
+  // parent cannot observe attachment changes through the form's onInput.
+  onChange?: () => void
 }) {
-  const [items, setItems] = useState<UploadItem[]>([])
+  const [items, setItems] = useState<UploadItem[]>(() =>
+    initialAttachments.map((meta) => ({
+      localId: meta.key,
+      name: meta.name ?? 'Attachment',
+      contentType: meta.contentType,
+      isImage: isImageType(meta.contentType),
+      status: 'done' as const,
+      key: meta.key,
+      meta,
+      controller: new AbortController(),
+    }))
+  )
   // Existing attachments the user chose to remove. Their IDs are submitted so
   // the update action deletes the rows and the underlying objects.
   const [removedIds, setRemovedIds] = useState<string[]>([])
@@ -89,6 +110,57 @@ export function AttachmentUploader({
   const liveCount =
     keptExisting.length + items.filter((i) => i.status !== 'error').length
   const remaining = MAX_ATTACHMENTS_PER_WORK_ORDER - liveCount
+
+  // Notify the parent when the completed attachment set changes, skipping the
+  // initial mount so a restored draft does not re-save itself. The ref keeps the
+  // effect stable when the parent passes a fresh callback each render.
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+  const doneKeys = items
+    .filter((it) => it.status === 'done')
+    .map((it) => it.meta?.key ?? '')
+    .join(',')
+  const didMount = useRef(false)
+  useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true
+      return
+    }
+    onChangeRef.current?.()
+  }, [doneKeys])
+
+  // Restored image attachments lost their local object URL on navigation, so
+  // fetch a short-lived view URL from the bucket to show the thumbnail. Runs
+  // once on mount for the seeded items; freshly picked files already have a
+  // local preview.
+  useEffect(() => {
+    const restoredImages = initialAttachments.filter((meta) =>
+      isImageType(meta.contentType)
+    )
+    if (restoredImages.length === 0) return
+    let cancelled = false
+    for (const meta of restoredImages) {
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/work-orders/attachments?key=${encodeURIComponent(meta.key)}`
+          )
+          if (!res.ok) return
+          const data = (await res.json()) as { url?: string }
+          if (!cancelled && data.url) {
+            patchItem(meta.key, { previewUrl: data.url })
+          }
+        } catch {
+          // Leave the generic file tile in place if the URL cannot be fetched.
+        }
+      })()
+    }
+    return () => {
+      cancelled = true
+    }
+    // Seeded from the mount-time props; intentionally runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function patchItem(localId: string, patch: Partial<UploadItem>) {
     setItems((prev) =>
