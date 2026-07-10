@@ -20,6 +20,7 @@ import {
   FieldLabel,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { PhoneInput } from '@/components/ui/phone-input'
 import {
   Select,
   SelectContent,
@@ -691,16 +692,15 @@ export function NewWorkOrderForm({
               <FieldLabel htmlFor="reportedByPhone">
                 Phone <Optional />
               </FieldLabel>
-              <Input
+              <PhoneInput
                 id="reportedByPhone"
                 name="reportedByPhone"
-                type="tel"
                 autoComplete="tel"
                 placeholder="(555) 123-4567"
                 defaultValue={
                   state.values?.reportedByPhone ?? reporterDefaults?.phone
                 }
-                onChange={() => editField('reportedByPhone')}
+                onValueChange={() => editField('reportedByPhone')}
                 aria-invalid={phoneError ? true : undefined}
               />
               <FieldError>{phoneError}</FieldError>

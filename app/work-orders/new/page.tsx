@@ -14,12 +14,7 @@ export default async function NewWorkOrderPage() {
   const supabase = await createClient()
   const { data } = await supabase.auth.getClaims()
   const claims = data?.claims as
-    | {
-        sub?: string
-        email?: string
-        user_role?: string
-        user_metadata?: { first_name?: string; last_name?: string }
-      }
+    | { sub?: string; email?: string; user_role?: string }
     | undefined
 
   if (!claims) redirect('/login')
@@ -27,14 +22,25 @@ export default async function NewWorkOrderPage() {
     redirect('/work-orders')
   }
 
+  // Read the profile from the auth server rather than the JWT claims. Claims are
+  // baked into the access token at sign-in, so a name or phone updated on the
+  // profile page would not appear here until the token refreshed.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const meta = (user?.user_metadata ?? {}) as {
+    first_name?: string
+    last_name?: string
+    phone?: string
+  }
+
   // Default the reporter to whoever is creating the work order. The fields stay
   // editable, so a filer can change them to report on someone else's behalf.
   const reporterDefaults = {
     name:
-      [claims.user_metadata?.first_name, claims.user_metadata?.last_name]
-        .filter(Boolean)
-        .join(' ') || undefined,
-    email: claims.email,
+      [meta.first_name, meta.last_name].filter(Boolean).join(' ') || undefined,
+    email: user?.email,
+    phone: meta.phone || undefined,
   }
 
   const assignableUsers = await fetchAssignableUsers(supabase)

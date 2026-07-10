@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { PhoneInput } from '@/components/ui/phone-input'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 
 import type { AuthState } from '../(auth)/auth-state'
@@ -16,15 +17,18 @@ export function ProfileForm({
   email,
   firstName,
   lastName,
+  phone,
 }: {
   email: string
   firstName: string
   lastName: string
+  phone: string
 }) {
   const [state, action] = useActionState(updateProfileAction, initialAuthState)
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
   const firstNameError = getError('firstName')
   const lastNameError = getError('lastName')
+  const phoneError = getError('phone')
 
   const prev = useRef<AuthState>(initialAuthState)
   useEffect(() => {
@@ -70,9 +74,26 @@ export function ProfileForm({
             </Field>
           </div>
 
+          <Field data-invalid={phoneError ? 'true' : undefined}>
+            <FieldLabel htmlFor="phone">Phone</FieldLabel>
+            <PhoneInput
+              id="phone"
+              name="phone"
+              placeholder="(555) 123-4567"
+              defaultValue={state.values?.phone ?? phone}
+              onValueChange={() => markEdited('phone')}
+              aria-invalid={phoneError ? true : undefined}
+              autoComplete="tel"
+            />
+            <FieldError>{phoneError}</FieldError>
+            <p className="text-xs text-muted-foreground">
+              Used to pre-fill the reporter details on new work orders.
+            </p>
+          </Field>
+
           <Field>
             <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input id="email" type="email" value={email} readOnly disabled />
+            <Input id="email" type="email" defaultValue={email} readOnly disabled />
             <p className="text-xs text-muted-foreground">
               Contact an administrator to change your email.
             </p>

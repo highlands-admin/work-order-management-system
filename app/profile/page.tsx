@@ -17,6 +17,7 @@ export default async function ProfilePage() {
   const meta = (user.user_metadata ?? {}) as {
     first_name?: string
     last_name?: string
+    phone?: string
   }
 
   return (
@@ -32,6 +33,7 @@ export default async function ProfilePage() {
         email={user.email ?? ''}
         firstName={meta.first_name ?? ''}
         lastName={meta.last_name ?? ''}
+        phone={meta.phone ?? ''}
       />
     </div>
   )
