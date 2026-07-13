@@ -1,8 +1,8 @@
 import { UNASSIGNED, type WorkOrderFilters } from './filters'
 
-// Strip characters that would either break PostgREST's .or() syntax or be
-// interpreted as ilike wildcards. The remaining string is wrapped with `*`
-// wildcards on the query side.
+// Strip characters that would either break PostgREST's filter syntax or be
+// interpreted as ilike wildcards. The remaining string is wrapped with `%`
+// wildcards on the query side for a substring match.
 function sanitizeSearchTerm(q: string): string {
   return q.replace(/[,()*%_\\]/g, '').trim().slice(0, 100)
 }
@@ -17,6 +17,7 @@ interface FilterableQuery {
   not(column: string, operator: string, value: null): FilterableQuery
   gte(column: string, value: string): FilterableQuery
   lte(column: string, value: string): FilterableQuery
+  ilike(column: string, pattern: string): FilterableQuery
 }
 
 // Applies the work-order list filters to a Supabase query. Shared by the All
@@ -67,9 +68,11 @@ export function applyWorkOrderFilters<Q>(
 
   const safeQ = sanitizeSearchTerm(filters.q)
   if (safeQ) {
-    q = q.or(
-      `work_order_code.ilike.*${safeQ}*,title.ilike.*${safeQ}*,description.ilike.*${safeQ}*,unit_number.ilike.*${safeQ}*,reported_by_name.ilike.*${safeQ}*`
-    )
+    // search_text is a maintained column that combines the work order's own
+    // fields (code, title, description, unit, reporter) with its note bodies,
+    // so one substring match covers all of them, notes included. See the
+    // work_order_search_text migration.
+    q = q.ilike('search_text', `%${safeQ}%`)
   }
 
   return q as unknown as Q
