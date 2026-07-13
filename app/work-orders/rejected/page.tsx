@@ -23,9 +23,12 @@ import {
   normalizeFilterQuery,
 } from '@/lib/work-orders/list-filters-cookie'
 import {
+  PAGE_SIZE_COOKIE,
+  resolvePageSize,
+} from '@/lib/work-orders/list-page-size'
+import {
   hasSortParams,
   isSortable,
-  PAGE_SIZE,
   parsePage,
   parseSort,
   SORT_COLUMNS,
@@ -94,6 +97,10 @@ export default async function ArchivePage({
   )
 
   const page = parsePage(params)
+  const pageSize = resolvePageSize(
+    params.size,
+    cookieStore.get(PAGE_SIZE_COOKIE)?.value
+  )
 
   const supabase = await createClient()
 
@@ -111,14 +118,14 @@ export default async function ArchivePage({
   query = applyWorkOrderFilters(query, filters)
 
   const order = sort ?? DEFAULT_ARCHIVE_SORT
-  const from = (page - 1) * PAGE_SIZE
+  const from = (page - 1) * pageSize
   query = query
     .order(SORT_COLUMNS[order.key].column, {
       ascending: order.dir === 'asc',
       nullsFirst: false,
     })
     .order('work_order_number', { ascending: false })
-    .range(from, from + PAGE_SIZE - 1)
+    .range(from, from + pageSize - 1)
 
   const [claimsResult, queryResult, assignableUsers] = await Promise.all([
     supabase.auth.getClaims(),
@@ -169,7 +176,7 @@ export default async function ArchivePage({
         timeZone={timeZone}
         sort={sort}
         showStatus={false}
-        pagination={{ page, pageSize: PAGE_SIZE, total: count ?? 0 }}
+        pagination={{ page, pageSize, total: count ?? 0 }}
         initialColumnWidths={columnWidths}
         assigneeOptions={assigneeOptions}
         initialFilters={filters}

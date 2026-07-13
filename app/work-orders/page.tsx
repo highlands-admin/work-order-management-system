@@ -25,10 +25,13 @@ import {
   normalizeFilterQuery,
 } from '@/lib/work-orders/list-filters-cookie'
 import {
+  PAGE_SIZE_COOKIE,
+  resolvePageSize,
+} from '@/lib/work-orders/list-page-size'
+import {
   DEFAULT_SORT,
   hasSortParams,
   isSortable,
-  PAGE_SIZE,
   parsePage,
   parseSort,
   SORT_COLUMNS,
@@ -84,6 +87,10 @@ export default async function WorkOrdersPage({
   )
 
   const page = parsePage(params)
+  const pageSize = resolvePageSize(
+    params.size,
+    cookieStore.get(PAGE_SIZE_COOKIE)?.value
+  )
 
   // pending / rejected submissions live on /work-orders/submissions; this
   // page is the operational view of approved work.
@@ -100,14 +107,14 @@ export default async function WorkOrdersPage({
   // Order by the requested column (default newest first), with work_order_number
   // as a stable tiebreaker so paging is deterministic, then slice to the page.
   const order = sort ?? DEFAULT_SORT
-  const from = (page - 1) * PAGE_SIZE
+  const from = (page - 1) * pageSize
   query = query
     .order(SORT_COLUMNS[order.key].column, {
       ascending: order.dir === 'asc',
       nullsFirst: false,
     })
     .order('work_order_number', { ascending: false })
-    .range(from, from + PAGE_SIZE - 1)
+    .range(from, from + pageSize - 1)
 
   // Fan out the JWT claims read and the table query in parallel. Auth
   // succeeded earlier in the layout, so we don't need claims before issuing
@@ -168,7 +175,7 @@ export default async function WorkOrdersPage({
         userLabelById={userLabelById}
         timeZone={timeZone}
         sort={sort}
-        pagination={{ page, pageSize: PAGE_SIZE, total: count ?? 0 }}
+        pagination={{ page, pageSize, total: count ?? 0 }}
         initialColumnWidths={columnWidths}
         assigneeOptions={assigneeOptions}
         initialFilters={filters}

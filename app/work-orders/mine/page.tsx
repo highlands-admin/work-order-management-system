@@ -26,10 +26,13 @@ import {
   normalizeFilterQuery,
 } from '@/lib/work-orders/list-filters-cookie'
 import {
+  PAGE_SIZE_COOKIE,
+  resolvePageSize,
+} from '@/lib/work-orders/list-page-size'
+import {
   DEFAULT_SORT,
   hasSortParams,
   isSortable,
-  PAGE_SIZE,
   parsePage,
   parseSort,
   SORT_COLUMNS,
@@ -103,6 +106,10 @@ export default async function MyWorkOrdersPage({
     ) ?? [...DEFAULT_BOARD_COLUMNS]
 
   const page = parsePage(params)
+  const pageSize = resolvePageSize(
+    params.size,
+    cookieStore.get(PAGE_SIZE_COOKIE)?.value
+  )
 
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
@@ -137,14 +144,14 @@ export default async function MyWorkOrdersPage({
     error = result.error
   } else {
     const order = sort ?? DEFAULT_SORT
-    const from = (page - 1) * PAGE_SIZE
+    const from = (page - 1) * pageSize
     const result = await base
       .order(SORT_COLUMNS[order.key].column, {
         ascending: order.dir === 'asc',
         nullsFirst: false,
       })
       .order('work_order_number', { ascending: false })
-      .range(from, from + PAGE_SIZE - 1)
+      .range(from, from + pageSize - 1)
     workOrders = (result.data ?? []) as WorkOrderListItem[]
     count = result.count ?? 0
     error = result.error
@@ -197,7 +204,7 @@ export default async function MyWorkOrdersPage({
             timeZone={timeZone}
             sort={sort}
             showAssignee={false}
-            pagination={{ page, pageSize: PAGE_SIZE, total: count }}
+            pagination={{ page, pageSize, total: count }}
             initialColumnWidths={columnWidths}
             initialFilters={filters}
             emptyMessage={

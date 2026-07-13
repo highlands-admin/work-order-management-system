@@ -1,9 +1,7 @@
 // Server-side sorting and pagination for the work order list tables. Like the
 // filters, the URL query string is the source of truth: the server reads
-// ?sort, ?dir, and ?page to order and slice the query, and the table and
-// pagination controls write them back.
-
-export const PAGE_SIZE = 10
+// ?sort, ?dir, ?page, and ?size to order and slice the query, and the table and
+// pagination controls write them back. Page size lives in list-page-size.ts.
 
 export type SortDirection = 'asc' | 'desc'
 
