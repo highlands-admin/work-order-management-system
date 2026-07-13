@@ -9,7 +9,7 @@ import {
 } from '@remixicon/react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -70,6 +70,7 @@ export function FilterBar({
   showStatus = true,
   exportPath,
   initialFilters,
+  trailingActions,
 }: {
   assigneeOptions?: Option<string>[]
   showAssignee?: boolean
@@ -83,6 +84,10 @@ export function FilterBar({
   // persisted cookie's when the URL carries none. Seeds the optimistic state so
   // the panel and chips match what's already showing, with no URL round trip.
   initialFilters?: WorkOrderFilters
+  // View-specific controls rendered at the right end of the toolbar row, after
+  // Export. The board uses this for its column picker so it shares the toolbar
+  // instead of stacking a second row beneath the filters.
+  trailingActions?: ReactNode
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -376,6 +381,7 @@ export function FilterBar({
               </span>
             ) : null}
             {exportLink}
+            {trailingActions}
           </div>
         </div>
       </div>

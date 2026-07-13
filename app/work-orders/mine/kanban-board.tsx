@@ -59,10 +59,19 @@ export function KanbanBoard({
   workOrders,
   timeZone,
   users,
+  visibleColumns,
+  emptyMessage,
 }: {
   workOrders: WorkOrderListItem[]
   timeZone: string
   users: AssignableUser[]
+  // Which status columns to render. The board data always covers every main
+  // status (so a drag between any two works); this only controls display. Owned
+  // by the parent, which also renders the picker in the filter toolbar.
+  visibleColumns: WorkOrderStatus[]
+  // Shown in place of the columns when nothing is assigned (or filters match
+  // nothing).
+  emptyMessage: string
 }) {
   const [board, setBoard] = useState<Board>(() => groupByStatus(workOrders))
   const [serverSig, setServerSig] = useState(() => signature(workOrders))
@@ -192,34 +201,42 @@ export function KanbanBoard({
         </p>
       ) : null}
 
-      <DndContext
-        // A stable id keeps @dnd-kit's accessibility ids (aria-describedby)
-        // deterministic across server and client, avoiding a hydration mismatch.
-        id="my-work-orders-board"
-        sensors={sensors}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        onDragCancel={() => setActiveId(null)}
-      >
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {MAIN_TABLE_STATUSES.map((status) => (
-            <Column
-              key={status}
-              status={status}
-              cards={board[status]}
-              timeZone={timeZone}
-            />
-          ))}
+      {workOrders.length === 0 ? (
+        // Based on total assigned work, not the visible columns: a card hidden
+        // in an unselected column is not "nothing to show".
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
+          <p className="p-6 text-sm text-muted-foreground">{emptyMessage}</p>
         </div>
+      ) : (
+        <DndContext
+          // A stable id keeps @dnd-kit's accessibility ids (aria-describedby)
+          // deterministic across server and client, avoiding a hydration mismatch.
+          id="my-work-orders-board"
+          sensors={sensors}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragCancel={() => setActiveId(null)}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {visibleColumns.map((status) => (
+              <Column
+                key={status}
+                status={status}
+                cards={board[status]}
+                timeZone={timeZone}
+              />
+            ))}
+          </div>
 
-        <DragOverlay>
-          {activeCard ? (
-            <CardShell dragging>
-              <CardBody card={activeCard} timeZone={timeZone} />
-            </CardShell>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay>
+            {activeCard ? (
+              <CardShell dragging>
+                <CardBody card={activeCard} timeZone={timeZone} />
+              </CardShell>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       <ResolutionDialog
         open={doneMove !== null}

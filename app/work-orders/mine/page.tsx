@@ -5,6 +5,11 @@ import { redirect } from 'next/navigation'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
+import {
+  DEFAULT_BOARD_COLUMNS,
+  MINE_BOARD_COLUMNS_COOKIE,
+  parseBoardColumnsCookieValue,
+} from '@/lib/work-orders/board-columns-cookie'
 import { MINE_VIEW_COOKIE, resolveView } from '@/lib/work-orders/list-view'
 import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
 import {
@@ -36,7 +41,7 @@ import {
 
 import { FilterBar } from '../filter-bar'
 import { WorkOrdersTable, type WorkOrderListItem } from '../work-orders-table'
-import { KanbanBoard } from './kanban-board'
+import { BoardWorkspace } from './board-workspace'
 import { ViewToggle } from './view-toggle'
 
 export const metadata: Metadata = { title: 'My Work Orders' }
@@ -90,6 +95,12 @@ export default async function MyWorkOrdersPage({
   const columnWidths = parseWidthsCookieValue(
     cookieStore.get(WORK_ORDERS_WIDTHS_COOKIE)?.value
   )
+
+  // Which board columns to show. No saved selection falls back to the default.
+  const boardColumns =
+    parseBoardColumnsCookieValue(
+      cookieStore.get(MINE_BOARD_COLUMNS_COOKIE)?.value
+    ) ?? [...DEFAULT_BOARD_COLUMNS]
 
   const page = parsePage(params)
 
@@ -158,30 +169,28 @@ export default async function MyWorkOrdersPage({
         <ViewToggle view={view} />
       </div>
 
-      <FilterBar showAssignee={false} initialFilters={filters} />
-
-      {error ? (
-        <p className="text-sm text-destructive">{error.message}</p>
-      ) : null}
-
       {view === 'board' ? (
-        workOrders.length === 0 ? (
-          <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
-            <p className="p-6 text-sm text-muted-foreground">
-              {filtersActive
-                ? 'No work orders match these filters.'
-                : "You don't have any work orders assigned yet."}
-            </p>
-          </div>
-        ) : (
-          <KanbanBoard
-            workOrders={workOrders}
-            timeZone={timeZone}
-            users={assignableUsers}
-          />
-        )
+        <BoardWorkspace
+          workOrders={workOrders}
+          timeZone={timeZone}
+          users={assignableUsers}
+          initialColumns={boardColumns}
+          initialFilters={filters}
+          error={error?.message ?? null}
+          emptyMessage={
+            filtersActive
+              ? 'No work orders match these filters.'
+              : "You don't have any work orders assigned yet."
+          }
+        />
       ) : (
         <>
+          <FilterBar showAssignee={false} initialFilters={filters} />
+
+          {error ? (
+            <p className="text-sm text-destructive">{error.message}</p>
+          ) : null}
+
           <WorkOrdersTable
             workOrders={workOrders}
             userLabelById={{}}
