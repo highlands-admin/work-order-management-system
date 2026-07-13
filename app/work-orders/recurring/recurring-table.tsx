@@ -93,7 +93,34 @@ const COLUMNS = [
   { key: 'state', label: 'State', width: 110 },
 ] as const
 
+// Absolute floor for any column. Columns with sort and filter icons compute a
+// larger minimum at drag time (see measureHeaderMinWidth) so a contraction
+// never clips their icons.
 const MIN_WIDTH = 60
+
+// Measure the smallest width a column may contract to, from the header cell the
+// resize handle lives in. The content cluster (label + sort + filter icons) is
+// a block-level flex row, so it stretches to fill the column: its own width is
+// useless as a minimum. Its children are nowrap and shrink-0 and pack left, so
+// the intrinsic content width is the span from the cluster's left edge to the
+// rightmost child's right edge. Add the cell's horizontal padding and a small
+// buffer so the last icon never sits under the resize handle.
+function measureHeaderMinWidth(handle: HTMLElement): number {
+  const cell = handle.closest('th')
+  const cluster = cell?.querySelector<HTMLElement>('[data-header-content]')
+  if (!cell || !cluster) return MIN_WIDTH
+  const clusterLeft = cluster.getBoundingClientRect().left
+  let contentRight = clusterLeft
+  for (const child of cluster.children) {
+    const right = child.getBoundingClientRect().right
+    if (right > contentRight) contentRight = right
+  }
+  const contentWidth = contentRight - clusterLeft
+  const style = getComputedStyle(cell)
+  const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+  const handleBuffer = 8
+  return Math.max(MIN_WIDTH, Math.ceil(contentWidth + padding + handleBuffer))
+}
 
 // Keyed by column key rather than index, matching the main work orders table,
 // so a resize survives if the column set ever changes.
@@ -101,6 +128,9 @@ type ResizeState = {
   key: string
   startX: number
   startWidth: number
+  // Smallest width this column may contract to. Measured from the header's
+  // content cluster so the label, sort icon, and filter icon stay visible.
+  minWidth: number
 }
 
 export function RecurringTable({
@@ -291,7 +321,7 @@ export function RecurringTable({
 
     function onMove(event: globalThis.PointerEvent) {
       const delta = event.clientX - resizing!.startX
-      const nextWidth = Math.max(MIN_WIDTH, resizing!.startWidth + delta)
+      const nextWidth = Math.max(resizing!.minWidth, resizing!.startWidth + delta)
       setWidths((prev) => ({ ...prev, [resizing!.key]: nextWidth }))
     }
 
@@ -310,7 +340,12 @@ export function RecurringTable({
 
   function startResize(key: string, event: PointerEvent<HTMLSpanElement>) {
     event.preventDefault()
-    setResizing({ key, startX: event.clientX, startWidth: widths[key] })
+    setResizing({
+      key,
+      startX: event.clientX,
+      startWidth: widths[key],
+      minWidth: measureHeaderMinWidth(event.currentTarget),
+    })
   }
 
   const totalWidth = COLUMNS.reduce((sum, c) => sum + widths[c.key], 0)
@@ -347,7 +382,7 @@ export function RecurringTable({
                       sized to its own content -- not stretched to fill the
                       column -- so the filter icon reads as part of the same
                       title group instead of drifting toward the resize handle. */}
-                  <div className="flex items-center gap-1">
+                  <div data-header-content className="flex items-center gap-1">
                     {sortable ? (
                       <button
                         type="button"
