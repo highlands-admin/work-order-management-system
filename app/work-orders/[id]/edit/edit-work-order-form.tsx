@@ -280,14 +280,18 @@ export function EditWorkOrderForm({
             </Select>
             <FieldError>{assignedToError}</FieldError>
           </Field>
-
-          <div className="sm:col-span-2">
-            <NotifyRecipientsField
-              users={assignableUsers}
-              defaultValue={workOrder.notify_recipients ?? []}
-            />
-          </div>
         </FieldGroup>
+      </FormSection>
+
+      <FormSection
+        id="notifications"
+        title="Notifications"
+        description="Recipients get notified of every update to this work order, just like the assignee."
+      >
+        <NotifyRecipientsField
+          users={assignableUsers}
+          defaultValue={workOrder.notify_recipients ?? []}
+        />
       </FormSection>
 
       <FormSection
