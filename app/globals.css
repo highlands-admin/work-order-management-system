@@ -13,6 +13,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent-active: var(--sidebar-accent-active);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -69,8 +70,8 @@
   --accent: oklch(0.97 0.002 220);
   --accent-foreground: oklch(0.205 0.01 220);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 220);
-  --input: oklch(0.92 0.004 220);
+  --border: oklch(0.86 0.005 220);
+  --input: oklch(0.86 0.005 220);
   --ring: oklch(0.6 0.118 184.704);
   --chart-1: oklch(0.6 0.118 184.704);
   --chart-2: oklch(0.704 0.14 182.503);
@@ -84,7 +85,10 @@
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.967 0.018 185);
   --sidebar-accent-foreground: oklch(0.437 0.078 188.216);
-  --sidebar-border: oklch(0.92 0.004 220);
+  /* Active nav item: a darker teal tint than the hover accent, so the current
+     page reads clearly on light mode. */
+  --sidebar-accent-active: oklch(0.9 0.045 186);
+  --sidebar-border: oklch(0.86 0.005 220);
   --sidebar-ring: oklch(0.6 0.118 184.704);
 }
 
@@ -121,6 +125,8 @@
   --sidebar-primary-foreground: oklch(0.205 0.02 200);
   --sidebar-accent: oklch(0.3 0.03 188);
   --sidebar-accent-foreground: oklch(0.855 0.138 181.071);
+  /* Dark mode keeps the existing accent for the active item. */
+  --sidebar-accent-active: oklch(0.3 0.03 188);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.704 0.14 182.503);
 }
