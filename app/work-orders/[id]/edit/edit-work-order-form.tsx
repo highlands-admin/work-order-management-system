@@ -284,17 +284,6 @@ export function EditWorkOrderForm({
       </FormSection>
 
       <FormSection
-        id="notifications"
-        title="Notifications"
-        description="Recipients get notified of every update to this work order, just like the assignee."
-      >
-        <NotifyRecipientsField
-          users={assignableUsers}
-          defaultValue={workOrder.notify_recipients ?? []}
-        />
-      </FormSection>
-
-      <FormSection
         id="status"
         title="Status"
         description={
@@ -349,61 +338,6 @@ export function EditWorkOrderForm({
               </Select>
             )}
             <FieldError>{statusError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
-
-      <FormSection
-        id="location"
-        title="Location"
-        description="Where is the work needed?"
-      >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field data-invalid={propertyError ? 'true' : undefined}>
-            <FieldLabel htmlFor="property">
-              Facility {categoryValue === 'it' ? <Optional /> : <Required />}
-            </FieldLabel>
-            <Select
-              name="property"
-              items={PROPERTY_LABELS}
-              value={propertyValue}
-              onValueChange={(v) => {
-                setPropertyValue(typeof v === 'string' ? v : '')
-                markEdited('property')
-              }}
-            >
-              <SelectTrigger
-                id="property"
-                className="w-full"
-                aria-invalid={propertyError ? true : undefined}
-              >
-                <SelectValue placeholder="Select a facility" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROPERTIES.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {PROPERTY_LABELS[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{propertyError}</FieldError>
-          </Field>
-
-          <Field data-invalid={unitNumberError ? 'true' : undefined}>
-            <FieldLabel htmlFor="unitNumber">
-              Unit number <Optional />
-            </FieldLabel>
-            <Input
-              id="unitNumber"
-              name="unitNumber"
-              autoComplete="off"
-              defaultValue={state.values?.unitNumber ?? workOrder.unit_number ?? ''}
-              onChange={() => markEdited('unitNumber')}
-              aria-invalid={unitNumberError ? true : undefined}
-              placeholder="e.g. 2A"
-            />
-            <FieldError>{unitNumberError}</FieldError>
           </Field>
         </FieldGroup>
       </FormSection>
@@ -607,6 +541,61 @@ export function EditWorkOrderForm({
       </FormSection>
 
       <FormSection
+        id="location"
+        title="Location"
+        description="Where is the work needed?"
+      >
+        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Field data-invalid={propertyError ? 'true' : undefined}>
+            <FieldLabel htmlFor="property">
+              Facility {categoryValue === 'it' ? <Optional /> : <Required />}
+            </FieldLabel>
+            <Select
+              name="property"
+              items={PROPERTY_LABELS}
+              value={propertyValue}
+              onValueChange={(v) => {
+                setPropertyValue(typeof v === 'string' ? v : '')
+                markEdited('property')
+              }}
+            >
+              <SelectTrigger
+                id="property"
+                className="w-full"
+                aria-invalid={propertyError ? true : undefined}
+              >
+                <SelectValue placeholder="Select a facility" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROPERTIES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {PROPERTY_LABELS[p]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldError>{propertyError}</FieldError>
+          </Field>
+
+          <Field data-invalid={unitNumberError ? 'true' : undefined}>
+            <FieldLabel htmlFor="unitNumber">
+              Unit number <Optional />
+            </FieldLabel>
+            <Input
+              id="unitNumber"
+              name="unitNumber"
+              autoComplete="off"
+              defaultValue={state.values?.unitNumber ?? workOrder.unit_number ?? ''}
+              onChange={() => markEdited('unitNumber')}
+              aria-invalid={unitNumberError ? true : undefined}
+              placeholder="e.g. 2A"
+            />
+            <FieldError>{unitNumberError}</FieldError>
+          </Field>
+        </FieldGroup>
+      </FormSection>
+
+      <FormSection
         id="reporter"
         title="Reporter"
         description="Who reported this issue."
@@ -671,6 +660,17 @@ export function EditWorkOrderForm({
             <FieldError>{phoneError}</FieldError>
           </Field>
         </FieldGroup>
+      </FormSection>
+
+      <FormSection
+        id="notifications"
+        title="Notifications"
+        description="Recipients get notified of every update to this work order, just like the assignee."
+      >
+        <NotifyRecipientsField
+          users={assignableUsers}
+          defaultValue={workOrder.notify_recipients ?? []}
+        />
       </FormSection>
 
       <div className="flex items-center justify-end gap-3 pt-2">
