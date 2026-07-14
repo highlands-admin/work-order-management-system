@@ -215,13 +215,14 @@ export async function createWorkOrderAction(
   const marketingSizeFormat = formData
     .getAll('marketingSizeFormat')
     .map((v) => String(v))
-  // Calendar-style alerts and recipients arrive as repeated form fields.
+  // Calendar-style alert lead times arrive as repeated form fields.
   const reminderLeadDays = formData
     .getAll('reminderLeadDays')
     .map((v) => String(v))
-  const reminderRecipients = formData
-    .getAll('reminderRecipients')
+  const notifyRecipients = formData
+    .getAll('notifyRecipients')
     .map((v) => String(v))
+    .filter((v) => v.length > 0)
   const raw = {
     title: String(formData.get('title') ?? ''),
     category: String(formData.get('category') ?? ''),
@@ -237,7 +238,7 @@ export async function createWorkOrderAction(
     provider: String(formData.get('provider') ?? ''),
     frequency: String(formData.get('frequency') ?? ''),
     reminderLeadDays,
-    reminderRecipients,
+    notifyRecipients,
     marketingRequestType: String(formData.get('marketingRequestType') ?? ''),
     marketingRequestTypeOther: String(
       formData.get('marketingRequestTypeOther') ?? ''
@@ -260,7 +261,7 @@ export async function createWorkOrderAction(
     marketingTargetAudience: marketingTargetAudience.join(','),
     marketingSizeFormat: marketingSizeFormat.join(','),
     reminderLeadDays: reminderLeadDays.join(','),
-    reminderRecipients: reminderRecipients.join(','),
+    notifyRecipients: notifyRecipients.join(','),
   }
 
   const parsed = createWorkOrderSchema.safeParse(raw)
@@ -301,7 +302,9 @@ export async function createWorkOrderAction(
   let recurringWorkOrderId: string | null = null
   if (parsed.data.frequency && parsed.data.dueAt) {
     const leadDays = parsed.data.reminderLeadDays ?? []
-    const recipients = parsed.data.reminderRecipients ?? []
+    // The work order's Recipients are the schedule's recipients: emailed the
+    // reminders and copied into each generated occurrence's notify_recipients.
+    const recipients = parsed.data.notifyRecipients
     // Occurrences must be generated before the earliest alert can fire, so the
     // generation window covers the largest lead time (at least the 30-day default).
     const generationLeadDays = Math.max(30, ...leadDays)
@@ -366,6 +369,7 @@ export async function createWorkOrderAction(
       marketing_size_format_other: parsed.data.marketingSizeFormatOther ?? null,
       status: initialStatus,
       assigned_to: parsed.data.assignedTo ?? null,
+      notify_recipients: parsed.data.notifyRecipients,
       created_by: claims.sub,
       updated_by: claims.sub,
     })
@@ -460,6 +464,10 @@ export async function updateWorkOrderAction(
   const marketingSizeFormat = formData
     .getAll('marketingSizeFormat')
     .map((v) => String(v))
+  const notifyRecipients = formData
+    .getAll('notifyRecipients')
+    .map((v) => String(v))
+    .filter((v) => v.length > 0)
   const raw = {
     title: String(formData.get('title') ?? ''),
     category: String(formData.get('category') ?? ''),
@@ -469,6 +477,7 @@ export async function updateWorkOrderAction(
     dueAt: String(formData.get('dueAt') ?? ''),
     description: String(formData.get('description') ?? ''),
     assignedTo: String(formData.get('assignedTo') ?? ''),
+    notifyRecipients,
     reportedByName: String(formData.get('reportedByName') ?? ''),
     reportedByEmail: String(formData.get('reportedByEmail') ?? ''),
     reportedByPhone: String(formData.get('reportedByPhone') ?? ''),
@@ -495,6 +504,7 @@ export async function updateWorkOrderAction(
     ...raw,
     marketingTargetAudience: marketingTargetAudience.join(','),
     marketingSizeFormat: marketingSizeFormat.join(','),
+    notifyRecipients: notifyRecipients.join(','),
   }
 
   const parsed = updateWorkOrderSchema.safeParse(raw)
@@ -577,6 +587,7 @@ export async function updateWorkOrderAction(
       marketing_size_format: parsed.data.marketingSizeFormat ?? null,
       marketing_size_format_other: parsed.data.marketingSizeFormatOther ?? null,
       assigned_to: parsed.data.assignedTo ?? null,
+      notify_recipients: parsed.data.notifyRecipients,
       updated_by: claims.sub,
     })
     .eq('id', workOrderId)
@@ -1135,9 +1146,10 @@ export async function updateRecurringWorkOrderAction(
   const reminderLeadDays = formData
     .getAll('reminderLeadDays')
     .map((v) => String(v))
-  const reminderRecipients = formData
-    .getAll('reminderRecipients')
+  const notifyRecipients = formData
+    .getAll('notifyRecipients')
     .map((v) => String(v))
+    .filter((v) => v.length > 0)
   const raw = {
     title: String(formData.get('title') ?? ''),
     category: String(formData.get('category') ?? ''),
@@ -1150,13 +1162,13 @@ export async function updateRecurringWorkOrderAction(
     frequency: String(formData.get('frequency') ?? ''),
     dueAt: String(formData.get('dueAt') ?? ''),
     reminderLeadDays,
-    reminderRecipients,
+    notifyRecipients,
     active: String(formData.get('active') ?? 'true'),
   }
   const values = {
     ...raw,
     reminderLeadDays: reminderLeadDays.join(','),
-    reminderRecipients: reminderRecipients.join(','),
+    notifyRecipients: notifyRecipients.join(','),
   }
 
   const parsed = updateRecurringWorkOrderSchema.safeParse(raw)
@@ -1204,7 +1216,7 @@ export async function updateRecurringWorkOrderAction(
   }
 
   const leadDays = parsed.data.reminderLeadDays ?? []
-  const recipients = parsed.data.reminderRecipients ?? []
+  const recipients = parsed.data.notifyRecipients
   const generationLeadDays = Math.max(30, ...leadDays)
 
   const { error } = await supabase

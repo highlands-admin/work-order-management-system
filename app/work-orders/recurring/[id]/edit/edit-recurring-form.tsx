@@ -50,6 +50,7 @@ import {
   deleteRecurringWorkOrderAction,
   updateRecurringWorkOrderAction,
 } from '../../../actions'
+import { NotifyRecipientsField } from '../../../notify-recipients-field'
 import { RecurrenceReminders } from '../../../new/recurrence-reminders'
 
 const ACTIVE_LABELS: Record<string, string> = {
@@ -292,13 +293,15 @@ export function EditRecurringForm({
       <FormSection
         id="reminders"
         title="Reminders"
-        description="Email alerts before each occurrence, and who receives them."
+        description="Email alerts before each occurrence, sent to the recipients below."
       >
-        <RecurrenceReminders
-          assignableUsers={assignableUsers}
-          defaultLeadDays={schedule.reminder_lead_days}
-          defaultRecipients={schedule.reminder_recipients}
-        />
+        <div className="flex flex-col gap-5">
+          <RecurrenceReminders defaultLeadDays={schedule.reminder_lead_days} />
+          <NotifyRecipientsField
+            users={assignableUsers}
+            defaultValue={schedule.reminder_recipients}
+          />
+        </div>
       </FormSection>
 
       <FormSection

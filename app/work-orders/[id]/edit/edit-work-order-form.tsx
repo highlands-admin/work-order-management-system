@@ -49,6 +49,7 @@ import {
 import { initialAuthState } from '../../../(auth)/auth-state'
 import { updateWorkOrderAction } from '../../actions'
 import { MarketingFields, type MarketingDefaults } from '../../marketing-fields'
+import { NotifyRecipientsField } from '../../notify-recipients-field'
 
 type WorkOrder = {
   id: string
@@ -62,6 +63,7 @@ type WorkOrder = {
   description: string
   resolution: string | null
   assigned_to: string | null
+  notify_recipients: string[] | null
   validated_by: string | null
   reported_by_name: string | null
   reported_by_email: string | null
@@ -265,6 +267,13 @@ export function EditWorkOrderForm({
             </Select>
             <FieldError>{assignedToError}</FieldError>
           </Field>
+
+          <div className="sm:col-span-2">
+            <NotifyRecipientsField
+              users={assignableUsers}
+              defaultValue={workOrder.notify_recipients ?? []}
+            />
+          </div>
         </FieldGroup>
       </FormSection>
 

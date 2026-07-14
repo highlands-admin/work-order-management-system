@@ -313,6 +313,12 @@ const baseWorkOrderFields = {
     .optional()
     .transform((v) => (v && v.length > 0 ? v : undefined))
     .pipe(z.uuid({ message: 'Select a valid assignee' }).optional()),
+  // Extra users who get in-app notifications for every update, like the
+  // assignee. Arrives as repeated form fields; deduped, empty by default.
+  notifyRecipients: z
+    .array(z.uuid({ message: 'Select valid recipients' }))
+    .optional()
+    .transform((v) => Array.from(new Set(v ?? []))),
   reportedByName: trimmedOptional.pipe(z.string().max(100).optional()),
   reportedByEmail: trimmedOptional.pipe(
     z.email('Enter a valid email address').optional()
@@ -442,13 +448,9 @@ function requireMarketingFields<
 const recurrenceFields = {
   frequency: optionalEnum(RECURRENCE_FREQUENCIES),
   // Calendar-style alerts: zero or more lead times (days before due), deduped.
+  // The alerts are emailed to the work order's Recipients (notifyRecipients).
   reminderLeadDays: z
     .array(z.coerce.number().int().min(0).max(365))
-    .optional()
-    .transform((v) => (v && v.length > 0 ? Array.from(new Set(v)) : undefined)),
-  // People (user ids) who receive the alerts, deduped.
-  reminderRecipients: z
-    .array(z.uuid())
     .optional()
     .transform((v) => (v && v.length > 0 ? Array.from(new Set(v)) : undefined)),
 }
@@ -549,10 +551,12 @@ export const updateRecurringWorkOrderSchema = z
       .array(z.coerce.number().int().min(0).max(365))
       .optional()
       .transform((v) => (v && v.length > 0 ? Array.from(new Set(v)) : undefined)),
-    reminderRecipients: z
-      .array(z.uuid())
+    // The work order's Recipients: notified in-app on each occurrence and
+    // emailed the reminders. Stored on the template as reminder_recipients.
+    notifyRecipients: z
+      .array(z.uuid({ message: 'Select valid recipients' }))
       .optional()
-      .transform((v) => (v && v.length > 0 ? Array.from(new Set(v)) : undefined)),
+      .transform((v) => Array.from(new Set(v ?? []))),
     active: z
       .string()
       .optional()

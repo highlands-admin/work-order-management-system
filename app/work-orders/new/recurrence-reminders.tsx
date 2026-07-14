@@ -11,10 +11,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { REMINDER_LEAD_OPTIONS } from '@/lib/schemas/work-order'
-import {
-  formatAssigneeLabel,
-  type AssignableUser,
-} from '@/lib/work-orders/assignable-users'
 
 const LEAD_VALUES = REMINDER_LEAD_OPTIONS.map((o) => o.value)
 // Value -> label map so a closed Select shows "2 weeks before", not the raw
@@ -24,20 +20,16 @@ const LEAD_ITEMS: Record<string, string> = Object.fromEntries(
 )
 
 // Calendar-style reminder setup for a recurring schedule: a list of email alerts
-// (each a lead time before the due date) that grows as you add them, plus the
-// people who receive them. Values submit as repeated `reminderLeadDays` and
-// `reminderRecipients` fields, read with formData.getAll in the action.
+// (each a lead time before the due date) that grows as you add them. The people
+// who receive them are the work order's Recipients, chosen elsewhere in the
+// form. Values submit as repeated `reminderLeadDays` fields, read with
+// formData.getAll in the action.
 export function RecurrenceReminders({
-  assignableUsers,
   defaultLeadDays,
-  defaultRecipients,
 }: {
-  assignableUsers: AssignableUser[]
   defaultLeadDays: number[]
-  defaultRecipients: string[]
 }) {
   const [alerts, setAlerts] = useState<number[]>(defaultLeadDays)
-  const [recipients, setRecipients] = useState<string[]>(defaultRecipients)
 
   const unused = LEAD_VALUES.filter((v) => !alerts.includes(v))
 
@@ -54,103 +46,63 @@ export function RecurrenceReminders({
     setAlerts((prev) => prev.filter((v) => v !== value))
   }
 
-  function toggleRecipient(id: string) {
-    setRecipients((prev) =>
-      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
-    )
-  }
-
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium">Email alerts</span>
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-medium">Email alerts</span>
 
-        {alerts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No alerts yet. Add one to email a reminder before each occurrence.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {alerts.map((value) => (
-              <div key={value} className="flex items-center gap-2">
-                <Select
-                  items={LEAD_ITEMS}
-                  value={String(value)}
-                  onValueChange={(v) =>
-                    changeAlert(value, Number(typeof v === 'string' ? v : value))
-                  }
-                >
-                  <SelectTrigger className="w-full sm:max-w-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {REMINDER_LEAD_OPTIONS.filter(
-                      (o) => o.value === value || !alerts.includes(o.value)
-                    ).map((o) => (
-                      <SelectItem key={o.value} value={String(o.value)}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <button
-                  type="button"
-                  onClick={() => removeAlert(value)}
-                  aria-label="Remove alert"
-                  className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <RiCloseLine className="size-4" aria-hidden="true" />
-                </button>
-                {/* Submitted value */}
-                <input type="hidden" name="reminderLeadDays" value={value} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {unused.length > 0 ? (
-          <button
-            type="button"
-            onClick={addAlert}
-            className="inline-flex items-center gap-1 self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
-          >
-            <RiAddLine className="size-4" aria-hidden="true" />
-            Add alert
-          </button>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium">
-          Alert recipients <span className="text-muted-foreground">(optional)</span>
-        </span>
+      {alerts.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Choose who receives these email alerts.
+          No alerts yet. Add one to email the recipients before each occurrence.
         </p>
-
-        {assignableUsers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No users available.</p>
-        ) : (
-          <div className="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border p-1.5">
-            {assignableUsers.map((u) => (
-              <label
-                key={u.user_id}
-                className="flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm transition-colors hover:bg-muted"
+      ) : (
+        <div className="flex flex-col gap-2">
+          {alerts.map((value) => (
+            <div key={value} className="flex items-center gap-2">
+              <Select
+                items={LEAD_ITEMS}
+                value={String(value)}
+                onValueChange={(v) =>
+                  changeAlert(value, Number(typeof v === 'string' ? v : value))
+                }
               >
-                <input
-                  type="checkbox"
-                  name="reminderRecipients"
-                  value={u.user_id}
-                  checked={recipients.includes(u.user_id)}
-                  onChange={() => toggleRecipient(u.user_id)}
-                  className="size-4 shrink-0 accent-primary"
-                />
-                <span className="truncate">{formatAssigneeLabel(u)}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+                <SelectTrigger className="w-full sm:max-w-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REMINDER_LEAD_OPTIONS.filter(
+                    (o) => o.value === value || !alerts.includes(o.value)
+                  ).map((o) => (
+                    <SelectItem key={o.value} value={String(o.value)}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                onClick={() => removeAlert(value)}
+                aria-label="Remove alert"
+                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <RiCloseLine className="size-4" aria-hidden="true" />
+              </button>
+              {/* Submitted value */}
+              <input type="hidden" name="reminderLeadDays" value={value} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {unused.length > 0 ? (
+        <button
+          type="button"
+          onClick={addAlert}
+          className="inline-flex items-center gap-1 self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          <RiAddLine className="size-4" aria-hidden="true" />
+          Add alert
+        </button>
+      ) : null}
     </div>
   )
 }

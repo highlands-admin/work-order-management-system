@@ -66,6 +66,7 @@ import {
 import { initialAuthState, type AuthState } from '../../(auth)/auth-state'
 import { createWorkOrderAction } from '../actions'
 import { MarketingFields, emptyMarketingDefaults } from '../marketing-fields'
+import { NotifyRecipientsField } from '../notify-recipients-field'
 import { RecurrenceReminders } from './recurrence-reminders'
 
 const DESCRIPTION_PLACEHOLDER =
@@ -80,6 +81,7 @@ const STEPS = [
     fields: [
       'description',
       'dueAt',
+      'assignedTo',
       'frequency',
       'reminderLeadDays',
       'provider',
@@ -96,7 +98,7 @@ const STEPS = [
   // Attachments has no fields that the server validates, so an empty list keeps
   // it out of the error-jump logic while still rendering as its own step.
   { title: 'Attachments', fields: [] },
-  { title: 'Location', fields: ['property', 'unitNumber', 'assignedTo'] },
+  { title: 'Location', fields: ['property', 'unitNumber'] },
   {
     title: 'Reporter',
     fields: ['reportedByName', 'reportedByEmail', 'reportedByPhone'],
@@ -190,7 +192,7 @@ function NewWorkOrderFormInner({
           .split(',')
           .filter(Boolean)
           .map(Number)
-  const reminderRecipientDefaults = (state.values?.reminderRecipients ?? '')
+  const notifyRecipientDefaults = (state.values?.notifyRecipients ?? '')
     .split(',')
     .filter(Boolean)
   const [step, setStep] = useState(0)
@@ -514,7 +516,7 @@ function NewWorkOrderFormInner({
         <FormSection
           id="details"
           title="Details"
-          description="What needs to happen, and by when."
+          description="What needs to happen, who owns it, and by when."
         >
           <FieldGroup className="flex flex-col gap-5">
             <Field data-invalid={descriptionError ? 'true' : undefined}>
@@ -538,23 +540,69 @@ function NewWorkOrderFormInner({
               <FieldError>{descriptionError}</FieldError>
             </Field>
 
-            <Field data-invalid={dueAtError ? 'true' : undefined}>
-              <FieldLabel htmlFor="dueAt">
-                Due date and time <Optional />
-              </FieldLabel>
-              <DateTimePicker
-                id="dueAt"
-                name="dueAt"
-                value={state.values?.dueAt}
-                ariaInvalid={dueAtError ? true : undefined}
-                onChange={() => editField('dueAt')}
-                className="sm:max-w-sm"
-                defaultOffsetHours={24}
-                disablePast
-              />
-              <FieldError>{dueAtError}</FieldError>
-            </Field>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <Field data-invalid={assignedToError ? 'true' : undefined}>
+                <FieldLabel htmlFor="assignedTo">
+                  Assignee <Optional />
+                </FieldLabel>
+                <Select
+                  name="assignedTo"
+                  items={assigneeItems}
+                  value={assignedToValue}
+                  onValueChange={(v) => {
+                    setAssignedToValue(typeof v === 'string' ? v : '')
+                    editField('assignedTo')
+                  }}
+                >
+                  <SelectTrigger
+                    id="assignedTo"
+                    className="w-full"
+                    aria-invalid={assignedToError ? true : undefined}
+                  >
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>Unassigned</SelectItem>
+                    {assignableUsers.map((u) => (
+                      <SelectItem key={u.user_id} value={u.user_id}>
+                        {formatAssigneeLabel(u)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{assignedToError}</FieldError>
+              </Field>
+
+              <Field data-invalid={dueAtError ? 'true' : undefined}>
+                <FieldLabel htmlFor="dueAt">
+                  Due date and time <Optional />
+                </FieldLabel>
+                <DateTimePicker
+                  id="dueAt"
+                  name="dueAt"
+                  value={state.values?.dueAt}
+                  ariaInvalid={dueAtError ? true : undefined}
+                  onChange={() => editField('dueAt')}
+                  className="w-full"
+                  defaultOffsetHours={24}
+                  disablePast
+                />
+                <FieldError>{dueAtError}</FieldError>
+              </Field>
+            </div>
           </FieldGroup>
+        </FormSection>
+
+        <FormSection id="recipients" title="Notifications">
+          <div className="flex flex-col gap-5">
+            <NotifyRecipientsField
+              users={assignableUsers}
+              defaultValue={notifyRecipientDefaults}
+            />
+            {RECURRING_CATEGORIES.has(categoryValue as WorkOrderCategory) ? (
+              <RecurrenceReminders defaultLeadDays={reminderLeadDefaults} />
+            ) : null}
+          </div>
         </FormSection>
 
         {RECURRING_CATEGORIES.has(categoryValue as WorkOrderCategory) ? (
@@ -609,12 +657,6 @@ function NewWorkOrderFormInner({
                   />
                 </Field>
               </div>
-
-              <RecurrenceReminders
-                assignableUsers={assignableUsers}
-                defaultLeadDays={reminderLeadDefaults}
-                defaultRecipients={reminderRecipientDefaults}
-              />
             </FieldGroup>
           </FormSection>
         ) : null}
@@ -650,12 +692,12 @@ function NewWorkOrderFormInner({
         </FormSection>
       </StepPanel>
 
-      {/* Step 4 — Location & assignment */}
+      {/* Step 4 — Location */}
       <StepPanel active={step === 3}>
         <FormSection
           id="location"
-          title="Location & assignment"
-          description="Where is the work needed, and who owns it?"
+          title="Location"
+          description="Where is the work needed?"
         >
           <FieldGroup className="flex flex-col gap-5">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -706,38 +748,6 @@ function NewWorkOrderFormInner({
                 <FieldError>{unitNumberError}</FieldError>
               </Field>
             </div>
-
-            <Field data-invalid={assignedToError ? 'true' : undefined}>
-              <FieldLabel htmlFor="assignedTo">
-                Assignee <Optional />
-              </FieldLabel>
-              <Select
-                name="assignedTo"
-                items={assigneeItems}
-                value={assignedToValue}
-                onValueChange={(v) => {
-                  setAssignedToValue(typeof v === 'string' ? v : '')
-                  editField('assignedTo')
-                }}
-              >
-                <SelectTrigger
-                  id="assignedTo"
-                  className="w-full sm:max-w-sm"
-                  aria-invalid={assignedToError ? true : undefined}
-                >
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={null}>Unassigned</SelectItem>
-                  {assignableUsers.map((u) => (
-                    <SelectItem key={u.user_id} value={u.user_id}>
-                      {formatAssigneeLabel(u)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldError>{assignedToError}</FieldError>
-            </Field>
           </FieldGroup>
         </FormSection>
       </StepPanel>
