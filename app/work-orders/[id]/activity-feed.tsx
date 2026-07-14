@@ -56,9 +56,20 @@ const LONG_FIELDS = new Set([
   'marketing_key_message',
 ])
 
-// Fields omitted from the diff. These are bookkeeping columns that duplicate
-// the Status change to Rejected shown in the same event.
-const HIDDEN_FIELDS = new Set(['rejected_at', 'rejected_by'])
+// Fields omitted from the diff. rejected_at / rejected_by are bookkeeping
+// columns that duplicate the Status change to Rejected shown in the same event.
+// search_text is a derived search cache and is no longer logged, but old entries
+// predating that change are filtered here too.
+const HIDDEN_FIELDS = new Set(['rejected_at', 'rejected_by', 'search_text'])
+
+// An "updated" event whose only changes are hidden fields (e.g. search_text)
+// has nothing to show, so it would render as a bare "updated this work order"
+// line. Drop those entirely.
+function hasVisibleContent(event: ActivityEvent): boolean {
+  if (event.action !== 'updated') return true
+  const changes = (event.details.changes ?? {}) as Record<string, unknown>
+  return Object.keys(changes).some((field) => !HIDDEN_FIELDS.has(field))
+}
 
 export function ActivityFeed({
   events,
@@ -74,24 +85,26 @@ export function ActivityFeed({
     return userLabelById[actorId] ?? `${actorId.slice(0, 8)}`
   }
 
+  const visibleEvents = events.filter(hasVisibleContent)
+
   return (
     <section className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
       <header className="border-b bg-muted/30 px-6 py-4">
         <h2 className="font-heading text-base font-semibold tracking-tight">
           Activity
-          {events.length > 0 ? (
+          {visibleEvents.length > 0 ? (
             <span className="ml-2 text-sm font-normal text-muted-foreground">
-              ({events.length})
+              ({visibleEvents.length})
             </span>
           ) : null}
         </h2>
       </header>
 
-      {events.length === 0 ? (
+      {visibleEvents.length === 0 ? (
         <p className="px-6 py-6 text-sm text-muted-foreground">No activity yet.</p>
       ) : (
         <ol className="flex flex-col">
-          {events.map((event) => (
+          {visibleEvents.map((event) => (
             <li
               key={event.id}
               className="flex gap-4 border-b border-foreground/5 px-6 py-5 last:border-0"

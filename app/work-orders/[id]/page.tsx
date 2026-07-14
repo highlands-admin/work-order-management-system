@@ -349,6 +349,7 @@ export default async function WorkOrderDetailPage({
             userById={userLabelById}
             currentUserId={claims.sub ?? ''}
             canModerate={role === 'administrator'}
+            assigneeId={data.assigned_to}
             timeZone={timeZone}
           />
 

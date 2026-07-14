@@ -9,6 +9,7 @@ import {
   sendWorkOrderAssignmentEmail,
   type AssignmentWorkOrder,
 } from '@/lib/email/send-assignment-notification'
+import { sendNoteNotificationEmail } from '@/lib/email/send-note-notification'
 import { sendWorkOrderRejectedEmail } from '@/lib/email/send-rejection-notification'
 import {
   APPROVAL_REQUIRED_ROLES,
@@ -1067,6 +1068,81 @@ export async function addWorkOrderNoteAction(
   revalidatePath(`/work-orders/${workOrderId}`)
   revalidatePath(`/work-orders/${workOrderId}/edit`)
   return { status: 'success', message: 'Note added.' }
+}
+
+// Emails the work order's assignee that a note the caller wrote needs their
+// attention. Only the note's author may trigger it, and only when the assignee
+// is someone else. The note and work order are looked up from the note id so
+// the caller can't spoof either.
+export async function notifyAssigneeOfNoteAction(
+  noteId: string,
+  _prev: AuthState,
+  _formData: FormData
+): Promise<AuthState> {
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as ActorClaims | undefined
+
+  if (!claims?.sub) {
+    return formError(undefined, {}, 'You must be signed in.')
+  }
+
+  const { data: note } = await supabase
+    .from('work_order_notes')
+    .select('id, body, created_by, work_order_id')
+    .eq('id', noteId)
+    .maybeSingle<{
+      id: string
+      body: string
+      created_by: string
+      work_order_id: string
+    }>()
+
+  if (!note) return formError(undefined, {}, 'Note not found.')
+  if (note.created_by !== claims.sub) {
+    return formError(
+      undefined,
+      {},
+      'Only the note author can notify the assignee.'
+    )
+  }
+
+  const { data: workOrder } = await supabase
+    .from('work_orders')
+    .select('id, work_order_code, title, assigned_to')
+    .eq('id', note.work_order_id)
+    .maybeSingle<{
+      id: string
+      work_order_code: string
+      title: string
+      assigned_to: string | null
+    }>()
+
+  if (!workOrder) return formError(undefined, {}, 'Work order not found.')
+  if (!workOrder.assigned_to || workOrder.assigned_to === note.created_by) {
+    return formError(undefined, {}, 'There is no other assignee to notify.')
+  }
+
+  const users = await fetchAssignableUsers(supabase)
+  const assignee = users.find((u) => u.user_id === workOrder.assigned_to)
+  if (!assignee?.email) {
+    return formError(undefined, {}, 'The assignee has no email on file.')
+  }
+
+  const { error } = await sendNoteNotificationEmail({
+    to: assignee.email,
+    assigneeFirstName: assignee.first_name,
+    authorName: actorName(claims),
+    note: note.body,
+    workOrder: {
+      id: workOrder.id,
+      code: workOrder.work_order_code,
+      title: workOrder.title,
+    },
+  })
+
+  if (error) return formError(undefined, {}, error)
+  return { status: 'success', message: 'Assignee notified.' }
 }
 
 // Edits a note's body. RLS restricts this to the note's author, and a trigger

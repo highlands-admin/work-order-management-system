@@ -1,6 +1,6 @@
 'use client'
 
-import { RiDeleteBinLine, RiPencilLine } from '@remixicon/react'
+import { RiDeleteBinLine, RiPencilLine, RiSendPlaneLine } from '@remixicon/react'
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -22,6 +22,7 @@ import { initialAuthState } from '../(auth)/auth-state'
 import {
   addWorkOrderNoteAction,
   deleteWorkOrderNoteAction,
+  notifyAssigneeOfNoteAction,
   updateWorkOrderNoteAction,
 } from './actions'
 
@@ -47,6 +48,7 @@ export function NotesSection({
   userById,
   currentUserId,
   canModerate,
+  assigneeId,
   timeZone,
 }: {
   workOrderId: string | null
@@ -54,6 +56,8 @@ export function NotesSection({
   userById: Record<string, string>
   currentUserId: string
   canModerate: boolean
+  // The work order's assignee, so the note author can nudge them by email.
+  assigneeId: string | null
   timeZone: string
 }) {
   const disabled = workOrderId === null
@@ -119,6 +123,13 @@ export function NotesSection({
               authorLabel={userById[note.created_by] ?? note.created_by.slice(0, 8)}
               canEdit={note.created_by === currentUserId}
               canDelete={note.created_by === currentUserId || canModerate}
+              // Only the author can nudge, and only when someone else is the
+              // assignee.
+              canNotifyAssignee={
+                note.created_by === currentUserId &&
+                assigneeId !== null &&
+                assigneeId !== note.created_by
+              }
               timeZone={timeZone}
             />
           ))
@@ -171,12 +182,14 @@ function NoteItem({
   authorLabel,
   canEdit,
   canDelete,
+  canNotifyAssignee,
   timeZone,
 }: {
   note: NoteRow
   authorLabel: string
   canEdit: boolean
   canDelete: boolean
+  canNotifyAssignee: boolean
   timeZone: string
 }) {
   const [editing, setEditing] = useState(false)
@@ -223,6 +236,22 @@ function NoteItem({
     }
   }, [deleteState])
 
+  const notifyAction = notifyAssigneeOfNoteAction.bind(null, note.id)
+  const [notifyState, runNotify, notifyPending] = useActionState<
+    AuthState,
+    FormData
+  >(notifyAction, initialAuthState)
+  const prevNotifyRef = useRef<AuthState>(initialAuthState)
+  useEffect(() => {
+    if (prevNotifyRef.current === notifyState) return
+    prevNotifyRef.current = notifyState
+    if (notifyState.status === 'success') {
+      toast.success('Assignee notified by email.')
+    } else if (notifyState.status === 'error' && notifyState.message) {
+      toast.error(notifyState.message)
+    }
+  }, [notifyState])
+
   const initials = authorLabel
     .split(' ')
     .slice(0, 2)
@@ -256,9 +285,23 @@ function NoteItem({
             <span className="text-xs text-muted-foreground/70">(edited)</span>
           ) : null}
 
-          {(canEdit || canDelete) && !editing ? (
+          {(canEdit || canDelete || canNotifyAssignee) && !editing ? (
             <span className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
               {/* focus-within keeps the actions reachable for keyboard users. */}
+              {canNotifyAssignee ? (
+                <form action={runNotify}>
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    size="icon-xs"
+                    disabled={notifyPending}
+                    aria-label="Notify assignee by email"
+                    title="Notify assignee by email"
+                  >
+                    <RiSendPlaneLine />
+                  </Button>
+                </form>
+              ) : null}
               {canEdit ? (
                 <Button
                   type="button"
@@ -343,7 +386,6 @@ function NoteItem({
             {note.body}
           </p>
         )}
-
       </div>
     </article>
   )
