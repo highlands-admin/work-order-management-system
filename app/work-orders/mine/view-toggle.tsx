@@ -31,7 +31,7 @@ export function ViewToggle({ view }: { view: View }) {
   }
 
   return (
-    <div className="inline-flex shrink-0 items-center gap-0.5 rounded-lg bg-muted p-0.5">
+    <div className="inline-flex shrink-0 items-center gap-0.5 rounded-lg bg-foreground/15 p-0.5 dark:bg-muted">
       <ToggleButton
         active={view === 'table'}
         onClick={() => setView('table')}

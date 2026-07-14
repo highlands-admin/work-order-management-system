@@ -217,7 +217,10 @@ export function KanbanBoard({
           onDragEnd={onDragEnd}
           onDragCancel={() => setActiveId(null)}
         >
-          <div className="flex gap-4 overflow-x-auto pb-2">
+          {/* Negative margin + matching padding so the horizontal scroll
+              container doesn't clip the 1px ring on the first/last columns
+              (rings are box-shadows, which overflow clipping would cut off). */}
+          <div className="-mx-0.5 flex gap-4 overflow-x-auto px-0.5 pb-2">
             {visibleColumns.map((status) => (
               <Column
                 key={status}
@@ -308,7 +311,7 @@ function Column({
       <div
         ref={setNodeRef}
         className={cn(
-          'flex min-h-32 flex-1 flex-col gap-2 rounded-xl bg-muted/30 p-2 ring-1 ring-foreground/5 transition-colors',
+          'flex min-h-32 flex-1 flex-col gap-2 rounded-xl bg-muted/40 p-2 ring-1 ring-border transition-colors',
           isOver && 'bg-primary/5 ring-2 ring-primary/40'
         )}
       >
@@ -380,10 +383,10 @@ function CardShell({
     <div
       ref={nodeRef}
       className={cn(
-        'rounded-lg bg-card p-3 ring-1 ring-foreground/10 shadow-md dark:shadow-none outline-none',
+        'rounded-lg bg-card p-3 ring-1 ring-border shadow-md dark:shadow-none outline-none',
         dragging
           ? 'cursor-grabbing shadow-lg'
-          : 'cursor-grab transition-shadow hover:ring-foreground/20 focus-visible:ring-2 focus-visible:ring-primary/50',
+          : 'cursor-grab transition-shadow hover:ring-foreground/25 focus-visible:ring-2 focus-visible:ring-primary/50',
         className
       )}
       {...props}
