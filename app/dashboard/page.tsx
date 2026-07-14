@@ -78,6 +78,27 @@ export default async function DashboardPage({
   const stats = computeDashboardStats(rows, range, categories)
   const categoryParam = categories.join(',')
 
+  // Links from the stat cards to the All Work Orders list, pre-filtered to match
+  // each stat, carrying the dashboard's category filter along. Statuses are
+  // comma-joined like the filter bar writes them. Overdue is approximated as
+  // active work due on or before today (the list filters by date, not the exact
+  // timestamp the dashboard uses).
+  const today = new Date().toISOString().slice(0, 10)
+  function listHref(query: Record<string, string>): string {
+    const sp = new URLSearchParams(query)
+    if (categoryParam) sp.set('category', categoryParam)
+    return `/work-orders?${sp.toString()}`
+  }
+  const activeHref = listHref({ status: 'open,in_progress' })
+  const overdueHref = listHref({ status: 'open,in_progress', dueTo: today })
+  const unassignedHref = listHref({
+    status: 'open,in_progress',
+    assignee: 'unassigned',
+  })
+  // Pending submissions are not on the All Work Orders list (it excludes
+  // pending/rejected); they live in the approval queue.
+  const pendingHref = '/work-orders/submissions'
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -99,6 +120,7 @@ export default async function DashboardPage({
           hint="Open and in progress"
           icon={RiPulseLine}
           iconClassName="text-sky-500"
+          href={activeHref}
         />
         <StatCard
           label="Overdue"
@@ -106,6 +128,7 @@ export default async function DashboardPage({
           hint="Past due, not closed"
           icon={RiAlarmWarningLine}
           iconClassName="text-rose-500"
+          href={overdueHref}
         />
         <StatCard
           label="Unassigned"
@@ -113,6 +136,7 @@ export default async function DashboardPage({
           hint="Active without an assignee"
           icon={RiUserSearchLine}
           iconClassName="text-amber-500"
+          href={unassignedHref}
         />
         <StatCard
           label="Pending Approval"
@@ -120,6 +144,7 @@ export default async function DashboardPage({
           hint="Awaiting review"
           icon={RiTimeLine}
           iconClassName="text-violet-500"
+          href={pendingHref}
         />
       </div>
 
@@ -179,29 +204,37 @@ function StatCard({
   hint,
   icon: Icon,
   iconClassName,
+  href,
 }: {
   label: string
   value: number
   hint: string
   icon: ComponentType<{ className?: string }>
   iconClassName: string
+  // Destination for the pre-filtered work order list this stat drills into.
+  href: string
 }) {
   return (
-    <Card className="break-inside-avoid">
-      <div className="flex flex-col gap-2 px-5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-heading text-base font-semibold tracking-tight text-foreground">
-            {label}
-          </span>
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground/5">
-            <Icon className={cn('size-[18px]', iconClassName)} />
-          </span>
+    <Link
+      href={href}
+      className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
+      <Card className="h-full break-inside-avoid transition-all hover:-translate-y-0.5 hover:ring-foreground/20 hover:shadow-lg dark:hover:ring-foreground/25">
+        <div className="flex flex-col gap-2 px-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-heading text-base font-semibold tracking-tight text-foreground">
+              {label}
+            </span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground/5">
+              <Icon className={cn('size-[18px]', iconClassName)} />
+            </span>
+          </div>
+          <div className="font-heading text-4xl font-semibold leading-none tracking-tight tabular-nums">
+            {value.toLocaleString()}
+          </div>
+          <p className="text-sm leading-snug text-muted-foreground">{hint}</p>
         </div>
-        <div className="font-heading text-4xl font-semibold leading-none tracking-tight tabular-nums">
-          {value.toLocaleString()}
-        </div>
-        <p className="text-sm leading-snug text-muted-foreground">{hint}</p>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   )
 }
