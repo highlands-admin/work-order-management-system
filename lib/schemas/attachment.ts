@@ -63,6 +63,21 @@ export const ATTACHMENT_ACCEPT = Object.keys(ATTACHMENT_TYPES_BY_EXTENSION).join
 // it at or below the nginx client_max_body_size in front of MinIO (16M).
 export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024
 
+// Marketing assets (print-ready PDFs, design files, decks) are large and are
+// uploaded uncompressed, so they get a much higher cap. NOTE: uploads go
+// straight to MinIO through the reverse proxy, so its client_max_body_size must
+// be raised to at least 100M for this to actually work.
+export const MAX_MARKETING_ATTACHMENT_BYTES = 100 * 1024 * 1024
+
+// The size cap for a work order's category. Marketing gets the larger cap.
+export function maxAttachmentBytes(
+  category: string | null | undefined
+): number {
+  return category === 'marketing'
+    ? MAX_MARKETING_ATTACHMENT_BYTES
+    : MAX_ATTACHMENT_BYTES
+}
+
 // Cap per work order so a single submission cannot flood storage.
 export const MAX_ATTACHMENTS_PER_WORK_ORDER = 10
 
@@ -82,21 +97,32 @@ export function attachmentTypeForFilename(
 
 // Body of a presign request: the browser describes the file it wants to upload,
 // and the server returns a presigned PUT URL for it.
-export const presignRequestSchema = z.object({
-  filename: z.string().min(1).max(255),
-  contentType: z.enum(ALLOWED_ATTACHMENT_TYPES),
-  size: z.number().int().positive().max(MAX_ATTACHMENT_BYTES),
-})
+export const presignRequestSchema = z
+  .object({
+    filename: z.string().min(1).max(255),
+    contentType: z.enum(ALLOWED_ATTACHMENT_TYPES),
+    size: z.number().int().positive(),
+    // The work order's category, so the size cap can be category-specific
+    // (marketing gets the larger cap). Optional and free-form: an unknown or
+    // missing category falls back to the default cap.
+    category: z.string().max(50).optional(),
+  })
+  .refine((data) => data.size <= maxAttachmentBytes(data.category), {
+    message: 'File is too large.',
+    path: ['size'],
+  })
 
 export type PresignRequest = z.infer<typeof presignRequestSchema>
 
 // Metadata the uploader hands back to the form after a successful PUT, carried
 // as a hidden field and parsed by the create/update actions before the row is
-// inserted.
+// inserted. The size is capped at the largest possible (marketing) limit here;
+// the per-category cap is enforced authoritatively against the saved work
+// order's category in syncWorkOrderAttachments.
 export const attachmentMetadataSchema = z.object({
   key: z.string().min(1).max(255),
   contentType: z.enum(ALLOWED_ATTACHMENT_TYPES),
-  size: z.number().int().positive().max(MAX_ATTACHMENT_BYTES),
+  size: z.number().int().positive().max(MAX_MARKETING_ATTACHMENT_BYTES),
   name: z.string().max(255).optional(),
 })
 

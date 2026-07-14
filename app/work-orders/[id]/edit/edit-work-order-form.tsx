@@ -594,6 +594,7 @@ export function EditWorkOrderForm({
         <AttachmentUploader
           existing={attachments}
           compressImages={categoryValue !== 'marketing'}
+          category={categoryValue}
         />
       </FormSection>
 

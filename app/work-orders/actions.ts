@@ -408,7 +408,8 @@ export async function createWorkOrderAction(
       supabase,
       workOrderData.id,
       formData,
-      claims.sub
+      claims.sub,
+      parsed.data.category
     )
   } catch (attachmentError) {
     console.error('Failed to attach work order images', attachmentError)
@@ -604,7 +605,13 @@ export async function updateWorkOrderAction(
   // Apply image additions and removals. Best-effort, so a storage hiccup does
   // not fail the edit that already saved.
   try {
-    await syncWorkOrderAttachments(supabase, workOrderId, formData, claims.sub)
+    await syncWorkOrderAttachments(
+      supabase,
+      workOrderId,
+      formData,
+      claims.sub,
+      parsed.data.category
+    )
   } catch (attachmentError) {
     console.error('Failed to sync work order images', attachmentError)
   }

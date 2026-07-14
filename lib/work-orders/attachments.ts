@@ -1,6 +1,7 @@
 import {
   MAX_ATTACHMENTS_PER_WORK_ORDER,
   attachmentMetadataSchema,
+  maxAttachmentBytes,
 } from '@/lib/schemas/attachment'
 import { deleteObjects, presignDownloadUrl } from '@/lib/storage/s3'
 import type { createClient } from '@/lib/supabase/server'
@@ -49,7 +50,9 @@ export async function syncWorkOrderAttachments(
   supabase: SupabaseServerClient,
   workOrderId: string,
   formData: FormData,
-  uploadedBy: string
+  uploadedBy: string,
+  // The work order's category, which sets the per-file size cap.
+  category: string
 ): Promise<void> {
   const removedIds = formData
     .getAll('removedAttachment')
@@ -81,6 +84,7 @@ export async function syncWorkOrderAttachments(
     }
   }
 
+  const sizeCap = maxAttachmentBytes(category)
   const added = formData
     .getAll('attachment')
     .map((value) => {
@@ -91,6 +95,10 @@ export async function syncWorkOrderAttachments(
       }
     })
     .filter((value): value is NonNullable<typeof value> => value !== null)
+    // Drop anything over this category's cap. The presign endpoint already
+    // enforces it, so this is the authoritative backstop against a file linked
+    // with a size beyond what the saved category allows.
+    .filter((value) => value.size <= sizeCap)
     .slice(0, MAX_ATTACHMENTS_PER_WORK_ORDER)
 
   if (added.length > 0) {

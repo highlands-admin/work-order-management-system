@@ -199,6 +199,9 @@ function NewWorkOrderFormInner({
     .split(',')
     .filter(Boolean)
   const [step, setStep] = useState(0)
+  // True while an attachment is still uploading, so the wizard can block
+  // advancing off the Attachments step until the upload finishes.
+  const [attachmentsUploading, setAttachmentsUploading] = useState(false)
   // Client-side validation errors for the current step. Merged with server
   // errors for display, and cleared as the user edits each field.
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({})
@@ -347,6 +350,8 @@ function NewWorkOrderFormInner({
       setStep(target)
       return
     }
+    // Never advance while an attachment is still uploading.
+    if (attachmentsUploading) return
     // Going forward requires the current step to be valid.
     const form = formRef.current
     if (!form) return
@@ -731,8 +736,10 @@ function NewWorkOrderFormInner({
         >
           <AttachmentUploader
             compressImages={categoryValue !== 'marketing'}
+            category={categoryValue}
             initialAttachments={restoredAttachments}
             onChange={scheduleSave}
+            onUploadingChange={setAttachmentsUploading}
           />
         </FormSection>
       </StepPanel>
@@ -930,8 +937,13 @@ function NewWorkOrderFormInner({
           <span />
         )}
         {step < LAST_STEP ? (
-          <Button type="button" size="lg" onClick={() => goToStep(step + 1)}>
-            Continue
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => goToStep(step + 1)}
+            disabled={attachmentsUploading}
+          >
+            {attachmentsUploading ? 'Uploading…' : 'Continue'}
           </Button>
         ) : (
           <SubmitButton label="Create work order" pendingLabel="Creating..." />

@@ -13,9 +13,9 @@ import { FileIcon } from '@/components/work-orders/file-icon'
 import {
   ATTACHMENT_ACCEPT,
   MAX_ATTACHMENTS_PER_WORK_ORDER,
-  MAX_ATTACHMENT_BYTES,
   attachmentTypeForFilename,
   isImageType,
+  maxAttachmentBytes,
   type AllowedAttachmentType,
   type AttachmentMetadata,
 } from '@/lib/schemas/attachment'
@@ -46,8 +46,6 @@ type UploadItem = {
   controller: AbortController
 }
 
-const MAX_MB = Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))
-
 function extensionLabel(filename: string): string {
   const match = filename.toLowerCase().match(/\.([a-z0-9]+)$/)
   return match ? match[1].toUpperCase() : 'FILE'
@@ -72,13 +70,18 @@ async function compressImage(
 export function AttachmentUploader({
   existing = [],
   compressImages = true,
+  category,
   initialAttachments = [],
   onChange,
+  onUploadingChange,
 }: {
   existing?: ExistingAttachment[]
   // Marketing work orders keep full-resolution assets, so image compression is
   // turned off for them.
   compressImages?: boolean
+  // The work order's category, which sets the per-file size cap (marketing gets
+  // the larger cap) and is sent to the presign endpoint for the server check.
+  category?: string
   // Already-uploaded files restored from a saved draft. Their bytes are still in
   // the bucket, so they are re-created as completed items (without an image
   // preview, since the local object URL does not survive navigation).
@@ -87,7 +90,12 @@ export function AttachmentUploader({
   // draft. Rendering a hidden input does not emit a DOM input event, so the
   // parent cannot observe attachment changes through the form's onInput.
   onChange?: () => void
+  // Fired whenever an upload starts or finishes, so a parent (e.g. the wizard)
+  // can block navigation while a file is still uploading.
+  onUploadingChange?: (uploading: boolean) => void
 }) {
+  const maxBytes = maxAttachmentBytes(category)
+  const maxMb = Math.round(maxBytes / (1024 * 1024))
   const [items, setItems] = useState<UploadItem[]>(() =>
     initialAttachments.map((meta) => ({
       localId: meta.key,
@@ -128,6 +136,15 @@ export function AttachmentUploader({
     }
     onChangeRef.current?.()
   }, [doneKeys])
+
+  // Report whether any file is still uploading, so the parent can block
+  // navigation until it finishes.
+  const uploading = items.some((it) => it.status === 'uploading')
+  const onUploadingChangeRef = useRef(onUploadingChange)
+  onUploadingChangeRef.current = onUploadingChange
+  useEffect(() => {
+    onUploadingChangeRef.current?.(uploading)
+  }, [uploading])
 
   // Restored image attachments lost their local object URL on navigation, so
   // fetch a short-lived view URL from the bucket to show the thumbnail. Runs
@@ -180,8 +197,8 @@ export function AttachmentUploader({
           ? await compressImage(file, contentType)
           : file
 
-      if (prepared.size > MAX_ATTACHMENT_BYTES) {
-        throw new Error(`File is too large (max ${MAX_MB} MB).`)
+      if (prepared.size > maxBytes) {
+        throw new Error(`File is too large (max ${maxMb} MB).`)
       }
 
       const presignRes = await fetch(
@@ -193,6 +210,7 @@ export function AttachmentUploader({
             filename: file.name,
             contentType,
             size: prepared.size,
+            category,
           }),
           signal: controller.signal,
         }
@@ -406,7 +424,7 @@ export function AttachmentUploader({
                 : 'Drag and drop, or click to add files'}
           </span>
           <span className="text-xs font-medium text-muted-foreground">
-            Images, PDF, Word, Excel, or PowerPoint · Up to {MAX_MB} MB each
+            Images, PDF, Word, Excel, or PowerPoint · Up to {maxMb} MB each
           </span>
         </button>
       </div>
