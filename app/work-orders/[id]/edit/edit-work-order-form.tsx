@@ -104,6 +104,9 @@ export function EditWorkOrderForm({
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
 
   const [storedState, setStoredState] = useState(state)
+  // True while an attachment is still uploading, so Save is blocked until it
+  // finishes and its metadata field is present in the form.
+  const [attachmentsUploading, setAttachmentsUploading] = useState(false)
   const [categoryValue, setCategoryValue] = useState<string>(
     state.values?.category ?? workOrder.category
   )
@@ -595,6 +598,7 @@ export function EditWorkOrderForm({
           existing={attachments}
           compressImages={categoryValue !== 'marketing'}
           category={categoryValue}
+          onUploadingChange={setAttachmentsUploading}
         />
       </FormSection>
 
@@ -666,7 +670,11 @@ export function EditWorkOrderForm({
       </FormSection>
 
       <div className="flex items-center justify-end gap-3 pt-2">
-        <SubmitButton label="Save changes" pendingLabel="Saving..." />
+        <SubmitButton
+          label={attachmentsUploading ? 'Uploading…' : 'Save changes'}
+          pendingLabel="Saving..."
+          disabled={attachmentsUploading}
+        />
       </div>
     </form>
   )
