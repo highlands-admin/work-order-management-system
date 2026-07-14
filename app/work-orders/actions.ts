@@ -9,6 +9,7 @@ import {
   sendWorkOrderAssignmentEmail,
   type AssignmentWorkOrder,
 } from '@/lib/email/send-assignment-notification'
+import { sendWorkOrderRejectedEmail } from '@/lib/email/send-rejection-notification'
 import {
   APPROVAL_REQUIRED_ROLES,
   MAIN_TABLE_STATUSES,
@@ -93,6 +94,69 @@ async function notifyRequesterApproved(
     })
   } catch (error) {
     console.error('Failed to send approval notification', error)
+  }
+}
+
+// Emails the creator (requester) that their work order was rejected, with the
+// reason. Never throws: a failed notification must not fail the rejection it
+// follows. Skips when the rejecter is the creator (an admin rejecting a work
+// order they created directly), and no-ops if the creator has no email on file.
+async function notifyRequesterRejected(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  createdBy: string,
+  rejectedById: string,
+  rejectedByName: string | null,
+  reason: string,
+  workOrder: AssignmentWorkOrder
+): Promise<void> {
+  if (createdBy === rejectedById) return
+  try {
+    const users = await fetchAssignableUsers(supabase)
+    const requester = users.find((u) => u.user_id === createdBy)
+    if (!requester?.email) return
+    await sendWorkOrderRejectedEmail({
+      to: requester.email,
+      requesterFirstName: requester.first_name,
+      rejectedByName,
+      reason,
+      workOrder,
+    })
+  } catch (error) {
+    console.error('Failed to send rejection notification', error)
+  }
+}
+
+// The columns both reject actions select back to build the rejection email.
+type RejectedWorkOrderRow = {
+  id: string
+  work_order_code: string
+  title: string
+  category: WorkOrderCategory
+  priority: WorkOrderPriority
+  status: WorkOrderStatus
+  property: Property | null
+  unit_number: string | null
+  due_at: string | null
+  description: string
+  reported_by_name: string | null
+  reported_by_email: string | null
+  created_by: string
+}
+
+function rejectedRowToWorkOrder(row: RejectedWorkOrderRow): AssignmentWorkOrder {
+  return {
+    id: row.id,
+    code: row.work_order_code,
+    title: row.title,
+    category: row.category,
+    priority: row.priority,
+    status: row.status,
+    property: row.property,
+    unitNumber: row.unit_number,
+    dueAt: row.due_at,
+    description: row.description,
+    reporterName: row.reported_by_name,
+    reporterEmail: row.reported_by_email,
   }
 }
 
@@ -835,9 +899,7 @@ export async function rejectWorkOrderAction(
 
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
-  const claims = claimsData?.claims as
-    | { sub?: string; user_role?: string }
-    | undefined
+  const claims = claimsData?.claims as ActorClaims | undefined
 
   if (!claims?.sub) {
     return formError(undefined, raw, 'You must be signed in to reject.')
@@ -846,6 +908,8 @@ export async function rejectWorkOrderAction(
     return formError(undefined, raw, 'Only administrators can reject work orders.')
   }
 
+  // Select the rejected row back so we can email the requester. The fields
+  // mirror the approval notification's shape.
   const { data: updated, error } = await supabase
     .from('work_orders')
     .update({
@@ -857,8 +921,10 @@ export async function rejectWorkOrderAction(
     })
     .eq('id', workOrderId)
     .eq('status', 'pending')
-    .select('id')
-    .maybeSingle()
+    .select(
+      'id, work_order_code, title, category, priority, status, property, unit_number, due_at, description, reported_by_name, reported_by_email, created_by'
+    )
+    .maybeSingle<RejectedWorkOrderRow>()
 
   if (error) {
     return formError(undefined, raw, error.message)
@@ -866,6 +932,16 @@ export async function rejectWorkOrderAction(
   if (!updated) {
     return formError(undefined, raw, 'This submission is no longer pending.')
   }
+
+  // Tell the requester their submission was rejected, and why.
+  await notifyRequesterRejected(
+    supabase,
+    updated.created_by,
+    claims.sub,
+    actorName(claims),
+    parsed.data.reason,
+    rejectedRowToWorkOrder(updated)
+  )
 
   revalidatePath('/work-orders/submissions')
   revalidatePath('/work-orders')
@@ -898,6 +974,8 @@ export async function rejectApprovedWorkOrderAction(
     return formError(undefined, raw, 'Only administrators can reject work orders.')
   }
 
+  // Select the rejected row back so we can email the creator. The fields mirror
+  // the approval notification's shape.
   const { data: updated, error } = await supabase
     .from('work_orders')
     .update({
@@ -909,8 +987,10 @@ export async function rejectApprovedWorkOrderAction(
     })
     .eq('id', workOrderId)
     .in('status', REJECTABLE_MAIN_STATUSES as readonly string[])
-    .select('id')
-    .maybeSingle()
+    .select(
+      'id, work_order_code, title, category, priority, status, property, unit_number, due_at, description, reported_by_name, reported_by_email, created_by'
+    )
+    .maybeSingle<RejectedWorkOrderRow>()
 
   if (error) {
     return formError(undefined, raw, error.message)
@@ -922,6 +1002,16 @@ export async function rejectApprovedWorkOrderAction(
       'This work order can no longer be rejected -- it may have already moved to Done or Closed.'
     )
   }
+
+  // Tell the creator their work order was rejected, and why.
+  await notifyRequesterRejected(
+    supabase,
+    updated.created_by,
+    claims.sub,
+    actorName(claims),
+    parsed.data.reason,
+    rejectedRowToWorkOrder(updated)
+  )
 
   revalidatePath('/work-orders')
   revalidatePath('/work-orders/mine')
