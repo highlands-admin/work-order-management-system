@@ -28,6 +28,8 @@ import {
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
+  IT_REQUEST_TYPES,
+  IT_REQUEST_TYPE_LABELS,
   MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
@@ -69,6 +71,7 @@ type WorkOrder = {
   reported_by_email: string | null
   reported_by_phone: string | null
   provider: string | null
+  it_request_type: string | null
   marketing_request_type: string | null
   marketing_request_type_other: string | null
   marketing_event_name: string | null
@@ -119,6 +122,9 @@ export function EditWorkOrderForm({
   const [validatedByValue, setValidatedByValue] = useState<string>(
     state.values?.validatedBy ?? workOrder.validated_by ?? ''
   )
+  const [itRequestTypeValue, setItRequestTypeValue] = useState<string>(
+    state.values?.itRequestType ?? workOrder.it_request_type ?? ''
+  )
   if (storedState !== state) {
     setStoredState(state)
     setCategoryValue(state.values?.category ?? workOrder.category)
@@ -127,6 +133,9 @@ export function EditWorkOrderForm({
     setStatusValue(state.values?.status ?? workOrder.status)
     setAssignedToValue(state.values?.assignedTo ?? workOrder.assigned_to ?? '')
     setValidatedByValue(state.values?.validatedBy ?? workOrder.validated_by ?? '')
+    setItRequestTypeValue(
+      state.values?.itRequestType ?? workOrder.it_request_type ?? ''
+    )
   }
 
   const titleError = getError('title')
@@ -139,6 +148,7 @@ export function EditWorkOrderForm({
   const unitNumberError = getError('unitNumber')
   const dueAtError = getError('dueAt')
   const descriptionError = getError('description')
+  const itRequestTypeError = getError('itRequestType')
   const resolutionError = getError('resolution')
   const nameError = getError('reportedByName')
   const emailError = getError('reportedByEmail')
@@ -429,6 +439,39 @@ export function EditWorkOrderForm({
             />
             <FieldError>{titleError}</FieldError>
           </Field>
+
+          {categoryValue === 'it' ? (
+            <Field data-invalid={itRequestTypeError ? 'true' : undefined}>
+              <FieldLabel htmlFor="itRequestType">
+                Type of request <Optional />
+              </FieldLabel>
+              <Select
+                name="itRequestType"
+                items={IT_REQUEST_TYPE_LABELS}
+                value={itRequestTypeValue}
+                onValueChange={(v) => {
+                  setItRequestTypeValue(typeof v === 'string' ? v : '')
+                  markEdited('itRequestType')
+                }}
+              >
+                <SelectTrigger
+                  id="itRequestType"
+                  className="w-full sm:max-w-sm"
+                  aria-invalid={itRequestTypeError ? true : undefined}
+                >
+                  <SelectValue placeholder="Not specified" />
+                </SelectTrigger>
+                <SelectContent>
+                  {IT_REQUEST_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {IT_REQUEST_TYPE_LABELS[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldError>{itRequestTypeError}</FieldError>
+            </Field>
+          ) : null}
 
           <Field data-invalid={descriptionError ? 'true' : undefined}>
             <FieldLabel htmlFor="description">

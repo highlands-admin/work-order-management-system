@@ -14,11 +14,13 @@ import { formatDateTime } from '@/lib/datetime/format'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import {
   FREQUENCY_LABELS,
+  IT_REQUEST_TYPE_LABELS,
   MARKETING_REQUEST_TYPE_LABELS,
   MARKETING_SIZE_FORMAT_LABELS,
   MARKETING_TARGET_AUDIENCE_LABELS,
   PROPERTY_LABELS,
   REJECTABLE_MAIN_STATUSES,
+  type ITRequestType,
   type MarketingRequestType,
   type MarketingSizeFormat,
   type MarketingTargetAudience,
@@ -74,6 +76,7 @@ type WorkOrderRow = {
   reported_by_name: string | null
   reported_by_email: string | null
   reported_by_phone: string | null
+  it_request_type: string | null
   marketing_request_type: string | null
   marketing_request_type_other: string | null
   marketing_event_name: string | null
@@ -120,7 +123,7 @@ export default async function WorkOrderDetailPage({
     supabase
       .from('work_orders')
       .select(
-        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, validated_by, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, provider, recurring_work_order_id, recurring:recurring_work_orders(frequency, next_due_at), created_at, updated_at'
+        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, validated_by, created_by, updated_by, reported_by_name, reported_by_email, reported_by_phone, it_request_type, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other, rejected_reason, rejected_at, rejected_by, provider, recurring_work_order_id, recurring:recurring_work_orders(frequency, next_due_at), created_at, updated_at'
       )
       .eq('id', id)
       .maybeSingle<WorkOrderRow>(),
@@ -365,6 +368,11 @@ export default async function WorkOrderDetailPage({
         <aside className="flex flex-col gap-6 lg:sticky lg:top-20 lg:self-start">
           <Section title="Details">
             <dl className="flex flex-col gap-4 text-sm">
+              {data.category === 'it' ? (
+                <DetailItem label="Type of request">
+                  {formatItRequestType(data.it_request_type)}
+                </DetailItem>
+              ) : null}
               <DetailItem label="Facility">
                 {data.property ? (
                   PROPERTY_LABELS[data.property]
@@ -504,6 +512,15 @@ function formatRequestType(
   if (value === 'other') return other ?? <Empty />
   return value in MARKETING_REQUEST_TYPE_LABELS
     ? MARKETING_REQUEST_TYPE_LABELS[value as MarketingRequestType]
+    : value
+}
+
+function formatItRequestType(value: string | null): ReactNode {
+  if (!value) {
+    return <span className="text-muted-foreground">Not specified</span>
+  }
+  return value in IT_REQUEST_TYPE_LABELS
+    ? IT_REQUEST_TYPE_LABELS[value as ITRequestType]
     : value
 }
 

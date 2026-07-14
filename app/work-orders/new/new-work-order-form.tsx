@@ -37,6 +37,8 @@ import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
   CATEGORY_LABELS,
   FREQUENCY_LABELS,
+  IT_REQUEST_TYPES,
+  IT_REQUEST_TYPE_LABELS,
   MARKETING_BRIEF_EXEMPT_REQUEST_TYPES,
   MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
@@ -82,6 +84,7 @@ const STEPS = [
       'description',
       'dueAt',
       'assignedTo',
+      'itRequestType',
       'frequency',
       'reminderLeadDays',
       'provider',
@@ -246,6 +249,9 @@ function NewWorkOrderFormInner({
   const [frequencyValue, setFrequencyValue] = useState<string>(
     state.values?.frequency ?? ''
   )
+  const [itRequestTypeValue, setItRequestTypeValue] = useState<string>(
+    state.values?.itRequestType ?? ''
+  )
   if (storedState !== state) {
     setStoredState(state)
     setStepErrors({})
@@ -254,6 +260,7 @@ function NewWorkOrderFormInner({
     setPropertyValue(state.values?.property ?? '')
     setAssignedToValue(state.values?.assignedTo ?? '')
     setFrequencyValue(state.values?.frequency ?? '')
+    setItRequestTypeValue(state.values?.itRequestType ?? '')
     // After a failed submit, jump to the first step that has an error so the
     // user sees what needs fixing.
     if (state.status === 'error' && state.fieldErrors) {
@@ -378,6 +385,7 @@ function NewWorkOrderFormInner({
   const unitNumberError = fieldError('unitNumber')
   const dueAtError = fieldError('dueAt')
   const descriptionError = fieldError('description')
+  const itRequestTypeError = fieldError('itRequestType')
   const nameError = fieldError('reportedByName')
   const emailError = fieldError('reportedByEmail')
   const phoneError = fieldError('reportedByPhone')
@@ -519,6 +527,39 @@ function NewWorkOrderFormInner({
           description="What needs to happen, who owns it, and by when."
         >
           <FieldGroup className="flex flex-col gap-5">
+            {categoryValue === 'it' ? (
+              <Field data-invalid={itRequestTypeError ? 'true' : undefined}>
+                <FieldLabel htmlFor="itRequestType">
+                  Type of request <Optional />
+                </FieldLabel>
+                <Select
+                  name="itRequestType"
+                  items={IT_REQUEST_TYPE_LABELS}
+                  value={itRequestTypeValue}
+                  onValueChange={(v) => {
+                    setItRequestTypeValue(typeof v === 'string' ? v : '')
+                    editField('itRequestType')
+                  }}
+                >
+                  <SelectTrigger
+                    id="itRequestType"
+                    className="w-full sm:max-w-sm"
+                    aria-invalid={itRequestTypeError ? true : undefined}
+                  >
+                    <SelectValue placeholder="Not specified" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {IT_REQUEST_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {IT_REQUEST_TYPE_LABELS[t]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{itRequestTypeError}</FieldError>
+              </Field>
+            ) : null}
+
             <Field data-invalid={descriptionError ? 'true' : undefined}>
               <FieldLabel htmlFor="description">
                 Description <Required />
@@ -593,7 +634,11 @@ function NewWorkOrderFormInner({
           </FieldGroup>
         </FormSection>
 
-        <FormSection id="recipients" title="Notifications">
+        <FormSection
+          id="recipients"
+          title="Notifications"
+          description="Recipients get notified of every update to this work order, just like the assignee."
+        >
           <div className="flex flex-col gap-5">
             <NotifyRecipientsField
               users={assignableUsers}
@@ -867,17 +912,23 @@ function NewWorkOrderFormInner({
         </FormSection>
       </StepPanel>
 
-      {/* Navigation */}
+      {/* Navigation. On the first step there is no Back button; an empty
+          spacer keeps Continue right-aligned, and rendering nothing (rather than
+          an invisible button) avoids it flashing in during the draft-restore
+          remount. */}
       <div className="flex items-center justify-between gap-3 pt-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          onClick={() => goToStep(step - 1)}
-          className={step === 0 ? 'invisible' : undefined}
-        >
-          Back
-        </Button>
+        {step > 0 ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={() => goToStep(step - 1)}
+          >
+            Back
+          </Button>
+        ) : (
+          <span />
+        )}
         {step < LAST_STEP ? (
           <Button type="button" size="lg" onClick={() => goToStep(step + 1)}>
             Continue

@@ -174,6 +174,33 @@ export const RECURRING_CATEGORIES = new Set<WorkOrderCategory>([
 // category and are required when that category is selected. The 'other' values
 // reveal a free-text field that captures the detail the fixed options miss.
 
+// Condensed IT ticket sub-categories, populated only for the 'it' category.
+export const IT_REQUEST_TYPES = [
+  'access_identity',
+  'application_support',
+  'hardware',
+  'network',
+  'telecom',
+  'security_compliance',
+  'reputation_social_media',
+  'vendor_licensing',
+  'projects',
+] as const
+
+export type ITRequestType = (typeof IT_REQUEST_TYPES)[number]
+
+export const IT_REQUEST_TYPE_LABELS: Record<ITRequestType, string> = {
+  access_identity: 'Access & Identity',
+  application_support: 'Application Support',
+  hardware: 'Hardware',
+  network: 'Network',
+  telecom: 'Telecom',
+  security_compliance: 'Security & Compliance',
+  reputation_social_media: 'Reputation & Social Media',
+  vendor_licensing: 'Vendor & Licensing',
+  projects: 'Projects',
+}
+
 export const MARKETING_REQUEST_TYPES = [
   'event_flyer',
   'monthly_special',
@@ -325,6 +352,7 @@ const baseWorkOrderFields = {
   ),
   reportedByPhone: trimmedOptional.pipe(z.string().max(30).optional()),
   provider: trimmedOptional.pipe(z.string().max(200).optional()),
+  itRequestType: optionalEnum(IT_REQUEST_TYPES),
   marketingRequestType: optionalEnum(MARKETING_REQUEST_TYPES),
   marketingRequestTypeOther: trimmedOptional.pipe(z.string().max(200).optional()),
   marketingEventName: trimmedOptional.pipe(z.string().max(200).optional()),

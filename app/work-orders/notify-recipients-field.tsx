@@ -95,10 +95,6 @@ export function NotifyRecipientsField({
         Recipients{' '}
         <span className="font-normal text-muted-foreground">(optional)</span>
       </span>
-      <p className="text-sm text-muted-foreground">
-        Recipients get notified of every update to this work order, just like the
-        assignee.
-      </p>
 
       {/* Submitted values */}
       {selected.map((id) => (

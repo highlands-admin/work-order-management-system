@@ -240,6 +240,7 @@ export async function createWorkOrderAction(
     frequency: String(formData.get('frequency') ?? ''),
     reminderLeadDays,
     notifyRecipients,
+    itRequestType: String(formData.get('itRequestType') ?? ''),
     marketingRequestType: String(formData.get('marketingRequestType') ?? ''),
     marketingRequestTypeOther: String(
       formData.get('marketingRequestTypeOther') ?? ''
@@ -355,6 +356,7 @@ export async function createWorkOrderAction(
       description: parsed.data.description,
       provider: parsed.data.provider ?? null,
       recurring_work_order_id: recurringWorkOrderId,
+      it_request_type: parsed.data.itRequestType ?? null,
       reported_by_name: parsed.data.reportedByName ?? null,
       reported_by_email: parsed.data.reportedByEmail ?? null,
       reported_by_phone: parsed.data.reportedByPhone ?? null,
@@ -486,6 +488,7 @@ export async function updateWorkOrderAction(
     status: String(formData.get('status') ?? ''),
     resolution: String(formData.get('resolution') ?? ''),
     validatedBy: String(formData.get('validatedBy') ?? ''),
+    itRequestType: String(formData.get('itRequestType') ?? ''),
     marketingRequestType: String(formData.get('marketingRequestType') ?? ''),
     marketingRequestTypeOther: String(
       formData.get('marketingRequestTypeOther') ?? ''
@@ -577,6 +580,7 @@ export async function updateWorkOrderAction(
       status: parsed.data.status,
       resolution: parsed.data.resolution ?? null,
       validated_by: parsed.data.validatedBy ?? null,
+      it_request_type: parsed.data.itRequestType ?? null,
       marketing_request_type: parsed.data.marketingRequestType ?? null,
       marketing_request_type_other:
         parsed.data.marketingRequestTypeOther ?? null,

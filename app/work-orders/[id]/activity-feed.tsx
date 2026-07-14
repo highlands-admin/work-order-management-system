@@ -35,6 +35,7 @@ const FIELD_LABELS: Record<string, string> = {
   reported_by_name: 'Reporter name',
   reported_by_email: 'Reporter email',
   reported_by_phone: 'Reporter phone',
+  it_request_type: 'IT · type of request',
   rejected_reason: 'Rejection reason',
   rejected_at: 'Rejected at',
   rejected_by: 'Rejected by',
