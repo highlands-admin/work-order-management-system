@@ -11,7 +11,10 @@ import {
   parseBoardColumnsCookieValue,
 } from '@/lib/work-orders/board-columns-cookie'
 import { MINE_VIEW_COOKIE, resolveView } from '@/lib/work-orders/list-view'
-import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
+import {
+  applyWorkOrderFilters,
+  sanitizeSearchTerm,
+} from '@/lib/work-orders/apply-filters'
 import {
   hasActiveFilters,
   hasFilterParams,
@@ -111,6 +114,10 @@ export default async function MyWorkOrdersPage({
     cookieStore.get(PAGE_SIZE_COOKIE)?.value
   )
 
+  // The matched-text snippet is a table-view feature, so fetch the search blob
+  // only when the table is showing and a search is active.
+  const highlight = view === 'table' ? sanitizeSearchTerm(filters.q) : ''
+
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
   const claims = claimsData?.claims as { sub?: string } | undefined
@@ -121,7 +128,9 @@ export default async function MyWorkOrdersPage({
     supabase
       .from('work_orders')
       .select(
-        'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, recurring_work_order_id, created_at',
+        `id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, recurring_work_order_id, created_at${
+          highlight ? ', description, unit_number, search_text' : ''
+        }`,
         { count: 'exact' }
       )
       .eq('assigned_to', claims.sub)
@@ -140,7 +149,7 @@ export default async function MyWorkOrdersPage({
       .order('priority', { ascending: true })
       .order('work_order_number', { ascending: false })
       .range(0, BOARD_CAP - 1)
-    workOrders = (result.data ?? []) as WorkOrderListItem[]
+    workOrders = (result.data ?? []) as unknown as WorkOrderListItem[]
     error = result.error
   } else {
     const order = sort ?? DEFAULT_SORT
@@ -152,7 +161,7 @@ export default async function MyWorkOrdersPage({
       })
       .order('work_order_number', { ascending: false })
       .range(from, from + pageSize - 1)
-    workOrders = (result.data ?? []) as WorkOrderListItem[]
+    workOrders = (result.data ?? []) as unknown as WorkOrderListItem[]
     count = result.count ?? 0
     error = result.error
   }
@@ -205,6 +214,7 @@ export default async function MyWorkOrdersPage({
             sort={sort}
             showAssignee={false}
             pagination={{ page, pageSize, total: count }}
+            highlight={highlight || undefined}
             initialColumnWidths={columnWidths}
             initialFilters={filters}
             emptyMessage={

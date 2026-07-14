@@ -8,15 +8,16 @@ import {
 } from '@remixicon/react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from 'react'
 
 import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-} from '@/components/ui/table'
+import { Table, TableCell, TableHeader } from '@/components/ui/table'
 import {
   PriorityBadge,
   StatusBadge,
@@ -62,9 +63,12 @@ import {
   writeSortCookie,
 } from '@/lib/work-orders/list-sort-cookie'
 
+import { buildLabeledSnippet } from '@/lib/work-orders/search-snippet'
+
 import { DateRangeFilter } from './date-range-filter'
+import { MatchSnippet } from './match-snippet'
 import { TablePagination } from './table-pagination'
-import { WorkOrderRow } from './work-order-row'
+import { WorkOrderRowGroup } from './work-order-row'
 import {
   ColumnFilterTrigger,
   MultiSelectFilter,
@@ -94,6 +98,12 @@ export type WorkOrderListItem = {
   reported_by_name: string | null
   recurring_work_order_id: string | null
   created_at: string
+  // Fetched only when a search is active, to show why each row matched. The
+  // individual fields let the snippet be labeled with where the match was; the
+  // blob (own fields + note bodies) is the fallback that also covers notes.
+  description?: string | null
+  unit_number?: string | null
+  search_text?: string | null
 }
 
 type Column = {
@@ -171,6 +181,7 @@ export function WorkOrdersTable({
   initialColumnWidths,
   assigneeOptions = [],
   initialFilters,
+  highlight,
 }: {
   workOrders: WorkOrderListItem[]
   emptyMessage: string
@@ -198,6 +209,9 @@ export function WorkOrdersTable({
   // (possibly still-bare) URL and show as inactive even when a cookie-restored
   // filter is already applied to the data.
   initialFilters?: WorkOrderFilters
+  // The active, sanitized search term. When set, each matching row shows a
+  // highlighted excerpt of where the term was found (title, notes, and so on).
+  highlight?: string
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -455,7 +469,12 @@ export function WorkOrdersTable({
         className="w-full overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none"
         style={resizing ? { userSelect: 'none', cursor: 'col-resize' } : undefined}
       >
-      <Table className="table-fixed" style={{ width: totalWidth }}>
+      <Table
+        // Each work order is its own <tbody> group; strip the divider under the
+        // very last row so it doesn't double the container's bottom edge.
+        className="table-fixed [&_tbody:last-child_tr:last-child]:border-0"
+        style={{ width: totalWidth }}
+      >
         <colgroup>
           {columns.map((col) => (
             <col key={col.key} style={{ width: widths[col.key] }} />
@@ -518,9 +537,29 @@ export function WorkOrdersTable({
             })}
           </tr>
         </TableHeader>
-        <TableBody>
-          {workOrders.map((wo) => (
-            <WorkOrderRow key={wo.id} href={`/work-orders/${wo.id}`}>
+        {workOrders.map((wo) => {
+            // Prefer the fields a viewer can't already see in a column, so the
+            // snippet explains the match rather than repeating a visible cell.
+            const match = highlight
+              ? buildLabeledSnippet(
+                  [
+                    { label: 'Description', text: wo.description },
+                    { label: 'Title', text: wo.title },
+                    { label: 'Reported by', text: wo.reported_by_name },
+                    { label: 'Unit', text: wo.unit_number },
+                    { label: 'ID', text: wo.work_order_code },
+                  ],
+                  { label: 'Notes', text: wo.search_text },
+                  highlight
+                )
+              : null
+            return (
+            <WorkOrderRowGroup
+              key={wo.id}
+              href={`/work-orders/${wo.id}`}
+              colSpan={columns.length}
+              excerpt={match ? <MatchSnippet match={match} /> : undefined}
+            >
               <TableCell className="truncate px-4 py-3 font-medium tabular-nums text-muted-foreground">
                 {wo.work_order_code}
               </TableCell>
@@ -584,9 +623,9 @@ export function WorkOrdersTable({
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {wo.reported_by_name ?? '—'}
               </TableCell>
-            </WorkOrderRow>
-          ))}
-        </TableBody>
+            </WorkOrderRowGroup>
+            )
+          })}
       </Table>
       </div>
       {pagination ? (

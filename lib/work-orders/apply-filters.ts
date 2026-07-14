@@ -2,8 +2,9 @@ import { UNASSIGNED, type WorkOrderFilters } from './filters'
 
 // Strip characters that would either break PostgREST's filter syntax or be
 // interpreted as ilike wildcards. The remaining string is wrapped with `%`
-// wildcards on the query side for a substring match.
-function sanitizeSearchTerm(q: string): string {
+// wildcards on the query side for a substring match. Exported so the list can
+// highlight matches using the exact term the database matched on.
+export function sanitizeSearchTerm(q: string): string {
   return q.replace(/[,()*%_\\]/g, '').trim().slice(0, 100)
 }
 

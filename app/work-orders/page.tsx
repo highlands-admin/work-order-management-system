@@ -10,7 +10,10 @@ import {
   fetchAssignableUsers,
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
-import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
+import {
+  applyWorkOrderFilters,
+  sanitizeSearchTerm,
+} from '@/lib/work-orders/apply-filters'
 import {
   hasActiveFilters,
   hasFilterParams,
@@ -92,12 +95,18 @@ export default async function WorkOrdersPage({
     cookieStore.get(PAGE_SIZE_COOKIE)?.value
   )
 
+  // Fetch the search blob only when searching, to power the matched-text snippet
+  // shown under each row (highlights where a match was found, notes included).
+  const highlight = sanitizeSearchTerm(filters.q)
+
   // pending / rejected submissions live on /work-orders/submissions; this
   // page is the operational view of approved work.
   let query = supabase
     .from('work_orders')
     .select(
-      'id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, recurring_work_order_id, created_at',
+      `id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, recurring_work_order_id, created_at${
+        highlight ? ', description, unit_number, search_text' : ''
+      }`,
       { count: 'exact' }
     )
     .not('status', 'in', '(pending,rejected)')
@@ -129,7 +138,10 @@ export default async function WorkOrdersPage({
     | undefined)?.user_role
   const canFile = userRole ? FILER_ROLES.has(userRole) : false
   const { data, error, count } = queryResult
-  const workOrders = (data ?? []) as WorkOrderListItem[]
+  // Cast through unknown: the select's column list is built dynamically (an
+  // optional search_text), which the typed query builder cannot parse into a
+  // row type. The columns are known and trusted here.
+  const workOrders = (data ?? []) as unknown as WorkOrderListItem[]
   const userLabelById: Record<string, string> = Object.fromEntries(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
@@ -179,6 +191,7 @@ export default async function WorkOrdersPage({
         initialColumnWidths={columnWidths}
         assigneeOptions={assigneeOptions}
         initialFilters={filters}
+        highlight={highlight || undefined}
         emptyMessage={
           filtersActive
             ? 'No work orders match these filters.'
