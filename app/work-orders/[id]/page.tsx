@@ -217,7 +217,7 @@ export default async function WorkOrderDetailPage({
                 variant: canApprove ? 'outline' : 'default',
               })}
             >
-              {canEdit ? 'Edit work order' : 'Update status'}
+              {canEdit ? 'Update' : 'Update status'}
             </Link>
           ) : null}
           {canApprove ? <ApproveButton workOrderId={data.id} /> : null}

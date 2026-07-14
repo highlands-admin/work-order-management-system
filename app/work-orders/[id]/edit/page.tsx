@@ -19,7 +19,7 @@ import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 import { EditWorkOrderForm } from './edit-work-order-form'
 import { TransitionStatusForm } from './transition-status-form'
 
-export const metadata: Metadata = { title: 'Edit Work Order' }
+export const metadata: Metadata = { title: 'Update' }
 
 type WorkOrderRow = {
   id: string
@@ -81,7 +81,7 @@ export default async function EditWorkOrderPage({
   if (error) {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-        <h1 className="font-heading text-2xl font-semibold">Edit Work Order</h1>
+        <h1 className="font-heading text-2xl font-semibold">Update</h1>
         <p className="text-sm text-destructive">{error.message}</p>
       </div>
     )
@@ -120,9 +120,7 @@ export default async function EditWorkOrderPage({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold">
-            Edit Work Order
-          </h1>
+          <h1 className="font-heading text-2xl font-semibold">Update</h1>
           <p className="text-sm text-muted-foreground">
             <span className="font-medium tabular-nums text-foreground">
               {data.work_order_code}

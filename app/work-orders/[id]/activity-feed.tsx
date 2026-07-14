@@ -30,7 +30,11 @@ const FIELD_LABELS: Record<string, string> = {
   unit_number: 'Unit',
   due_at: 'Due date',
   resolution: 'Resolution',
+  // assignee_name is the readable snapshot shown in the feed; assigned_to (the
+  // raw user id) is hidden. Both are labeled "Assignee" so historical entries
+  // that logged assigned_to still read correctly if ever surfaced.
   assigned_to: 'Assignee',
+  assignee_name: 'Assignee',
   validated_by: 'Validated by',
   reported_by_name: 'Reporter name',
   reported_by_email: 'Reporter email',
@@ -59,9 +63,27 @@ const LONG_FIELDS = new Set([
 
 // Fields omitted from the diff. rejected_at / rejected_by are bookkeeping
 // columns that duplicate the Status change to Rejected shown in the same event.
-// search_text is a derived search cache and is no longer logged, but old entries
-// predating that change are filtered here too.
-const HIDDEN_FIELDS = new Set(['rejected_at', 'rejected_by', 'search_text'])
+// search_text is a derived search cache. assigned_to is the raw user id that
+// changes alongside the readable assignee_name (shown as "Assignee"), so hiding
+// it avoids a duplicate, opaque row.
+const HIDDEN_FIELDS = new Set([
+  'rejected_at',
+  'rejected_by',
+  'search_text',
+  'assigned_to',
+])
+
+// What a field reads as when it's cleared to empty, keyed by field. People-type
+// fields read as "No one" (assignee has its own "Unassigned"); anything without
+// an entry falls back to a neutral "Not set" instead of a terse "None".
+const EMPTY_LABELS: Record<string, string> = {
+  assigned_to: 'Unassigned',
+  assignee_name: 'Unassigned',
+  validated_by: 'No one',
+  rejected_by: 'No one',
+  reported_by_name: 'No one',
+}
+const DEFAULT_EMPTY_LABEL = 'Not set'
 
 // An "updated" event whose only changes are hidden fields (e.g. search_text)
 // has nothing to show, so it would render as a bare "updated this work order"
@@ -255,8 +277,7 @@ function formatValue(
   timeZone: string
 ): string {
   if (value === null || value === undefined || value === '') {
-    if (field === 'assigned_to') return 'Unassigned'
-    return 'None'
+    return EMPTY_LABELS[field] ?? DEFAULT_EMPTY_LABEL
   }
 
   switch (field) {
