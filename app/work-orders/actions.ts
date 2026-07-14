@@ -16,6 +16,7 @@ import {
   MAIN_TABLE_STATUSES,
   REJECTABLE_MAIN_STATUSES,
   addWorkOrderNoteSchema,
+  changePrioritySchema,
   changeStatusSchema,
   createWorkOrderSchema,
   rejectWorkOrderSchema,
@@ -815,6 +816,51 @@ export async function changeWorkOrderStatusAction(
       ...closureFields,
       updated_by: claims.sub,
     })
+    .eq('id', workOrderId)
+
+  if (error) {
+    return { status: 'error', message: error.message }
+  }
+
+  revalidatePath('/work-orders')
+  revalidatePath('/work-orders/mine')
+  revalidatePath(`/work-orders/${workOrderId}`)
+  revalidatePath(`/work-orders/${workOrderId}/edit`)
+  return { status: 'success' }
+}
+
+// Inline priority change from the detail page. Admin-only: unlike status, the
+// assignee and creator cannot reprioritize. No workflow rules apply, so this
+// just updates the field.
+export async function changeWorkOrderPriorityAction(
+  workOrderId: string,
+  priority: string
+): Promise<{ status: 'success' | 'error'; message?: string }> {
+  const parsed = changePrioritySchema.safeParse({ priority })
+  if (!parsed.success) {
+    return {
+      status: 'error',
+      message: parsed.error.issues[0]?.message ?? 'Choose a valid priority.',
+    }
+  }
+
+  const supabase = await createClient()
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims as ActorClaims | undefined
+
+  if (!claims?.sub) {
+    return { status: 'error', message: 'You must be signed in.' }
+  }
+  if (claims.user_role !== 'administrator') {
+    return {
+      status: 'error',
+      message: 'Only administrators can change priority.',
+    }
+  }
+
+  const { error } = await supabase
+    .from('work_orders')
+    .update({ priority: parsed.data.priority, updated_by: claims.sub })
     .eq('id', workOrderId)
 
   if (error) {

@@ -677,6 +677,11 @@ export const changeStatusSchema = z
   .superRefine(requireResolutionOnDone)
   .superRefine(requireValidatedByOnClosed)
 
+// Inline priority change from the detail page: administrators only.
+export const changePrioritySchema = z.object({
+  priority: z.enum(WORK_ORDER_PRIORITIES, { message: 'Choose a valid priority.' }),
+})
+
 export const addWorkOrderNoteSchema = z.object({
   body: z
     .string()

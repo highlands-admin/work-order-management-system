@@ -44,6 +44,7 @@ import { ActivityFeed, type ActivityEvent } from './activity-feed'
 import { ApproveButton } from './approve-button'
 import { BackButton } from './back-button'
 import { RejectButton } from './reject-button'
+import { PriorityControl } from './priority-control'
 import { StatusControl } from './status-control'
 
 export const metadata: Metadata = { title: 'Work Order' }
@@ -180,6 +181,8 @@ export default async function WorkOrderDetailPage({
     data.created_by === claims.sub ||
     data.assigned_to === claims.sub
   const statusControlShown = canChangeStatus && isActiveStatus
+  // Priority can be changed inline by administrators, on any status.
+  const priorityControlShown = role === 'administrator'
   // Size the three header badges consistently so a pending work order reads the
   // same as an active one. Status is the interactive control when it can be
   // changed inline, otherwise a badge at the same prominent size.
@@ -246,10 +249,14 @@ export default async function WorkOrderDetailPage({
               className={prominentBadgeSize}
             />
           )}
-          <PriorityBadge
-            priority={data.priority}
-            className={prominentBadgeSize}
-          />
+          {priorityControlShown ? (
+            <PriorityControl workOrderId={data.id} priority={data.priority} />
+          ) : (
+            <PriorityBadge
+              priority={data.priority}
+              className={prominentBadgeSize}
+            />
+          )}
           <CategoryBadge
             category={data.category}
             className={prominentBadgeSize}
