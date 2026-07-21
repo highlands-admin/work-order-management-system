@@ -5,6 +5,7 @@ import {
   RiFilePpt2Line,
   RiFileTextLine,
   RiFileWord2Line,
+  RiFileZipLine,
   RiImageLine,
 } from '@remixicon/react'
 
@@ -36,6 +37,9 @@ export function FileIcon({
   }
   if (contentType.startsWith('text/')) {
     return <RiFileTextLine className={className} aria-hidden="true" />
+  }
+  if (contentType === 'application/zip') {
+    return <RiFileZipLine className={className} aria-hidden="true" />
   }
   return <RiFile2Line className={className} aria-hidden="true" />
 }

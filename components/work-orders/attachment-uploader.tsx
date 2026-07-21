@@ -424,7 +424,7 @@ export function AttachmentUploader({
                 : 'Drag and drop, or click to add files'}
           </span>
           <span className="text-xs font-medium text-muted-foreground">
-            Images, PDF, Word, Excel, or PowerPoint · Up to {maxMb} MB each
+            Images, PDF, Word, Excel, PowerPoint, or ZIP · Up to {maxMb} MB each
           </span>
         </button>
       </div>

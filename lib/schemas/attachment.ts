@@ -24,6 +24,7 @@ export const ALLOWED_ATTACHMENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'text/plain',
   'text/csv',
+  'application/zip',
 ] as const
 
 export type AllowedAttachmentType = (typeof ALLOWED_ATTACHMENT_TYPES)[number]
@@ -50,6 +51,7 @@ export const ATTACHMENT_TYPES_BY_EXTENSION: Record<string, AllowedAttachmentType
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     '.txt': 'text/plain',
     '.csv': 'text/csv',
+    '.zip': 'application/zip',
   }
 
 // The accept attribute for the file input: the allowed extensions. A normal
