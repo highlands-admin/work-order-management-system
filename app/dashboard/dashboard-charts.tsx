@@ -290,21 +290,6 @@ function StatusStackedCard({
             ))}
           </BarChart>
         </ChartContainer>
-        {/* Recharts' <Legend> only offers auto-detected item order, which
-            would follow the reversed <Bar> render order above -- render our
-            own legend instead so it stays in canonical, pending-first order,
-            matching ChartLegendContent's layout. */}
-        <div className="flex items-center justify-center gap-4 pt-3">
-          {breakdown.statuses.map((s) => (
-            <div key={s.key} className="flex items-center gap-1.5">
-              <div
-                className="h-2 w-2 shrink-0 rounded-[2px]"
-                style={{ backgroundColor: `var(--color-${s.key})` }}
-              />
-              {s.label}
-            </div>
-          ))}
-        </div>
       </div>
     </ChartCard>
   )
