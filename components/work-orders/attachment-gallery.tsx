@@ -1,6 +1,11 @@
 'use client'
 
-import { RiCloseLine, RiDownloadLine } from '@remixicon/react'
+import {
+  RiArrowLeftSLine,
+  RiArrowRightSLine,
+  RiCloseLine,
+  RiDownloadLine,
+} from '@remixicon/react'
 import { useEffect, useState } from 'react'
 
 import { FileIcon } from '@/components/work-orders/file-icon'
@@ -23,14 +28,25 @@ export function AttachmentGallery({
   const images = attachments.filter((a) => isImageType(a.contentType))
   const documents = attachments.filter((a) => !isImageType(a.contentType))
 
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const active = images.find((p) => p.id === activeId) ?? null
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const active = activeIndex !== null ? images[activeIndex] : null
+  const hasMultiple = images.length > 1
 
-  // While the preview is open, close on Escape and lock background scrolling.
+  function showPrev() {
+    setActiveIndex((i) => (i === null ? i : (i - 1 + images.length) % images.length))
+  }
+  function showNext() {
+    setActiveIndex((i) => (i === null ? i : (i + 1) % images.length))
+  }
+
+  // While the preview is open, close on Escape, step with the arrow keys, and
+  // lock background scrolling.
   useEffect(() => {
     if (!active) return
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') setActiveId(null)
+      if (event.key === 'Escape') setActiveIndex(null)
+      else if (event.key === 'ArrowLeft' && hasMultiple) showPrev()
+      else if (event.key === 'ArrowRight' && hasMultiple) showNext()
     }
     document.addEventListener('keydown', onKey)
     const previousOverflow = document.body.style.overflow
@@ -39,17 +55,18 @@ export function AttachmentGallery({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = previousOverflow
     }
-  }, [active])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, hasMultiple])
 
   return (
     <div className="flex flex-col gap-4">
       {images.length > 0 ? (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {images.map((photo) => (
+          {images.map((photo, index) => (
             <li key={photo.id}>
               <button
                 type="button"
-                onClick={() => setActiveId(photo.id)}
+                onClick={() => setActiveIndex(index)}
                 className="block aspect-square w-full overflow-hidden rounded-lg ring-1 ring-foreground/10 transition-opacity hover:opacity-90"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element --
@@ -98,18 +115,43 @@ export function AttachmentGallery({
           role="dialog"
           aria-modal="true"
           aria-label="Photo preview"
-          onClick={() => setActiveId(null)}
+          onClick={() => setActiveIndex(null)}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-8"
         >
           <div className="relative" onClick={(event) => event.stopPropagation()}>
             <button
               type="button"
               aria-label="Close preview"
-              onClick={() => setActiveId(null)}
+              onClick={() => setActiveIndex(null)}
               className="absolute right-2 top-2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70 focus-visible:bg-black/70"
             >
               <RiCloseLine className="size-5" aria-hidden="true" />
             </button>
+
+            {hasMultiple ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous photo"
+                  onClick={showPrev}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70 focus-visible:bg-black/70"
+                >
+                  <RiArrowLeftSLine className="size-6" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next photo"
+                  onClick={showNext}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70 focus-visible:bg-black/70"
+                >
+                  <RiArrowRightSLine className="size-6" aria-hidden="true" />
+                </button>
+                <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-2.5 py-1 text-xs font-medium tabular-nums text-white">
+                  {(activeIndex ?? 0) + 1} / {images.length}
+                </span>
+              </>
+            ) : null}
+
             {/* eslint-disable-next-line @next/next/no-img-element -- see above */}
             <img
               src={active.url}
