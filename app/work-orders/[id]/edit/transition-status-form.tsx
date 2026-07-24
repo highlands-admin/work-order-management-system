@@ -102,10 +102,10 @@ export function TransitionStatusForm({
             />
             <AlertDialogContent>
               <form action={action} className="flex flex-col gap-3">
-                <AlertDialogTitle>Mark as Done</AlertDialogTitle>
+                <AlertDialogTitle>Mark as {STATUS_LABELS[target]}</AlertDialogTitle>
                 <AlertDialogDescription>
                   Describe how this work order was resolved. This is required to
-                  mark it done.
+                  mark it {STATUS_LABELS[target].toLowerCase()}.
                 </AlertDialogDescription>
 
                 <input type="hidden" name="status" value={target} />
@@ -120,7 +120,10 @@ export function TransitionStatusForm({
 
                 <AlertDialogFooter>
                   <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-                  <SubmitButton label="Mark as Done" pendingLabel="Updating..." />
+                  <SubmitButton
+                    label={`Mark as ${STATUS_LABELS[target]}`}
+                    pendingLabel="Updating..."
+                  />
                 </AlertDialogFooter>
               </form>
             </AlertDialogContent>

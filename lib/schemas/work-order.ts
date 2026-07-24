@@ -45,7 +45,7 @@ export const STATUS_LABELS: Record<WorkOrderStatus, string> = {
   open: 'Open',
   in_progress: 'In Progress',
   on_hold: 'On Hold',
-  done: 'Done',
+  done: 'Completed',
   closed: 'Closed',
   rejected: 'Rejected',
 }
@@ -95,7 +95,7 @@ export const WORK_ORDER_PRIORITIES = [
 export type WorkOrderPriority = (typeof WORK_ORDER_PRIORITIES)[number]
 
 export const PRIORITY_LABELS: Record<WorkOrderPriority, string> = {
-  urgent: 'Urgent',
+  urgent: 'Critical',
   high: 'High',
   medium: 'Medium',
   low: 'Low',

@@ -48,7 +48,7 @@ export function ResolutionDialog({
   function confirm() {
     const trimmed = resolution.trim()
     if (!trimmed) {
-      setError('A resolution is required to mark a work order done.')
+      setError('A resolution is required to mark a work order as completed.')
       return
     }
     onConfirm(trimmed)
@@ -58,10 +58,10 @@ export function ResolutionDialog({
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
-        <AlertDialogTitle>Mark as Done</AlertDialogTitle>
+        <AlertDialogTitle>Mark as Completed</AlertDialogTitle>
         <AlertDialogDescription>
           Describe how this work order was resolved. This is required to mark it
-          done.
+          completed.
         </AlertDialogDescription>
         <Textarea
           autoFocus
@@ -86,7 +86,7 @@ export function ResolutionDialog({
             Cancel
           </Button>
           <Button type="button" size="sm" onClick={confirm} disabled={pending}>
-            {pending ? 'Saving…' : 'Mark as Done'}
+            {pending ? 'Saving…' : 'Mark as Completed'}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

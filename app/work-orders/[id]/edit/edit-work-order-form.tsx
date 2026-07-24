@@ -33,6 +33,7 @@ import {
   MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
+  RECURRING_CATEGORIES,
   STATUS_LABELS,
   WORK_ORDER_CATEGORIES_BY_LABEL,
   WORK_ORDER_PRIORITIES,
@@ -451,21 +452,34 @@ export function EditWorkOrderForm({
             <FieldError>{dueAtError}</FieldError>
           </Field>
 
-          <Field data-invalid={providerError ? 'true' : undefined}>
-            <FieldLabel htmlFor="provider">
-              Provider <Optional />
-            </FieldLabel>
-            <Input
-              id="provider"
+          {RECURRING_CATEGORIES.has(categoryValue as WorkOrderCategory) ? (
+            <Field data-invalid={providerError ? 'true' : undefined}>
+              <FieldLabel htmlFor="provider">
+                Provider <Optional />
+              </FieldLabel>
+              <Input
+                id="provider"
+                name="provider"
+                autoComplete="off"
+                placeholder="e.g. Cartersville Sprinkler"
+                defaultValue={state.values?.provider ?? workOrder.provider ?? ''}
+                onChange={() => markEdited('provider')}
+                aria-invalid={providerError ? true : undefined}
+              />
+              <FieldError>{providerError}</FieldError>
+            </Field>
+          ) : (
+            // Provider is only editable for recurring categories (matching the
+            // create form), but a work order outside those categories may
+            // already have a value saved from before this field was gated.
+            // Submit it unchanged via a hidden input so hiding the field here
+            // doesn't silently null it out on the next save.
+            <input
+              type="hidden"
               name="provider"
-              autoComplete="off"
-              placeholder="e.g. Cartersville Sprinkler"
-              defaultValue={state.values?.provider ?? workOrder.provider ?? ''}
-              onChange={() => markEdited('provider')}
-              aria-invalid={providerError ? true : undefined}
+              value={state.values?.provider ?? workOrder.provider ?? ''}
             />
-            <FieldError>{providerError}</FieldError>
-          </Field>
+          )}
 
           <Field data-invalid={resolutionError ? 'true' : undefined}>
             <FieldLabel htmlFor="resolution">
