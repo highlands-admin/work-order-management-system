@@ -128,7 +128,7 @@ export default async function MyWorkOrdersPage({
     supabase
       .from('work_orders')
       .select(
-        `id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, recurring_work_order_id, created_at${
+        `id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, recurring_work_order_id, created_at, updated_at${
           highlight ? ', description, unit_number, search_text' : ''
         }`,
         { count: 'exact' }

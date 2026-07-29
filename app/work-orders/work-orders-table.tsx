@@ -22,7 +22,7 @@ import {
   PriorityBadge,
   StatusBadge,
 } from '@/components/work-orders/work-order-badge'
-import { formatDate, formatDateTime } from '@/lib/datetime/format'
+import { formatDate, formatDateTime, formatRelative } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
   PROPERTY_LABELS,
@@ -98,6 +98,7 @@ export type WorkOrderListItem = {
   reported_by_name: string | null
   recurring_work_order_id: string | null
   created_at: string
+  updated_at: string
   // Fetched only when a search is active, to show why each row matched. The
   // individual fields let the snippet be labeled with where the match was; the
   // blob (own fields + note bodies) is the fallback that also covers notes.
@@ -127,6 +128,11 @@ const COLUMNS: Column[] = [
   { key: 'due', label: 'Due', width: 190 },
   { key: 'assignee', label: 'Assignee', width: 200 },
   { key: 'reporter', label: 'Reported by', width: 180 },
+  // Last at the end on purpose. The table is already wider than most viewports,
+  // so inserting this next to Created would push Due, Assignee, and Reported by
+  // out of view for everyone; appending leaves the existing columns where users
+  // expect them and puts the audit-flavored field with the other trailing one.
+  { key: 'updated', label: 'Last modified', width: 170 },
 ]
 
 // Absolute floor for any column. Columns with sort and filter icons compute a
@@ -622,6 +628,17 @@ export function WorkOrdersTable({
               ) : null}
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {wo.reported_by_name ?? '—'}
+              </TableCell>
+              {/* Relative phrasing ("2h ago") answers "is this stale?" faster
+                  than a date does, with the exact timestamp on hover. It reads
+                  the clock, so the server and client renders can disagree by a
+                  tick: same suppressHydrationWarning treatment as Due. */}
+              <TableCell
+                suppressHydrationWarning
+                title={formatDateTime(wo.updated_at, timeZone)}
+                className="truncate px-4 py-3 text-muted-foreground"
+              >
+                {formatRelative(wo.updated_at, timeZone)}
               </TableCell>
             </WorkOrderRowGroup>
             )

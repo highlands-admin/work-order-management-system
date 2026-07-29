@@ -33,8 +33,18 @@ export function formatDateTime(value: string, timeZone: string): string {
 
 // Relative phrasing depends on the current clock, so it is the one value that
 // cannot match between a server render and a later client render. Callers wrap
-// it in an element with suppressHydrationWarning. Past a week it falls back to
-// the absolute date, which does respect the time zone.
+// it in an element with suppressHydrationWarning.
+//
+// The scale runs minutes -> hours -> days -> months. Past a year it falls back
+// to the absolute date, which does respect the time zone: at that range the
+// relative form has stopped earning its place, since "2y ago" says less than the
+// date itself does. Capping months at 11 is what keeps a "12mo ago" from ever
+// rendering when "1 year" is the phrase a reader expects.
+//
+// Months are approximated at 30 days. True calendar months would move the
+// boundary a day or two either way depending on which months the span crosses,
+// which is imperceptible in an "ago" label, and every caller puts the exact
+// timestamp a hover away.
 export function formatRelative(value: string, timeZone: string): string {
   const then = new Date(value).getTime()
   const diffSec = Math.max(0, Math.round((Date.now() - then) / 1000))
@@ -45,7 +55,9 @@ export function formatRelative(value: string, timeZone: string): string {
   const diffHr = Math.round(diffMin / 60)
   if (diffHr < 24) return `${diffHr}h ago`
   const diffDay = Math.round(diffHr / 24)
-  if (diffDay < 7) return `${diffDay}d ago`
+  if (diffDay < 30) return `${diffDay}d ago`
+  const diffMonth = Math.round(diffDay / 30)
+  if (diffMonth < 12) return `${diffMonth}mo ago`
   return formatDateTime(value, timeZone)
 }
 

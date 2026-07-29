@@ -13,6 +13,7 @@ export type SortKey =
   | 'priority'
   | 'property'
   | 'created'
+  | 'updated'
   | 'due'
   | 'assignee'
   | 'reporter'
@@ -35,6 +36,9 @@ export const SORT_COLUMNS: Record<
   priority: { column: 'priority', nullable: false },
   property: { column: 'property', nullable: true },
   created: { column: 'created_at', nullable: false },
+  // updated_at is NOT NULL with a default, and the work_orders_set_updated_at
+  // trigger keeps it current, so it never needs null handling.
+  updated: { column: 'updated_at', nullable: false },
   due: { column: 'due_at', nullable: true },
   assignee: { column: 'assignee_name', nullable: true },
   reporter: { column: 'reported_by_name', nullable: true },
