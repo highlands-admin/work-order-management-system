@@ -1,8 +1,9 @@
 'use client'
 
-import { RiArrowDownSLine, RiCloseLine, RiInboxLine } from '@remixicon/react'
+import { RiArrowDownSLine, RiInboxLine, RiMapPinLine } from '@remixicon/react'
 import { memo, useCallback, useMemo, useState } from 'react'
 
+import { Button } from '@/components/ui/button'
 import {
   MultiSelectFilter,
   type Option,
@@ -43,10 +44,18 @@ const BUCKET_LABELS: Record<QueueBucket, string> = {
 }
 
 export function SubmissionQueue({
+  header,
+  errorMessage,
   pending,
   canModerate,
   timeZone,
 }: {
+  // The page's title block, rendered on the server and passed down so it can
+  // share a row with the facility filter without the heading itself becoming
+  // client-rendered. Server JSX handed to a Client Component as a prop is
+  // already rendered when it arrives; the client only positions it.
+  header: React.ReactNode
+  errorMessage: string | null
   pending: QueueEntry[]
   canModerate: boolean
   timeZone: string
@@ -90,81 +99,97 @@ export function SubmissionQueue({
         : `No ${CATEGORY_LABELS[active as WorkOrderCategory]} work orders pending.`
 
   return (
-    <div className="flex flex-col gap-4">
-      <Tabs value={active} onValueChange={(value) => setActive(String(value))}>
-        <TabsList>
-          <TabsTab value={ALL}>
-            All
-            <TabCount>{scoped.length}</TabCount>
-          </TabsTab>
-          {WORK_ORDER_CATEGORIES_BY_LABEL.map((category) => (
-            <TabsTab key={category} value={category}>
-              {CATEGORY_LABELS[category]}
-              <TabCount>{byCategory[category] ?? 0}</TabCount>
-            </TabsTab>
-          ))}
-        </TabsList>
-      </Tabs>
+    <div className="flex flex-col gap-8">
+      {/* Title block on the left, facility filter pinned to the right end of the
+          same row. It scopes the whole queue rather than one section of it, so it
+          belongs beside the page title, not buried in the list controls. */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        {header}
 
-      {/* One facility means the filter can only be a no-op, so it stays hidden
-          until the queue actually spans more than one. */}
-      {facilityOptions.length > 1 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* One facility means the filter can only be a no-op, so it stays hidden
+            until the queue actually spans more than one. */}
+        {facilityOptions.length > 1 ? (
           <MultiSelectFilter
             label="Facility"
             options={facilityOptions}
             selected={facilities}
             onChange={setFacilities}
+            trigger={
+              <Button
+                type="button"
+                variant="outline"
+                // The selection reads off the trigger itself, so an active
+                // filter needs no chip row underneath shifting the list down.
+                className={cn(
+                  'h-9 shrink-0 font-normal',
+                  facilities.length > 0 && 'border-foreground/30'
+                )}
+              >
+                <RiMapPinLine className="size-4 opacity-70" />
+                {facilitySummary(facilities)}
+                <RiArrowDownSLine className="size-4 opacity-60" />
+              </Button>
+            }
           />
-          {facilities.map((property) => (
-            <button
-              key={property}
-              type="button"
-              onClick={() =>
-                setFacilities((prev) => prev.filter((v) => v !== property))
-              }
-              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/70"
-            >
-              {PROPERTY_LABELS[property]}
-              <RiCloseLine className="size-3.5 opacity-60" aria-hidden="true" />
-              <span className="sr-only">Remove filter</span>
-            </button>
-          ))}
-        </div>
+        ) : null}
+      </div>
+
+      {errorMessage ? (
+        <p className="text-sm text-destructive">{errorMessage}</p>
       ) : null}
 
-      {list.length === 0 ? (
-        <EmptyState message={emptyMessage} />
-      ) : (
-        <div className="flex flex-col gap-6">
-          {BUCKET_ORDER.map((bucket) => {
-            const items = list.filter((item) => item.bucket === bucket)
-            if (items.length === 0) return null
-            return (
-              <section key={bucket} className="flex flex-col gap-2">
-                <SectionHeading
-                  label={BUCKET_LABELS[bucket]}
-                  count={items.length}
-                  urgent={bucket === 'immediate'}
-                />
-                <ul className="divide-y divide-border overflow-hidden rounded-xl border bg-card">
-                  {items.map((item) => (
-                    <QueueListRow
-                      key={item.id}
-                      item={item}
-                      expanded={expandedId === item.id}
-                      canModerate={canModerate}
-                      timeZone={timeZone}
-                      onToggle={handleToggle}
-                      onDone={handleDone}
-                    />
-                  ))}
-                </ul>
-              </section>
-            )
-          })}
-        </div>
-      )}
+      <div className="flex flex-col gap-4">
+        <Tabs
+          value={active}
+          onValueChange={(value) => setActive(String(value))}
+        >
+          <TabsList>
+            <TabsTab value={ALL}>
+              All
+              <TabCount>{scoped.length}</TabCount>
+            </TabsTab>
+            {WORK_ORDER_CATEGORIES_BY_LABEL.map((category) => (
+              <TabsTab key={category} value={category}>
+                {CATEGORY_LABELS[category]}
+                <TabCount>{byCategory[category] ?? 0}</TabCount>
+              </TabsTab>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        {list.length === 0 ? (
+          <EmptyState message={emptyMessage} />
+        ) : (
+          <div className="flex flex-col gap-6">
+            {BUCKET_ORDER.map((bucket) => {
+              const items = list.filter((item) => item.bucket === bucket)
+              if (items.length === 0) return null
+              return (
+                <section key={bucket} className="flex flex-col gap-2">
+                  <SectionHeading
+                    label={BUCKET_LABELS[bucket]}
+                    count={items.length}
+                    urgent={bucket === 'immediate'}
+                  />
+                  <ul className="divide-y divide-border overflow-hidden rounded-xl border bg-card">
+                    {items.map((item) => (
+                      <QueueListRow
+                        key={item.id}
+                        item={item}
+                        expanded={expandedId === item.id}
+                        canModerate={canModerate}
+                        timeZone={timeZone}
+                        onToggle={handleToggle}
+                        onDone={handleDone}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -330,6 +355,15 @@ function TabCount({ children }: { children: React.ReactNode }) {
       {children}
     </span>
   )
+}
+
+// What the facility trigger reads when closed. Naming the first selection keeps
+// the active filter legible at a glance; past one, a count is shorter than a
+// list long enough to crowd the tabs beside it.
+function facilitySummary(facilities: Property[]): string {
+  if (facilities.length === 0) return 'All Facilities'
+  const first = PROPERTY_LABELS[facilities[0]]
+  return facilities.length === 1 ? first : `${first} +${facilities.length - 1}`
 }
 
 // Facilities represented in the queue, in the canonical PROPERTIES order rather

@@ -123,23 +123,21 @@ export default async function SubmissionsPage() {
   const timeZone = await getTimeZone()
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold">
-          {canModerate ? 'Approval Queue' : 'Submissions'}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {canModerate
-            ? 'Work orders awaiting your review.'
-            : 'Your work orders awaiting administrator approval.'}
-        </p>
-      </div>
-
-      {fetchError ? (
-        <p className="text-sm text-destructive">{fetchError.message}</p>
-      ) : null}
-
+    <div className="mx-auto flex w-full max-w-4xl flex-col">
       <SubmissionQueue
+        header={
+          <div>
+            <h1 className="font-heading text-2xl font-semibold">
+              {canModerate ? 'Approval Queue' : 'Submissions'}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {canModerate
+                ? 'Work orders awaiting your review.'
+                : 'Your work orders awaiting administrator approval.'}
+            </p>
+          </div>
+        }
+        errorMessage={fetchError?.message ?? null}
         pending={pending}
         canModerate={canModerate}
         timeZone={timeZone}
