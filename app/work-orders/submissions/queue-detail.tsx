@@ -25,11 +25,11 @@ import {
 import { formatDateTime, formatRelative } from '@/lib/datetime/format'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import {
-  PROPERTY_LABELS,
   type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
 } from '@/lib/schemas/work-order'
+import { formatLocation } from '@/lib/work-orders/location'
 
 import type { AuthState } from '../../(auth)/auth-state'
 import { initialAuthState } from '../../(auth)/auth-state'
@@ -109,11 +109,7 @@ export function QueueDetail({
     }
   }, [rejectState, onDone])
 
-  const locationLabel = item.property
-    ? item.unitNumber
-      ? `${PROPERTY_LABELS[item.property]} · Unit ${item.unitNumber}`
-      : PROPERTY_LABELS[item.property]
-    : null
+  const locationLabel = formatLocation(item.property, item.unitNumber)
 
   return (
     <div className="border-t bg-muted/20 px-4 py-4">

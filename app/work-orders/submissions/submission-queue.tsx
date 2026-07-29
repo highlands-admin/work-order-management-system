@@ -1,16 +1,24 @@
 'use client'
 
-import { RiArrowDownSLine, RiInboxLine } from '@remixicon/react'
-import { memo, useCallback, useState } from 'react'
+import { RiArrowDownSLine, RiCloseLine, RiInboxLine } from '@remixicon/react'
+import { memo, useCallback, useMemo, useState } from 'react'
 
+import {
+  MultiSelectFilter,
+  type Option,
+} from '@/components/ui/multi-select-filter'
 import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
 import { formatDate } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
+  PROPERTIES,
+  PROPERTY_LABELS,
   WORK_ORDER_CATEGORIES_BY_LABEL,
+  type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
 } from '@/lib/schemas/work-order'
+import { formatLocation } from '@/lib/work-orders/location'
 import { cn } from '@/lib/utils'
 
 import { QueueDetail, type QueueBucket, type QueueEntry } from './queue-detail'
@@ -44,6 +52,7 @@ export function SubmissionQueue({
   timeZone: string
 }) {
   const [active, setActive] = useState<string>(ALL)
+  const [facilities, setFacilities] = useState<Property[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // Stable identities so memoized rows don't all re-render on every toggle; a
@@ -54,18 +63,31 @@ export function SubmissionQueue({
   }, [])
   const handleDone = useCallback(() => setExpandedId(null), [])
 
-  const byCategory = countByCategory(pending)
-  const list =
-    active === ALL
+  // Only offer facilities that actually have something pending, so the filter
+  // never lists a choice that empties the queue.
+  const facilityOptions = useMemo(() => facilityOptionsFor(pending), [pending])
+
+  // Facility narrows the pool before the category tabs read it, so the tab
+  // counts describe what a tab would actually show under the active filter.
+  const scoped =
+    facilities.length === 0
       ? pending
-      : pending.filter((item) => item.category === active)
+      : pending.filter(
+          (item) => item.property !== null && facilities.includes(item.property)
+        )
+
+  const byCategory = countByCategory(scoped)
+  const list =
+    active === ALL ? scoped : scoped.filter((item) => item.category === active)
 
   const emptyMessage =
     pending.length === 0
       ? canModerate
         ? 'Nothing to review right now.'
         : 'No submissions awaiting review.'
-      : `No ${CATEGORY_LABELS[active as WorkOrderCategory]} work orders pending.`
+      : facilities.length > 0
+        ? 'No pending work orders match these filters.'
+        : `No ${CATEGORY_LABELS[active as WorkOrderCategory]} work orders pending.`
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,7 +95,7 @@ export function SubmissionQueue({
         <TabsList>
           <TabsTab value={ALL}>
             All
-            <TabCount>{pending.length}</TabCount>
+            <TabCount>{scoped.length}</TabCount>
           </TabsTab>
           {WORK_ORDER_CATEGORIES_BY_LABEL.map((category) => (
             <TabsTab key={category} value={category}>
@@ -83,6 +105,33 @@ export function SubmissionQueue({
           ))}
         </TabsList>
       </Tabs>
+
+      {/* One facility means the filter can only be a no-op, so it stays hidden
+          until the queue actually spans more than one. */}
+      {facilityOptions.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <MultiSelectFilter
+            label="Facility"
+            options={facilityOptions}
+            selected={facilities}
+            onChange={setFacilities}
+          />
+          {facilities.map((property) => (
+            <button
+              key={property}
+              type="button"
+              onClick={() =>
+                setFacilities((prev) => prev.filter((v) => v !== property))
+              }
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/70"
+            >
+              {PROPERTY_LABELS[property]}
+              <RiCloseLine className="size-3.5 opacity-60" aria-hidden="true" />
+              <span className="sr-only">Remove filter</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {list.length === 0 ? (
         <EmptyState message={emptyMessage} />
@@ -135,6 +184,10 @@ const QueueListRow = memo(function QueueListRow({
   onToggle: (id: string) => void
   onDone: () => void
 }) {
+  // Facility leads the meta line and carries a little more weight than the rest
+  // of it: it's the first thing a reviewer scans for, and on narrow screens the
+  // line truncates from the right, so it stays visible.
+  const facility = formatLocation(item.property, item.unitNumber)
   const requester =
     item.reporterName ?? item.reporterEmail ?? item.reporterPhone
   const meta = [
@@ -164,8 +217,14 @@ const QueueListRow = memo(function QueueListRow({
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{item.title}</p>
-          {meta ? (
+          {facility || meta ? (
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {facility ? (
+                <span className="font-medium text-foreground/80">
+                  {facility}
+                </span>
+              ) : null}
+              {facility && meta ? ' · ' : null}
               {meta}
             </p>
           ) : null}
@@ -270,6 +329,18 @@ function TabCount({ children }: { children: React.ReactNode }) {
     <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground/10 px-1 text-[0.6875rem] font-medium leading-none tabular-nums text-muted-foreground">
       {children}
     </span>
+  )
+}
+
+// Facilities represented in the queue, in the canonical PROPERTIES order rather
+// than the order they happen to appear in the list.
+function facilityOptionsFor(items: QueueEntry[]): Option<Property>[] {
+  const present = new Set<Property>()
+  for (const item of items) {
+    if (item.property) present.add(item.property)
+  }
+  return PROPERTIES.filter((property) => present.has(property)).map(
+    (property) => ({ value: property, label: PROPERTY_LABELS[property] })
   )
 }
 
