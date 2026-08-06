@@ -19,21 +19,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Must match the Node version the server runs the app under
+      # (/opt/node-24/bin/node) and the engines field in package.json.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
 
       # NEXT_PUBLIC_* values are inlined into the client bundle at build time,
       # so they must be present here, sourced from repository secrets.
+      #
+      # NEXT_DEPLOYMENT_ID stamps the build with the commit SHA. Next then adds
+      # it to asset URLs and navigation requests, and a client holding assets
+      # from an older deploy gets a full page reload instead of a "Failed to
+      # find Server Action" error. The server keeps only one build at a time, so
+      # without this every tab left open across a deploy breaks on its next
+      # mutation.
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
           NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
+          NEXT_DEPLOYMENT_ID: ${{ github.sha }}
         run: npm run build
 
       # Standalone omits static/ and public/, so assemble the full runnable tree.
@@ -64,12 +74,18 @@ jobs:
 
       # Reload if already running; otherwise start it. node --env-file loads the
       # server-only secrets from /var/www/wo/.env at process start.
+      #
+      # The interpreter is pinned because the system node is 20 and is shared
+      # with another app on this server. Node 24 is installed alongside it at
+      # /opt/node-24 for this app only, so a cold start that fell through to
+      # `pm2 start` without the flag would silently run on the wrong major.
       - name: Reload app
         run: |
           ssh "${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }}" '
             cd /var/www/wo &&
             (pm2 reload wo --update-env ||
              PORT=3000 HOSTNAME=127.0.0.1 pm2 start server.js --name wo \
+               --interpreter /opt/node-24/bin/node \
                --node-args="--env-file=/var/www/wo/.env") &&
             pm2 save
           '
