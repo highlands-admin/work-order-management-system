@@ -109,6 +109,8 @@ export const PROPERTIES = [
   'cartersville',
   'columbia',
   'forest_city',
+  'clinton',
+  'corporate',
 ] as const
 
 export type Property = (typeof PROPERTIES)[number]
@@ -121,6 +123,8 @@ export const PROPERTY_LABELS: Record<Property, string> = {
   cartersville: 'Cartersville',
   columbia: 'Columbia',
   forest_city: 'Forest City',
+  clinton: 'Clinton',
+  corporate: 'Corporate',
 }
 
 // Recurrence cadences for recurring work orders (inspections and licenses).
