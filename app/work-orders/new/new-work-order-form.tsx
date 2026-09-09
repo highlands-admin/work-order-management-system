@@ -47,7 +47,7 @@ import {
   RECURRING_CATEGORIES,
   WORK_ORDER_CATEGORIES_BY_LABEL,
   WORK_ORDER_PRIORITIES,
-  PROPERTIES,
+  PROPERTIES_BY_LABEL,
   type MarketingRequestType,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
@@ -119,6 +119,9 @@ type ReporterDefaults = {
 type NewWorkOrderFormProps = {
   reporterDefaults?: ReporterDefaults
   assignableUsers: AssignableUser[]
+  // Requester submissions get their assignee at approval time, so only roles
+  // that file approved work orders directly (administrators) see the field.
+  canAssign: boolean
 }
 
 // Draft restore reads sessionStorage, which does not exist during SSR. Render
@@ -149,6 +152,7 @@ export function NewWorkOrderForm(props: NewWorkOrderFormProps): ReactElement {
 function NewWorkOrderFormInner({
   reporterDefaults,
   assignableUsers,
+  canAssign,
   initialDraft,
 }: NewWorkOrderFormProps & { initialDraft: WorkOrderDraft | null }) {
   // Value -> label maps let the Select render the chosen option's label (not the
@@ -587,37 +591,39 @@ function NewWorkOrderFormInner({
             </Field>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Field data-invalid={assignedToError ? 'true' : undefined}>
-                <FieldLabel htmlFor="assignedTo">
-                  Assignee <Optional />
-                </FieldLabel>
-                <Select
-                  name="assignedTo"
-                  items={assigneeItems}
-                  value={assignedToValue}
-                  onValueChange={(v) => {
-                    setAssignedToValue(typeof v === 'string' ? v : '')
-                    editField('assignedTo')
-                  }}
-                >
-                  <SelectTrigger
-                    id="assignedTo"
-                    className="w-full"
-                    aria-invalid={assignedToError ? true : undefined}
+              {canAssign ? (
+                <Field data-invalid={assignedToError ? 'true' : undefined}>
+                  <FieldLabel htmlFor="assignedTo">
+                    Assignee <Optional />
+                  </FieldLabel>
+                  <Select
+                    name="assignedTo"
+                    items={assigneeItems}
+                    value={assignedToValue}
+                    onValueChange={(v) => {
+                      setAssignedToValue(typeof v === 'string' ? v : '')
+                      editField('assignedTo')
+                    }}
                   >
-                    <SelectValue placeholder="Unassigned" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={null}>Unassigned</SelectItem>
-                    {assignableUsers.map((u) => (
-                      <SelectItem key={u.user_id} value={u.user_id}>
-                        {formatAssigneeLabel(u)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError>{assignedToError}</FieldError>
-              </Field>
+                    <SelectTrigger
+                      id="assignedTo"
+                      className="w-full"
+                      aria-invalid={assignedToError ? true : undefined}
+                    >
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={null}>Unassigned</SelectItem>
+                      {assignableUsers.map((u) => (
+                        <SelectItem key={u.user_id} value={u.user_id}>
+                          {formatAssigneeLabel(u)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError>{assignedToError}</FieldError>
+                </Field>
+              ) : null}
 
               <Field data-invalid={dueAtError ? 'true' : undefined}>
                 <FieldLabel htmlFor="dueAt">
@@ -774,7 +780,7 @@ function NewWorkOrderFormInner({
                     <SelectValue placeholder="Select a facility" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PROPERTIES.map((p) => (
+                    {PROPERTIES_BY_LABEL.map((p) => (
                       <SelectItem key={p} value={p}>
                         {PROPERTY_LABELS[p]}
                       </SelectItem>

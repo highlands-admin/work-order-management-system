@@ -8,6 +8,10 @@ import {
   type WorkOrderPriority,
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
+import {
+  fetchAssignableUsers,
+  type AssignableUser,
+} from '@/lib/work-orders/assignable-users'
 
 import { type QueueBucket, type QueueEntry } from './queue-detail'
 import { SubmissionQueue } from './submission-queue'
@@ -115,6 +119,12 @@ export default async function SubmissionsPage() {
     ?.user_role
   const canModerate = userRole === 'administrator'
 
+  // Only the approve form needs the directory, and only administrators see it,
+  // so requesters never pay for the extra round trip.
+  const assignableUsers: AssignableUser[] = canModerate
+    ? await fetchAssignableUsers(supabase)
+    : []
+
   const now = currentTime()
   const pending = ((pendingResult.data ?? []) as SubmissionRow[])
     .map((row) => toEntry(row, now))
@@ -140,6 +150,7 @@ export default async function SubmissionsPage() {
         errorMessage={fetchError?.message ?? null}
         pending={pending}
         canModerate={canModerate}
+        assignableUsers={assignableUsers}
         timeZone={timeZone}
       />
     </div>

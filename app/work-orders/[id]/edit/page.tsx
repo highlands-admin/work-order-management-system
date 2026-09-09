@@ -141,6 +141,7 @@ export default async function EditWorkOrderPage({
           workOrder={data}
           allowedStatuses={allowedStatuses}
           assignableUsers={assignableUsers}
+          canAssign={isAdmin || isApproved}
           attachments={attachments}
         />
       ) : isTechnician || isInspector ? (

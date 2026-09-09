@@ -85,6 +85,20 @@ export const rejectWorkOrderSchema = z.object({
 
 export type RejectWorkOrderInput = z.infer<typeof rejectWorkOrderSchema>
 
+// Approving a submission is also where the administrator picks who works it, so
+// the approve form carries an optional assignee. Empty means the work order is
+// approved and left unassigned.
+export const approveWorkOrderSchema = z.object({
+  assignedTo: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined))
+    .pipe(z.uuid({ message: 'Select a valid assignee' }).optional()),
+})
+
+export type ApproveWorkOrderInput = z.infer<typeof approveWorkOrderSchema>
+
 export const WORK_ORDER_PRIORITIES = [
   'urgent',
   'high',
@@ -126,6 +140,13 @@ export const PROPERTY_LABELS: Record<Property, string> = {
   clinton: 'Clinton',
   corporate: 'Corporate',
 }
+
+// Properties ordered alphabetically by their display label, for rendering
+// selectable lists (dropdowns, filters, queue facets) in the frontend.
+// PROPERTIES keeps its own order because it backs the Postgres enum.
+export const PROPERTIES_BY_LABEL: readonly Property[] = [...PROPERTIES].sort(
+  (a, b) => PROPERTY_LABELS[a].localeCompare(PROPERTY_LABELS[b])
+)
 
 // Recurrence cadences for recurring work orders (inspections and licenses).
 // Mirrors the recurrence_frequency enum in the database.

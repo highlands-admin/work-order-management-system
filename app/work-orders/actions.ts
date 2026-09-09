@@ -16,6 +16,7 @@ import {
   MAIN_TABLE_STATUSES,
   REJECTABLE_MAIN_STATUSES,
   addWorkOrderNoteSchema,
+  approveWorkOrderSchema,
   changePrioritySchema,
   changeStatusSchema,
   createWorkOrderSchema,
@@ -291,11 +292,15 @@ export async function createWorkOrderAction(
   // Requester submissions enter the approval queue; admins create approved
   // work orders directly. RLS independently enforces the same mapping, so a
   // tampered request cannot skip approval.
-  const initialStatus: WorkOrderStatus = APPROVAL_REQUIRED_ROLES.has(
+  const needsApproval = APPROVAL_REQUIRED_ROLES.has(
     claims.user_role as 'requester'
   )
-    ? 'pending'
-    : 'open'
+  const initialStatus: WorkOrderStatus = needsApproval ? 'pending' : 'open'
+
+  // Submissions that need approval are assigned by the administrator at
+  // approval time, so the form omits the assignee field for those roles and any
+  // value that arrives anyway is dropped here.
+  const assignedTo = needsApproval ? undefined : parsed.data.assignedTo
 
   // When a frequency is set, the work order is filed as a recurring order: create
   // the template first, then file its first occurrence below, linked to it. The
@@ -322,7 +327,7 @@ export async function createWorkOrderAction(
         unit_number: parsed.data.unitNumber ?? null,
         description: parsed.data.description,
         provider: parsed.data.provider ?? null,
-        assigned_to: parsed.data.assignedTo ?? null,
+        assigned_to: assignedTo ?? null,
         frequency: parsed.data.frequency,
         anchor_date: parsed.data.dueAt.slice(0, 10),
         next_due_at: nextOccurrenceAfter(
@@ -372,7 +377,7 @@ export async function createWorkOrderAction(
       marketing_size_format: parsed.data.marketingSizeFormat ?? null,
       marketing_size_format_other: parsed.data.marketingSizeFormatOther ?? null,
       status: initialStatus,
-      assigned_to: parsed.data.assignedTo ?? null,
+      assigned_to: assignedTo ?? null,
       notify_recipients: parsed.data.notifyRecipients,
       created_by: claims.sub,
       updated_by: claims.sub,
@@ -432,10 +437,10 @@ export async function createWorkOrderAction(
   }
 
   // Notify the assignee (unless they assigned it to themselves).
-  if (parsed.data.assignedTo && parsed.data.assignedTo !== claims.sub) {
+  if (assignedTo && assignedTo !== claims.sub) {
     await notifyAssignee(
       supabase,
-      parsed.data.assignedTo,
+      assignedTo,
       actorName(claims),
       notificationWorkOrder
     )
@@ -538,12 +543,13 @@ export async function updateWorkOrderAction(
   // edit and tell whether it reassigns the work order before notifying.
   const { data: existing } = await supabase
     .from('work_orders')
-    .select('created_by, assigned_to, work_order_code')
+    .select('created_by, assigned_to, work_order_code, status')
     .eq('id', workOrderId)
     .maybeSingle<{
       created_by: string
       assigned_to: string | null
       work_order_code: string
+      status: WorkOrderStatus
     }>()
 
   if (!existing) {
@@ -564,6 +570,15 @@ export async function updateWorkOrderAction(
       'You can only edit work orders you created or are assigned to.'
     )
   }
+
+  // A submission still waiting on approval is assigned by the administrator who
+  // approves it, so a non-admin editing their own pending or rejected work order
+  // cannot set the assignee. The form hides the field in that case; this keeps a
+  // hand-crafted request from setting it anyway.
+  const canAssign =
+    claims.user_role === 'administrator' ||
+    (existing.status !== 'pending' && existing.status !== 'rejected')
+  const assignedTo = canAssign ? parsed.data.assignedTo : existing.assigned_to
 
   const { error } = await supabase
     .from('work_orders')
@@ -593,7 +608,7 @@ export async function updateWorkOrderAction(
       marketing_key_message: parsed.data.marketingKeyMessage ?? null,
       marketing_size_format: parsed.data.marketingSizeFormat ?? null,
       marketing_size_format_other: parsed.data.marketingSizeFormatOther ?? null,
-      assigned_to: parsed.data.assignedTo ?? null,
+      assigned_to: assignedTo ?? null,
       notify_recipients: parsed.data.notifyRecipients,
       updated_by: claims.sub,
     })
@@ -619,7 +634,7 @@ export async function updateWorkOrderAction(
 
   // Notify the assignee only when the assignee actually changed to someone new
   // (and not the editor themselves).
-  const newAssignee = parsed.data.assignedTo
+  const newAssignee = assignedTo
   if (
     newAssignee &&
     newAssignee !== existing?.assigned_to &&
@@ -880,17 +895,29 @@ export async function changeWorkOrderPriorityAction(
 export async function approveWorkOrderAction(
   workOrderId: string,
   _prev: AuthState,
-  _formData: FormData
+  formData: FormData
 ): Promise<AuthState> {
+  // Approving is also where the assignee gets set, so the approval queue's form
+  // carries an optional assignedTo. The detail page's Approve button has no such
+  // field, and a Select with nothing chosen may submit nothing at all, so a
+  // hidden marker says whether the submission had an opinion about the assignee.
+  // Without it, an approval from the detail page would silently unassign the row.
+  const assigneeSubmitted = formData.get('assigneeSubmitted') === '1'
+  const raw = { assignedTo: String(formData.get('assignedTo') ?? '') }
+  const parsed = approveWorkOrderSchema.safeParse(raw)
+  if (!parsed.success) {
+    return formError(z4FieldErrors(parsed.error), raw)
+  }
+
   const supabase = await createClient()
   const { data: claimsData } = await supabase.auth.getClaims()
   const claims = claimsData?.claims as ActorClaims | undefined
 
   if (!claims?.sub) {
-    return formError(undefined, {}, 'You must be signed in to approve.')
+    return formError(undefined, raw, 'You must be signed in to approve.')
   }
   if (claims.user_role !== 'administrator') {
-    return formError(undefined, {}, 'Only administrators can approve work orders.')
+    return formError(undefined, raw, 'Only administrators can approve work orders.')
   }
 
   // Select the approved row back so we can email the requester. The fields
@@ -902,6 +929,11 @@ export async function approveWorkOrderAction(
       rejected_reason: null,
       rejected_at: null,
       rejected_by: null,
+      // Leaving the dropdown empty means "approve without assigning", so the
+      // column is written either way rather than left at its previous value.
+      ...(assigneeSubmitted
+        ? { assigned_to: parsed.data.assignedTo ?? null }
+        : {}),
       updated_by: claims.sub,
     })
     .eq('id', workOrderId)
@@ -925,11 +957,10 @@ export async function approveWorkOrderAction(
     }>()
 
   if (error) {
-    return formError(undefined, {}, error.message)
+    return formError(undefined, raw, error.message)
   }
 
-  // Tell the requester their submission is now approved and active.
-  await notifyRequesterApproved(supabase, workOrder.created_by, actorName(claims), {
+  const approvedWorkOrder: AssignmentWorkOrder = {
     id: workOrder.id,
     code: workOrder.work_order_code,
     title: workOrder.title,
@@ -942,7 +973,29 @@ export async function approveWorkOrderAction(
     description: workOrder.description,
     reporterName: workOrder.reported_by_name,
     reporterEmail: workOrder.reported_by_email,
-  })
+  }
+
+  // Tell the new assignee the work is theirs (unless the approver took it on).
+  if (
+    assigneeSubmitted &&
+    parsed.data.assignedTo &&
+    parsed.data.assignedTo !== claims.sub
+  ) {
+    await notifyAssignee(
+      supabase,
+      parsed.data.assignedTo,
+      actorName(claims),
+      approvedWorkOrder
+    )
+  }
+
+  // Tell the requester their submission is now approved and active.
+  await notifyRequesterApproved(
+    supabase,
+    workOrder.created_by,
+    actorName(claims),
+    approvedWorkOrder
+  )
 
   revalidatePath('/work-orders/submissions')
   revalidatePath('/work-orders')

@@ -31,7 +31,7 @@ import {
   FREQUENCY_LABELS,
   PRIORITY_LABELS,
   PROPERTY_LABELS,
-  PROPERTIES,
+  PROPERTIES_BY_LABEL,
   RECURRENCE_FREQUENCIES,
   WORK_ORDER_CATEGORIES_BY_LABEL,
   WORK_ORDER_PRIORITIES,
@@ -328,7 +328,7 @@ export function EditRecurringForm({
                   <SelectValue placeholder="Select a facility" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PROPERTIES.map((p) => (
+                  {PROPERTIES_BY_LABEL.map((p) => (
                     <SelectItem key={p} value={p}>
                       {PROPERTY_LABELS[p]}
                     </SelectItem>

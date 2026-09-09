@@ -17,6 +17,13 @@ import { FormError } from '@/components/auth/form-error'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
   CategoryBadge,
@@ -29,6 +36,10 @@ import {
   type WorkOrderCategory,
   type WorkOrderPriority,
 } from '@/lib/schemas/work-order'
+import {
+  formatAssigneeLabel,
+  type AssignableUser,
+} from '@/lib/work-orders/assignable-users'
 import { formatLocation } from '@/lib/work-orders/location'
 
 import type { AuthState } from '../../(auth)/auth-state'
@@ -61,15 +72,24 @@ export type QueueEntry = {
 export function QueueDetail({
   item,
   canModerate,
+  assignableUsers,
   timeZone,
   onDone,
 }: {
   item: QueueEntry
   canModerate: boolean
+  assignableUsers: AssignableUser[]
   timeZone: string
   onDone: () => void
 }) {
   const [showReject, setShowReject] = useState(false)
+  const [assignedTo, setAssignedTo] = useState('')
+
+  // Value -> label map so the trigger can show the chosen name while the list
+  // items are unmounted, and still fall back to the placeholder when empty.
+  const assigneeItems = Object.fromEntries(
+    assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
+  )
 
   const boundApprove = approveWorkOrderAction.bind(null, item.id)
   const [approveState, approveAction] = useActionState(
@@ -86,6 +106,9 @@ export function QueueDetail({
     rejectState.fieldErrors
   )
   const reasonError = getError('reason')
+  const { markEdited: markApproveEdited, getError: getApproveError } =
+    useServerErrors(approveState, approveState.fieldErrors)
+  const assignedToError = getApproveError('assignedTo')
 
   const prevApprove = useRef<AuthState>(initialAuthState)
   useEffect(() => {
@@ -221,27 +244,83 @@ export function QueueDetail({
             </div>
           </form>
         ) : (
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="cta"
-              className="w-28"
-              onClick={() => setShowReject(true)}
-            >
-              Reject
-            </Button>
-            <form action={approveAction}>
+          // Approving is the moment the work order joins the live queue, so the
+          // assignee is picked here rather than in a follow-up edit. Reject sits
+          // inside the same form as a plain button, so it only ever swaps the
+          // panel and never submits the approval.
+          <form
+            action={approveAction}
+            noValidate
+            className="flex flex-col gap-4 border-t pt-4"
+          >
+            <FormError state={approveState} />
+            {/* Tells the action this submission carries an assignee decision,
+                including "leave it unassigned". */}
+            <input type="hidden" name="assigneeSubmitted" value="1" />
+            <FieldGroup>
+              <Field data-invalid={assignedToError ? 'true' : undefined}>
+                <FieldLabel htmlFor={`assignedTo-${item.id}`}>
+                  Assignee <Optional />
+                </FieldLabel>
+                <Select
+                  name="assignedTo"
+                  items={assigneeItems}
+                  value={assignedTo}
+                  onValueChange={(v) => {
+                    setAssignedTo(typeof v === 'string' ? v : '')
+                    markApproveEdited('assignedTo')
+                  }}
+                >
+                  <SelectTrigger
+                    id={`assignedTo-${item.id}`}
+                    className="w-full sm:max-w-xs"
+                    aria-invalid={assignedToError ? true : undefined}
+                  >
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>Unassigned</SelectItem>
+                    {assignableUsers.map((u) => (
+                      <SelectItem key={u.user_id} value={u.user_id}>
+                        {formatAssigneeLabel(u)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{assignedToError}</FieldError>
+              </Field>
+            </FieldGroup>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="cta"
+                className="w-28"
+                onClick={() => setShowReject(true)}
+              >
+                Reject
+              </Button>
               <SubmitButton
                 label="Approve"
                 pendingLabel="Approving..."
                 className="w-28"
               />
-            </form>
-          </div>
+            </div>
+          </form>
         )}
       </div>
     </div>
+  )
+}
+
+function Optional() {
+  return (
+    <span
+      className="text-xs font-normal text-muted-foreground"
+      aria-hidden="true"
+    >
+      (optional)
+    </span>
   )
 }
 

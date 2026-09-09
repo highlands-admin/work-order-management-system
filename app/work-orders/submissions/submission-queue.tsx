@@ -12,13 +12,14 @@ import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
 import { formatDate } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
-  PROPERTIES,
+  PROPERTIES_BY_LABEL,
   PROPERTY_LABELS,
   WORK_ORDER_CATEGORIES_BY_LABEL,
   type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
 } from '@/lib/schemas/work-order'
+import type { AssignableUser } from '@/lib/work-orders/assignable-users'
 import { formatLocation } from '@/lib/work-orders/location'
 import { cn } from '@/lib/utils'
 
@@ -48,6 +49,7 @@ export function SubmissionQueue({
   errorMessage,
   pending,
   canModerate,
+  assignableUsers,
   timeZone,
 }: {
   // The page's title block, rendered on the server and passed down so it can
@@ -58,6 +60,8 @@ export function SubmissionQueue({
   errorMessage: string | null
   pending: QueueEntry[]
   canModerate: boolean
+  // Directory for the approve form's assignee picker. Empty for non-moderators.
+  assignableUsers: AssignableUser[]
   timeZone: string
 }) {
   const [active, setActive] = useState<string>(ALL)
@@ -178,6 +182,7 @@ export function SubmissionQueue({
                         item={item}
                         expanded={expandedId === item.id}
                         canModerate={canModerate}
+                        assignableUsers={assignableUsers}
                         timeZone={timeZone}
                         onToggle={handleToggle}
                         onDone={handleDone}
@@ -198,6 +203,7 @@ const QueueListRow = memo(function QueueListRow({
   item,
   expanded,
   canModerate,
+  assignableUsers,
   timeZone,
   onToggle,
   onDone,
@@ -205,6 +211,7 @@ const QueueListRow = memo(function QueueListRow({
   item: QueueEntry
   expanded: boolean
   canModerate: boolean
+  assignableUsers: AssignableUser[]
   timeZone: string
   onToggle: (id: string) => void
   onDone: () => void
@@ -266,6 +273,7 @@ const QueueListRow = memo(function QueueListRow({
         <QueueDetail
           item={item}
           canModerate={canModerate}
+          assignableUsers={assignableUsers}
           timeZone={timeZone}
           onDone={onDone}
         />
@@ -366,14 +374,14 @@ function facilitySummary(facilities: Property[]): string {
   return facilities.length === 1 ? first : `${first} +${facilities.length - 1}`
 }
 
-// Facilities represented in the queue, in the canonical PROPERTIES order rather
-// than the order they happen to appear in the list.
+// Facilities represented in the queue, alphabetically by label rather than in
+// the order they happen to appear in the list.
 function facilityOptionsFor(items: QueueEntry[]): Option<Property>[] {
   const present = new Set<Property>()
   for (const item of items) {
     if (item.property) present.add(item.property)
   }
-  return PROPERTIES.filter((property) => present.has(property)).map(
+  return PROPERTIES_BY_LABEL.filter((property) => present.has(property)).map(
     (property) => ({ value: property, label: PROPERTY_LABELS[property] })
   )
 }

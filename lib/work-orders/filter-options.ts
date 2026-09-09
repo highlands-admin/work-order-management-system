@@ -6,7 +6,7 @@ import type { Option } from '@/components/ui/multi-select-filter'
 import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
-  PROPERTIES,
+  PROPERTIES_BY_LABEL,
   PROPERTY_LABELS,
   STATUS_LABELS,
   WORK_ORDER_CATEGORIES_BY_LABEL,
@@ -30,7 +30,7 @@ export const PRIORITY_OPTIONS: Option<WorkOrderPriority>[] =
 export const CATEGORY_OPTIONS: Option<WorkOrderCategory>[] =
   WORK_ORDER_CATEGORIES_BY_LABEL.map((v) => ({ value: v, label: CATEGORY_LABELS[v] }))
 
-export const PROPERTY_OPTIONS: Option<Property>[] = PROPERTIES.map((v) => ({
+export const PROPERTY_OPTIONS: Option<Property>[] = PROPERTIES_BY_LABEL.map((v) => ({
   value: v,
   label: PROPERTY_LABELS[v],
 }))

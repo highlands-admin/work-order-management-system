@@ -58,6 +58,7 @@ export default async function NewWorkOrderPage() {
       <NewWorkOrderForm
         reporterDefaults={reporterDefaults}
         assignableUsers={assignableUsers}
+        canAssign={claims.user_role === 'administrator'}
       />
     </div>
   )

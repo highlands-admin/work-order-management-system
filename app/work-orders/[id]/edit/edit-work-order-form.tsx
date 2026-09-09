@@ -37,7 +37,7 @@ import {
   STATUS_LABELS,
   WORK_ORDER_CATEGORIES_BY_LABEL,
   WORK_ORDER_PRIORITIES,
-  PROPERTIES,
+  PROPERTIES_BY_LABEL,
   type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
@@ -87,11 +87,15 @@ export function EditWorkOrderForm({
   workOrder,
   allowedStatuses,
   assignableUsers,
+  canAssign,
   attachments,
 }: {
   workOrder: WorkOrder
   allowedStatuses: WorkOrderStatus[]
   assignableUsers: AssignableUser[]
+  // A submission still awaiting approval is assigned by the administrator who
+  // approves it, so non-admins editing one do not see the assignee field.
+  canAssign: boolean
   attachments: ExistingAttachment[]
 }) {
   // Value -> label maps let each Select show the chosen option's label (not the
@@ -247,40 +251,50 @@ export function EditWorkOrderForm({
       <FormSection
         id="assignment"
         title="Assignment"
-        description="Who is responsible for this work order."
+        description={
+          canAssign
+            ? 'Who is responsible for this work order.'
+            : 'An administrator sets the assignee when this submission is approved.'
+        }
       >
         <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field data-invalid={assignedToError ? 'true' : undefined}>
-            <FieldLabel htmlFor="assignedTo">
-              Assignee <Optional />
-            </FieldLabel>
-            <Select
-              name="assignedTo"
-              items={assigneeItems}
-              value={assignedToValue}
-              onValueChange={(v) => {
-                setAssignedToValue(typeof v === 'string' ? v : '')
-                markEdited('assignedTo')
-              }}
-            >
-              <SelectTrigger
-                id="assignedTo"
-                className="w-full"
-                aria-invalid={assignedToError ? true : undefined}
+          {canAssign ? (
+            <Field data-invalid={assignedToError ? 'true' : undefined}>
+              <FieldLabel htmlFor="assignedTo">
+                Assignee <Optional />
+              </FieldLabel>
+              <Select
+                name="assignedTo"
+                items={assigneeItems}
+                value={assignedToValue}
+                onValueChange={(v) => {
+                  setAssignedToValue(typeof v === 'string' ? v : '')
+                  markEdited('assignedTo')
+                }}
               >
-                <SelectValue placeholder="Unassigned" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={null}>Unassigned</SelectItem>
-                {assignableUsers.map((u) => (
-                  <SelectItem key={u.user_id} value={u.user_id}>
-                    {formatAssigneeLabel(u)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{assignedToError}</FieldError>
-          </Field>
+                <SelectTrigger
+                  id="assignedTo"
+                  className="w-full"
+                  aria-invalid={assignedToError ? true : undefined}
+                >
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={null}>Unassigned</SelectItem>
+                  {assignableUsers.map((u) => (
+                    <SelectItem key={u.user_id} value={u.user_id}>
+                      {formatAssigneeLabel(u)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldError>{assignedToError}</FieldError>
+            </Field>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Not assigned yet.
+            </p>
+          )}
         </FieldGroup>
       </FormSection>
 
@@ -581,7 +595,7 @@ export function EditWorkOrderForm({
                 <SelectValue placeholder="Select a facility" />
               </SelectTrigger>
               <SelectContent>
-                {PROPERTIES.map((p) => (
+                {PROPERTIES_BY_LABEL.map((p) => (
                   <SelectItem key={p} value={p}>
                     {PROPERTY_LABELS[p]}
                   </SelectItem>
