@@ -54,7 +54,7 @@ import {
   writeFilterCookie,
 } from '@/lib/work-orders/list-filters-cookie'
 
-import { DateRangeFilter } from './date-range-filter'
+import { DateRangeFilter } from '@/components/ui/date-range-filter'
 import { MultiSelectFilter, type Option } from '@/components/ui/multi-select-filter'
 
 const SOURCE_OPTIONS: Option<WorkOrderSource>[] = WORK_ORDER_SOURCES.map((v) => ({

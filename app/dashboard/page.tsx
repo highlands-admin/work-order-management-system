@@ -13,11 +13,11 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
-import type { WorkOrderCategory } from '@/lib/schemas/work-order'
+import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
 import {
-  DASHBOARD_CATEGORY_COOKIE,
-  parseCategoryList,
-} from '@/lib/work-orders/dashboard-filters-cookie'
+  fetchAssignableUsers,
+  formatAssigneeLabel,
+} from '@/lib/work-orders/assignable-users'
 import {
   computeDashboardStats,
   parseRange,
@@ -25,9 +25,19 @@ import {
   type DashboardRange,
   type DashboardRow,
 } from '@/lib/work-orders/dashboard-stats'
+import {
+  hasActiveFilters,
+  hasFilterParams,
+  parseWorkOrderFilters,
+  toSearchParams,
+} from '@/lib/work-orders/filters'
+import {
+  DASHBOARD_FILTERS_COOKIE,
+  normalizeFilterQuery,
+} from '@/lib/work-orders/list-filters-cookie'
 
-import { DashboardCategoryFilter } from './category-filter'
 import { DashboardCharts } from './dashboard-charts'
+import { DashboardFilters } from './dashboard-filters'
 
 export const metadata: Metadata = { title: { absolute: 'Dashboard · Workflow360' } }
 
@@ -48,45 +58,58 @@ export default async function DashboardPage({
   const rangeParam = typeof params.range === 'string' ? params.range : undefined
   const range = parseRange(rangeParam)
 
-  // An explicit ?category always wins (even empty, meaning "explicitly
-  // cleared"); otherwise, on a visit that carries none, fall back to the
-  // persisted cookie -- same no-redirect resolution as the work-order list
+  // An explicit filter in the URL always wins (even an empty one, meaning
+  // "explicitly cleared"); otherwise, on a visit that carries none, fall back to
+  // the persisted cookie -- same no-redirect resolution as the work-order list
   // filters, so there's no extra round trip or flash of the unfiltered view.
-  let categories: WorkOrderCategory[]
-  if ('category' in params) {
-    const raw = Array.isArray(params.category) ? params.category[0] : params.category
-    categories = parseCategoryList(raw)
-  } else {
+  let filters = parseWorkOrderFilters(params)
+  if (!hasFilterParams(params)) {
     const cookieStore = await cookies()
-    categories = parseCategoryList(cookieStore.get(DASHBOARD_CATEGORY_COOKIE)?.value)
+    const persisted = cookieStore.get(DASHBOARD_FILTERS_COOKIE)
+    if (persisted) {
+      filters = parseWorkOrderFilters(
+        new URLSearchParams(normalizeFilterQuery(persisted.value))
+      )
+    }
   }
 
   const supabase = await createClient()
   let query = supabase
     .from('work_orders')
     .select('status, category, priority, property, due_at, assigned_to, created_at')
-  if (categories.length > 0) {
-    query = query.in('category', categories)
-  }
-  const { data, error } = await query
+
+  // The same filter application the list and the CSV export use, so a facet
+  // means the same thing wherever it is set.
+  query = applyWorkOrderFilters(query, filters)
+
+  const [{ data, error }, assignableUsers] = await Promise.all([
+    query,
+    fetchAssignableUsers(supabase),
+  ])
 
   if (error) {
     throw new Error(`Failed to load dashboard data: ${error.message}`)
   }
 
   const rows = (data ?? []) as DashboardRow[]
-  const stats = computeDashboardStats(rows, range, categories)
-  const categoryParam = categories.join(',')
+  const stats = computeDashboardStats(rows, range, filters.categories)
+  const assigneeOptions = assignableUsers.map((u) => ({
+    value: u.user_id,
+    label: formatAssigneeLabel(u),
+  }))
+  // Every filter, as a query string, for the links that leave this page.
+  const filterQuery = toSearchParams(filters).toString()
 
   // Links from the stat cards to the All Work Orders list, pre-filtered to match
-  // each stat, carrying the dashboard's category filter along. Statuses are
-  // comma-joined like the filter bar writes them. Overdue is approximated as
-  // active work due on or before today (the list filters by date, not the exact
-  // timestamp the dashboard uses).
+  // each stat, carrying the dashboard's filters along. Statuses are comma-joined
+  // like the filter bar writes them. Each card's own facets overwrite the
+  // dashboard's, since the card is a narrower question than the page. Overdue is
+  // approximated as active work due on or before today (the list filters by
+  // date, not the exact timestamp the dashboard uses).
   const today = new Date().toISOString().slice(0, 10)
   function listHref(query: Record<string, string>): string {
-    const sp = new URLSearchParams(query)
-    if (categoryParam) sp.set('category', categoryParam)
+    const sp = new URLSearchParams(filterQuery)
+    for (const [key, value] of Object.entries(query)) sp.set(key, value)
     return `/work-orders?${sp.toString()}`
   }
   const activeHref = listHref({ status: 'open,in_progress' })
@@ -107,10 +130,17 @@ export default async function DashboardPage({
             Dashboard
           </h1>
           <p className="text-base text-muted-foreground">
-            Operations overview across all facilities.
+            {/* The default line claims a scope the filters can take away, so it
+                steps aside once one is set. */}
+            {hasActiveFilters(filters)
+              ? 'Operations overview, scoped to the active filters.'
+              : 'Operations overview across all facilities.'}
           </p>
         </div>
-        <DashboardCategoryFilter selected={categories} />
+        <DashboardFilters
+          selected={filters}
+          assigneeOptions={assigneeOptions}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -155,7 +185,7 @@ export default async function DashboardPage({
         trend={stats.trend}
         rangeLabel={RANGE_LABELS[range]}
         rangeSelector={
-          <RangeSelector current={range} categoryParam={categoryParam} />
+          <RangeSelector current={range} filterQuery={filterQuery} />
         }
       />
     </div>
@@ -164,20 +194,20 @@ export default async function DashboardPage({
 
 function RangeSelector({
   current,
-  categoryParam,
+  filterQuery,
 }: {
   current: DashboardRange
-  // Carried along so switching ranges doesn't drop the category filter --
-  // this is a plain server-rendered Link, not a client component that could
-  // read the current URL itself.
-  categoryParam: string
+  // Carried along so switching ranges doesn't drop the filters -- this is a
+  // plain server-rendered Link, not a client component that could read the
+  // current URL itself.
+  filterQuery: string
 }) {
   return (
     <div className="flex items-center rounded-md border p-0.5">
       {RANGE_ORDER.map((range) => {
         const active = range === current
-        const params = new URLSearchParams({ range })
-        if (categoryParam) params.set('category', categoryParam)
+        const params = new URLSearchParams(filterQuery)
+        params.set('range', range)
         return (
           <Link
             key={range}

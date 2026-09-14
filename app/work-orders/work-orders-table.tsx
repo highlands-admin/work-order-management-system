@@ -66,7 +66,7 @@ import {
 
 import { buildLabeledSnippet } from '@/lib/work-orders/search-snippet'
 
-import { DateRangeFilter } from './date-range-filter'
+import { DateRangeFilter } from '@/components/ui/date-range-filter'
 import { MatchSnippet } from './match-snippet'
 import { TablePagination } from './table-pagination'
 import { WorkOrderRowGroup } from './work-order-row'

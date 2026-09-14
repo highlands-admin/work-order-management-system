@@ -10,6 +10,11 @@ export const FILTERS_COOKIE = 'wo_filters'
 export const MINE_FILTERS_COOKIE = 'wo_mine_filters'
 export const ARCHIVE_FILTERS_COOKIE = 'wo_archive_filters'
 export const RECURRING_FILTERS_COOKIE = 'wo_recurring_filters'
+// The dashboard filters the same rows through the same facets, so it stores the
+// same query string. It keeps its own cookie because the two views answer
+// different questions: a facility picked while reading the dashboard should not
+// silently reshape the list the user opens next.
+export const DASHBOARD_FILTERS_COOKIE = 'dashboard_filters'
 
 // One year, matching the longevity of the sidebar-state and view cookies.
 export const FILTERS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365

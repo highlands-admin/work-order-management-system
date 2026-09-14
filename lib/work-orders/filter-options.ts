@@ -24,6 +24,13 @@ export const STATUS_OPTIONS: Option<WorkOrderStatus>[] = WORK_ORDER_STATUSES.fil
   (s) => s !== 'pending' && s !== 'rejected'
 ).map((v) => ({ value: v, label: STATUS_LABELS[v] }))
 
+// Every status, for the dashboard. Its counts include the approval queue (the
+// Pending Approval tile reads from the same rows), so hiding pending and
+// rejected there would offer a filter that cannot reach two of the numbers on
+// screen.
+export const ALL_STATUS_OPTIONS: Option<WorkOrderStatus>[] =
+  WORK_ORDER_STATUSES.map((v) => ({ value: v, label: STATUS_LABELS[v] }))
+
 export const PRIORITY_OPTIONS: Option<WorkOrderPriority>[] =
   WORK_ORDER_PRIORITIES.map((v) => ({ value: v, label: PRIORITY_LABELS[v] }))
 
