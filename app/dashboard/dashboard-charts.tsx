@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/card'
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -66,8 +68,11 @@ export function DashboardCharts({
   }))
   const statusTotal = byStatus.reduce((sum, s) => sum + s.value, 0)
 
+  // Two series, two hues. --chart-alt is a genuinely different hue rather than
+  // another step of the teal ramp, which two crossing lines need to stay apart.
   const trendConfig = {
     created: { label: 'Created', color: 'var(--chart-1)' },
+    closed: { label: 'Closed', color: 'var(--chart-alt)' },
   } satisfies ChartConfig
 
   return (
@@ -125,9 +130,13 @@ export function DashboardCharts({
         </ChartContainer>
       </ChartCard>
 
+      {/* Created and closed share one axis on purpose: same unit, same buckets,
+          and the distance between the lines is the whole point (work arriving
+          against work finished). Two cards would put that comparison across a
+          gap, with two y-scales to reconcile by eye. */}
       <ChartCard
-        title="Created Over Time"
-        description={`New Work Orders · ${rangeLabel}`}
+        title="Created vs Closed"
+        description={`Work Orders opened and closed · ${rangeLabel}`}
         action={rangeSelector}
       >
         <ChartContainer config={trendConfig} className="h-[260px] w-full">
@@ -150,6 +159,15 @@ export function DashboardCharts({
               strokeWidth={2}
               dot={false}
             />
+            <Line
+              dataKey="closed"
+              type="monotone"
+              stroke="var(--color-closed)"
+              strokeWidth={2}
+              dot={false}
+            />
+            {/* Two series are never identified by color alone. */}
+            <ChartLegend content={<ChartLegendContent />} />
           </LineChart>
         </ChartContainer>
       </ChartCard>

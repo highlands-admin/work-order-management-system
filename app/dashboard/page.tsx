@@ -76,7 +76,9 @@ export default async function DashboardPage({
   const supabase = await createClient()
   let query = supabase
     .from('work_orders')
-    .select('status, category, priority, property, due_at, assigned_to, created_at')
+    .select(
+      'status, category, priority, property, due_at, assigned_to, created_at, closed_at'
+    )
 
   // The same filter application the list and the CSV export use, so a facet
   // means the same thing wherever it is set.

@@ -40,6 +40,9 @@ export type DashboardRow = {
   due_at: string | null
   assigned_to: string | null
   created_at: string
+  // When the work order was last closed, or null if it never has been. Stamped
+  // by a database trigger, so it is present regardless of which path closed it.
+  closed_at: string | null
 }
 
 export type DashboardRange = '30d' | '90d' | '365d' | 'all'
@@ -70,7 +73,10 @@ function isOverdue(row: DashboardRow, now: number): boolean {
 }
 
 export type Slice = { key: string; label: string; value: number }
-export type TrendPoint = { label: string; created: number }
+// One bucket of the created-vs-closed trend: work that arrived in the period,
+// beside work that was finished in it. Same unit on the same axis, which is what
+// makes the gap between them readable as "are we keeping up".
+export type TrendPoint = { label: string; created: number; closed: number }
 
 // One bar in a stacked breakdown: the group label plus a numeric field per
 // status (e.g. open, in_progress) that recharts reads as a stack segment.
@@ -209,7 +215,8 @@ function buildStacked<K extends string>(
   }
 }
 
-// Weekly/daily/monthly buckets of work orders created, sized to the range.
+// Weekly/daily/monthly buckets of work orders created and closed, sized to the
+// range.
 function buildTrend(
   rows: DashboardRow[],
   range: DashboardRange,
@@ -238,23 +245,40 @@ function buildTrend(
         : config.unit === 'week'
           ? formatWeekRange(start)
           : format(start, 'MMM d')
-    return { start, label, created: 0 }
+    return { start, label, created: 0, closed: 0 }
   })
 
-  for (const row of rows) {
-    const created = new Date(row.created_at)
-    if (created.getTime() > now.getTime()) continue
-    const bucket = buckets.find((b) =>
+  // Which bucket a timestamp falls in, or undefined when it is outside the
+  // window (or in the future, which a clock skew or a bad import can produce).
+  function bucketFor(iso: string) {
+    const at = new Date(iso)
+    if (at.getTime() > now.getTime()) return undefined
+    return buckets.find((b) =>
       config.unit === 'day'
-        ? isSameDay(created, b.start)
+        ? isSameDay(at, b.start)
         : config.unit === 'week'
-          ? isSameWeek(created, b.start)
-          : isSameMonth(created, b.start)
+          ? isSameWeek(at, b.start)
+          : isSameMonth(at, b.start)
     )
-    if (bucket) bucket.created += 1
   }
 
-  return buckets.map((b) => ({ label: b.label, created: b.created }))
+  for (const row of rows) {
+    const createdBucket = bucketFor(row.created_at)
+    if (createdBucket) createdBucket.created += 1
+
+    // A work order created before the window can still be closed inside it, so
+    // the two series are bucketed independently rather than from one date.
+    if (row.closed_at) {
+      const closedBucket = bucketFor(row.closed_at)
+      if (closedBucket) closedBucket.closed += 1
+    }
+  }
+
+  return buckets.map((b) => ({
+    label: b.label,
+    created: b.created,
+    closed: b.closed,
+  }))
 }
 
 // "Jun 7 - 13" within a month, "Jun 28 - Jul 4" across a month boundary.
