@@ -115,13 +115,20 @@ create trigger work_orders_set_closed_at
 -- 'created' entries) fall back to updated_at, which is the closest thing the row
 -- still remembers.
 --
--- The updated_at and activity triggers are disabled around the backfill: this is
--- a migration filling in a derived column, not a user editing the work order, so
--- it must not bump "Last modified" or write an entry into anyone's activity
--- feed. The column-immutability trigger passes on its own (it returns early for
--- a caller with no user_role claim), so it is left alone.
+-- Three triggers are disabled around the backfill. This is a migration filling
+-- in a derived column, not a user editing the work order, so it must not bump
+-- "Last modified" or write an entry into anyone's activity feed.
+--
+-- The column-immutability trigger has to come off too. It reads
+-- current_user_role(), which is null for a migration (no JWT, so no user_role
+-- claim), and its live definition has no null branch: both of its `v_role in
+-- (...)` tests evaluate to null rather than true, so control reaches the final
+-- raise and the backfill dies with "Your role is not permitted to update work
+-- orders". Disabling it here follows the precedent set by the backfill in
+-- 20260604120015_work_order_id_and_title.sql.
 alter table public.work_orders disable trigger work_orders_set_updated_at;
 alter table public.work_orders disable trigger work_orders_log_activity;
+alter table public.work_orders disable trigger work_orders_enforce_update_columns;
 
 update public.work_orders w
 set closed_at = latest.closed_at
@@ -144,3 +151,4 @@ where status = 'closed'
 
 alter table public.work_orders enable trigger work_orders_set_updated_at;
 alter table public.work_orders enable trigger work_orders_log_activity;
+alter table public.work_orders enable trigger work_orders_enforce_update_columns;

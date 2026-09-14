@@ -36,6 +36,17 @@ import type {
 
 // Fixed status palette, shared by the status donut and the stacked breakdowns
 // so a status reads as the same color everywhere.
+// The Closed line on the trend chart. Stepped per theme rather than flipped,
+// because a gray has to differ from the teal in lightness to stay legible, and
+// the teal itself changes lightness between themes: a mid gray sits too close to
+// the light-mode teal (CVD delta E 5.1, against a floor of 8) and a light gray
+// collapses into the dark-mode teal (CVD delta E 0.4). These two clear it --
+// light 16.1, dark 11.9, with normal-vision separation of 19.7 and 20.6.
+//
+// Given as literal values rather than a CSS variable so the chart carries its
+// own colors, the way STATUS_COLORS below already does.
+const TREND_CLOSED_COLOR = { light: '#52525b', dark: '#d4d4d8' } as const
+
 const STATUS_COLORS: Record<string, string> = {
   pending: '#f59e0b',
   open: '#0ea5e9',
@@ -68,11 +79,12 @@ export function DashboardCharts({
   }))
   const statusTotal = byStatus.reduce((sum, s) => sum + s.value, 0)
 
-  // Two series, two hues. --chart-alt is a genuinely different hue rather than
-  // another step of the teal ramp, which two crossing lines need to stay apart.
+  // Created keeps the brand teal; Closed takes a neutral gray. One hue carries
+  // the eye and its counterpart recedes, which keeps the pair from competing --
+  // and it agrees with STATUS_COLORS above, where closed is already a gray.
   const trendConfig = {
     created: { label: 'Created', color: 'var(--chart-1)' },
-    closed: { label: 'Closed', color: 'var(--chart-alt)' },
+    closed: { label: 'Closed', theme: TREND_CLOSED_COLOR },
   } satisfies ChartConfig
 
   return (
