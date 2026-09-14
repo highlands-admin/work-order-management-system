@@ -98,9 +98,14 @@ export function TablePagination({
     // Paging is a screen affordance; the printed sheet says its row range in
     // the header instead.
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 print:hidden">
-      {/* Left: the page-size setting. */}
+      {/* Left: the page-size setting. The label is the widest thing in this row
+          and the only one a phone can spare: the select shows the number, and
+          its aria-label still names it for anyone who cannot see the column of
+          rows it sits under. */}
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">Rows per page</span>
+        <span className="hidden text-sm text-muted-foreground sm:inline">
+          Rows per page
+        </span>
         <Select
           items={PAGE_SIZE_ITEMS}
           value={String(pageSize)}
@@ -120,7 +125,7 @@ export function TablePagination({
       </div>
 
       {/* Right: where you are, then how to move. */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <p className="text-sm text-muted-foreground tabular-nums">
           {from}–{to} of {total}
         </p>
@@ -136,8 +141,10 @@ export function TablePagination({
               <RiArrowLeftSLine className="size-4" />
             </Button>
 
-            {/* Numbered pages on wider screens; a compact "x of y" on mobile,
-                where a full row of buttons would not fit. */}
+            {/* Numbered pages on wider screens only. A phone gets the arrows
+                alone: a full row of page buttons does not fit, and the range
+                beside them ("1-10 of 560") already says where you are, so a
+                second "1 / 56" counter only costs width. */}
             <div className="hidden items-center gap-1 sm:flex">
               {pageItems(current, totalPages).map((item, i) =>
                 item === 'gap' ? (
@@ -163,10 +170,6 @@ export function TablePagination({
                 )
               )}
             </div>
-            <span className="px-1 text-sm text-muted-foreground tabular-nums sm:hidden">
-              {current} / {totalPages}
-            </span>
-
             <Button
               variant="outline"
               size="icon-sm"

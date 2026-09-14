@@ -5,6 +5,8 @@ import {
   RiDownloadLine,
   RiEqualizerLine,
   RiLoader4Line,
+  RiMore2Line,
+  RiPrinterLine,
   RiSearchLine,
 } from '@remixicon/react'
 import Link from 'next/link'
@@ -14,6 +16,12 @@ import { toast } from 'sonner'
 
 import { PrintButton } from '@/components/print/print-button'
 import { Button, buttonVariants } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import {
   Sheet,
@@ -25,6 +33,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
+import { cn } from '@/lib/utils'
 import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
@@ -243,17 +252,22 @@ export function FilterBar({
     (filters.dueFrom || filters.dueTo ? 1 : 0) +
     (filters.createdFrom || filters.createdTo ? 1 : 0)
 
-  // Export is a standalone toolbar action, never inside the filters panel.
+  // Export is a standalone toolbar action, never inside the filters panel. From
+  // sm up it is its own button; below that it folds into the menu below.
   const exportLink = exportHref ? (
     <Link
       href={exportHref}
       prefetch={false}
       onClick={() => toast.success('Exporting work orders to CSV.')}
-      className={buttonVariants({
-        variant: 'outline',
-        size: 'sm',
-        className: 'h-9',
-      })}
+      // Wrapped in cn so tailwind-merge settles the display conflict: the button
+      // base is inline-flex, and class-variance-authority concatenates without
+      // resolving, which would leave both it and `hidden` on the element for
+      // stylesheet order to arbitrate. The Button component wraps the same way;
+      // a bare buttonVariants() call does not.
+      className={cn(
+        buttonVariants({ variant: 'outline', size: 'sm' }),
+        'hidden h-9 sm:inline-flex'
+      )}
     >
       <RiDownloadLine className="size-4" />
       Export CSV
@@ -262,7 +276,54 @@ export function FilterBar({
 
   // Print sits beside Export. Export hands back a file; Print hands the page
   // itself to the browser's dialog, reformatted by the print stylesheet.
-  const printLink = showPrint ? <PrintButton size="sm" className="h-9" /> : null
+  const printLink = showPrint ? (
+    <PrintButton size="sm" className="hidden h-9 sm:inline-flex" />
+  ) : null
+
+  // The phone version of those two. A narrow toolbar row is already carrying
+  // Search and Filters, and two more labeled buttons wrap it onto a second line,
+  // so both fold into one menu. They belong together: each one takes what is on
+  // screen and hands back a document.
+  const documentMenu =
+    exportHref || showPrint ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Print or export"
+              className="h-9 shrink-0 sm:hidden print:hidden"
+            >
+              <RiMore2Line className="size-4" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent>
+          {showPrint ? (
+            <DropdownMenuItem onClick={() => window.print()}>
+              <RiPrinterLine />
+              Print
+            </DropdownMenuItem>
+          ) : null}
+          {exportHref ? (
+            <DropdownMenuItem
+              render={
+                <Link
+                  href={exportHref}
+                  prefetch={false}
+                  onClick={() => toast.success('Exporting work orders to CSV.')}
+                >
+                  <RiDownloadLine />
+                  Export CSV
+                </Link>
+              }
+            />
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null
 
   const filterBadge =
     activeFilterCount > 0 ? (
@@ -389,6 +450,7 @@ export function FilterBar({
             ) : null}
             {printLink}
             {exportLink}
+            {documentMenu}
             {trailingActions}
           </div>
         </div>
