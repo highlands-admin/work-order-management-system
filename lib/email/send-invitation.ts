@@ -40,7 +40,7 @@ export async function sendInvitationEmail(
   const { error } = await resend.emails.send({
     from,
     to: input.to,
-    subject: `You have been invited to Work Orders`,
+    subject: `You have been invited to Workflow360`,
     html: renderInvitationHtml(templateInput),
     text: renderInvitationText(templateInput),
   })

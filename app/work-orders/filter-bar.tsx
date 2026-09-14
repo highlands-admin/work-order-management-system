@@ -12,6 +12,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
+import { PrintButton } from '@/components/print/print-button'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -34,6 +35,7 @@ import {
   EMPTY_FILTERS,
   hasActiveFilters,
   parseWorkOrderFilters,
+  SOURCE_LABELS,
   toSearchParams,
   UNASSIGNED,
   withFilter,
@@ -55,10 +57,6 @@ import {
 import { DateRangeFilter } from './date-range-filter'
 import { MultiSelectFilter, type Option } from '@/components/ui/multi-select-filter'
 
-const SOURCE_LABELS: Record<WorkOrderSource, string> = {
-  recurring: 'Recurring',
-  oneoff: 'One-off',
-}
 const SOURCE_OPTIONS: Option<WorkOrderSource>[] = WORK_ORDER_SOURCES.map((v) => ({
   value: v,
   label: SOURCE_LABELS[v],
@@ -69,6 +67,7 @@ export function FilterBar({
   showAssignee = true,
   showStatus = true,
   exportPath,
+  showPrint = false,
   initialFilters,
   trailingActions,
 }: {
@@ -80,6 +79,10 @@ export function FilterBar({
   // When set, render an "Export CSV" link that carries the current filters so
   // the download matches the table. Omitted on views without an export route.
   exportPath?: string
+  // When true, render a Print button that opens the browser's print dialog on
+  // this page. The print stylesheet reformats what is on screen, so there is no
+  // separate document to link to and nothing to carry in a query string.
+  showPrint?: boolean
   // The server-resolved effective filters for the first render: the URL's, or a
   // persisted cookie's when the URL carries none. Seeds the optimistic state so
   // the panel and chips match what's already showing, with no URL round trip.
@@ -257,6 +260,10 @@ export function FilterBar({
     </Link>
   ) : null
 
+  // Print sits beside Export. Export hands back a file; Print hands the page
+  // itself to the browser's dialog, reformatted by the print stylesheet.
+  const printLink = showPrint ? <PrintButton size="sm" className="h-9" /> : null
+
   const filterBadge =
     activeFilterCount > 0 ? (
       <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs font-medium text-background">
@@ -380,6 +387,7 @@ export function FilterBar({
                 Updating
               </span>
             ) : null}
+            {printLink}
             {exportLink}
             {trailingActions}
           </div>

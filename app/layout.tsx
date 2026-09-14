@@ -19,10 +19,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Work Order Management System",
-    template: "%s | Work Order Management System",
+    default: "Workflow360",
+    template: "%s | Workflow360",
   },
-  description: "Work Order Management System for Senior Living Communities.",
+  description: "Workflow360, work order management for senior living communities.",
 };
 
 // Explicit so small screens always render at device width (initial-scale 1)

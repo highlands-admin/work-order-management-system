@@ -43,7 +43,9 @@ export default async function WorkOrdersLayout({
       </Suspense>
       <AppSidebar userRole={claims.user_role} />
       <SidebarInset>
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur-sm supports-[backdrop-filter]:bg-background/65">
+        {/* Screen-only chrome. The sidebar and its rail are hidden for print
+            by the data-slot rules in globals.css; this bar is ours to mark. */}
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur-sm supports-[backdrop-filter]:bg-background/65 print:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mx-1" />
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
@@ -59,7 +61,7 @@ export default async function WorkOrdersLayout({
             </form>
           </div>
         </header>
-        <main className="flex-1 px-4 py-8 sm:px-6">{children}</main>
+        <main className="flex-1 px-4 py-8 sm:px-6 print:p-0">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   )

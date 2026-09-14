@@ -135,8 +135,9 @@ export function NotesSection({
           ))
         )}
 
-        {/* Compose area */}
-        <div className="px-6 py-6">
+        {/* Compose area. Screen only: the notes themselves print, the box for
+            writing a new one does not. */}
+        <div className="px-6 py-6 print:hidden">
           {disabled ? (
             <p className="text-sm text-muted-foreground">
               Save the work order first to add notes.

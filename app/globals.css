@@ -200,3 +200,170 @@
     );
   }
 }
+
+/* Print. There is no separate printable route: Cmd+P (or the Print button)
+   prints the page the user is on, and these rules are what turn it into a
+   sheet. The navigation chrome and the dark surface belong to the screen, so
+   every printed page drops the app frame and forces ink-on-paper colors. Dark
+   is the default theme, which would otherwise print near-white text onto white
+   paper and come out blank. Grayscale is deliberate: these sheets go to office
+   laser printers, where a teal accent reads as indistinct gray anyway. */
+@media print {
+  :root,
+  .dark {
+    color-scheme: light;
+    --background: #fff;
+    --foreground: #000;
+    --card: #fff;
+    --card-foreground: #000;
+    --popover: #fff;
+    --popover-foreground: #000;
+    --primary: #000;
+    --primary-foreground: #fff;
+    --secondary: #fff;
+    --secondary-foreground: #000;
+    --muted: #fff;
+    --muted-foreground: #454545;
+    --accent: #fff;
+    --accent-foreground: #000;
+    /* Rejections and overdue dates carry their weight through bold text and
+       borders on paper, so the alert color becomes ink like everything else. */
+    --destructive: #000;
+    --border: #8a8a8a;
+    --input: #8a8a8a;
+    --ring: transparent;
+  }
+
+  @page {
+    size: letter portrait;
+    margin: 0.5in;
+  }
+
+  html {
+    /* The screen base is 1.1rem (~17.6px). Paper wants a smaller measure, and
+       because the whole UI is rem-based, every size follows from this one. */
+    font-size: 10.5pt;
+    /* The always-on scrollbar has nothing to reserve space for on paper. */
+    overflow-y: visible;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  /* The sidebar and its spacer, rail, and trigger. The layout's top bar and
+     any print-only page furniture carry print:hidden in their own markup;
+     these elements are inside a shared UI primitive, so they are matched by
+     the data-slot attributes it sets. */
+  [data-slot='sidebar'],
+  [data-slot='sidebar-gap'],
+  [data-slot='sidebar-container'],
+  [data-slot='sidebar-rail'],
+  [data-slot='sidebar-trigger'],
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  /* The inset holds the screen layout's offset, rounded corner, and shadow. */
+  [data-slot='sidebar-inset'] {
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Card shadows and Tailwind's ring (also a box-shadow) print as gray smudge
+     or vanish entirely, depending on the printer. Real borders replace them in
+     the print documents. */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Repeat a table's head on every sheet and keep a row off a page boundary. */
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  img {
+    break-inside: avoid;
+  }
+
+  /* The list table is sized for a scrolling viewport: a pixel width summed from
+     the user's saved column widths, with a horizontal scroller around it. Paper
+     does not scroll, so the table gives up its measured width and lets the page
+     decide. The inline width and the per-column widths both come from style
+     attributes, which is why these need !important to win. */
+  [data-slot='table-container'] {
+    overflow: visible !important;
+  }
+
+  [data-slot='table'] {
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  [data-slot='table'] col {
+    width: auto !important;
+  }
+
+  /* On screen a cell clips to its column and ends in an ellipsis, which on
+     paper would silently drop the end of a title. Cells wrap instead. */
+  [data-slot='table-cell'],
+  [data-slot='table-head'],
+  [data-slot='table-cell'] .truncate,
+  [data-slot='table-head'] .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  /* Tighter than the screen's row padding, so more rows reach each sheet. */
+  [data-slot='table-cell'] {
+    padding-block: 0.35rem !important;
+    vertical-align: top;
+  }
+
+  [data-slot='table-head'] {
+    height: auto !important;
+    padding-block: 0.35rem !important;
+  }
+
+  /* Column headers keep their label and lose their controls: the filter funnel
+     is an icon-only button, and the sort arrow is an icon beside the label.
+     Neither means anything once the rows are fixed on a page. */
+  thead [aria-label^='Filter '],
+  thead svg {
+    display: none !important;
+  }
+
+  /* A row group is one work order plus its search excerpt, so it stays whole. */
+  tbody {
+    break-inside: avoid;
+  }
+
+  /* Rules and separators. A hairline border prints reliably where a subtle
+     screen tint does not, so every row gets one. */
+  [data-slot='table-row'] {
+    border-bottom: 1px solid var(--border) !important;
+    background: transparent !important;
+  }
+
+  thead [data-slot='table-row'],
+  thead tr {
+    border-bottom: 1.5px solid #000 !important;
+  }
+
+  /* Cards, panels, and popover surfaces carry a ring on screen (a box-shadow,
+     already cleared above) that is their only visible edge. Give the ones that
+     print a real border so their sections stay legible on paper. */
+  [data-slot='card'],
+  section[aria-labelledby] {
+    border: 1px solid var(--border) !important;
+  }
+
+  /* Links are navigation, and their color is gone anyway. Print them as text
+     rather than as underlined ink the reader cannot follow. */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+}

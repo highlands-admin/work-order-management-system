@@ -53,6 +53,7 @@ import {
 } from '@/lib/work-orders/list-filters-cookie'
 import {
   isSortable,
+  SORT_KEY_LABELS,
   type ListSort,
   type SortDirection,
 } from '@/lib/work-orders/list-sort'
@@ -118,21 +119,21 @@ type Column = {
 // are a bit wider than their label alone needs, to comfortably fit the sort
 // and filter icons alongside it without crowding.
 const COLUMNS: Column[] = [
-  { key: 'code', label: 'ID', width: 120 },
-  { key: 'title', label: 'Title', width: 200 },
-  { key: 'category', label: 'Category', width: 160 },
-  { key: 'status', label: 'Status', width: 150 },
-  { key: 'priority', label: 'Priority', width: 150 },
-  { key: 'property', label: 'Facility', width: 150 },
-  { key: 'created', label: 'Created', width: 150 },
-  { key: 'due', label: 'Due', width: 190 },
-  { key: 'assignee', label: 'Assignee', width: 200 },
-  { key: 'reporter', label: 'Reported by', width: 180 },
+  { key: 'code', label: SORT_KEY_LABELS.code, width: 120 },
+  { key: 'title', label: SORT_KEY_LABELS.title, width: 200 },
+  { key: 'category', label: SORT_KEY_LABELS.category, width: 160 },
+  { key: 'status', label: SORT_KEY_LABELS.status, width: 150 },
+  { key: 'priority', label: SORT_KEY_LABELS.priority, width: 150 },
+  { key: 'property', label: SORT_KEY_LABELS.property, width: 150 },
+  { key: 'created', label: SORT_KEY_LABELS.created, width: 150 },
+  { key: 'due', label: SORT_KEY_LABELS.due, width: 190 },
+  { key: 'assignee', label: SORT_KEY_LABELS.assignee, width: 200 },
+  { key: 'reporter', label: SORT_KEY_LABELS.reporter, width: 180 },
   // Last at the end on purpose. The table is already wider than most viewports,
   // so inserting this next to Created would push Due, Assignee, and Reported by
   // out of view for everyone; appending leaves the existing columns where users
   // expect them and puts the audit-flavored field with the other trailing one.
-  { key: 'updated', label: 'Last modified', width: 170 },
+  { key: 'updated', label: SORT_KEY_LABELS.updated, width: 170 },
 ]
 
 // Absolute floor for any column. Columns with sort and filter icons compute a
@@ -533,7 +534,7 @@ export function WorkOrdersTable({
                       aria-orientation="vertical"
                       aria-label={`Resize ${col.label} column`}
                       onPointerDown={(e) => startResize(col.key, e)}
-                      className="absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-stretch justify-center hover:bg-border/70 active:bg-border"
+                      className="absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-stretch justify-center hover:bg-border/70 active:bg-border print:hidden"
                     >
                       <span className="my-2 w-px bg-border" aria-hidden="true" />
                     </span>
@@ -638,7 +639,13 @@ export function WorkOrdersTable({
                 title={formatDateTime(wo.updated_at, timeZone)}
                 className="truncate px-4 py-3 text-muted-foreground"
               >
-                {formatRelative(wo.updated_at, timeZone)}
+                <span className="print:hidden">
+                  {formatRelative(wo.updated_at, timeZone)}
+                </span>
+                {/* Paper has no "now" to be relative to. */}
+                <span className="hidden print:inline">
+                  {formatDate(wo.updated_at, timeZone)}
+                </span>
               </TableCell>
             </WorkOrderRowGroup>
             )

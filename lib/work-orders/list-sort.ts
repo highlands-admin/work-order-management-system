@@ -25,6 +25,23 @@ export type ListSort = { key: SortKey; dir: SortDirection }
 // snapshot of the resolved display name -- assigned_to is just a user id, and
 // the name it resolves to lives in auth.users, which isn't exposed to
 // PostgREST for the database to sort by directly.
+// Display label for each column. The table renders these as its headers and the
+// print-only sheet header names the sorted column with them, so both read the
+// same way.
+export const SORT_KEY_LABELS: Record<SortKey, string> = {
+  code: 'ID',
+  title: 'Title',
+  category: 'Category',
+  status: 'Status',
+  priority: 'Priority',
+  property: 'Facility',
+  created: 'Created',
+  due: 'Due',
+  assignee: 'Assignee',
+  reporter: 'Reported by',
+  updated: 'Last modified',
+}
+
 export const SORT_COLUMNS: Record<
   SortKey,
   { column: string; nullable: boolean }

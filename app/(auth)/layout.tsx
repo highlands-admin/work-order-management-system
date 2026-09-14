@@ -35,7 +35,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
 
         <div className="relative flex items-center gap-2.5 font-heading text-lg font-semibold tracking-tight">
           <BrandMark variant="onColor" />
-          Cadence
+          Workflow360
         </div>
 
         <div className="relative my-auto max-w-md">
@@ -75,7 +75,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             className="flex items-center gap-2.5 font-heading text-base font-semibold tracking-tight lg:hidden"
           >
             <BrandMark />
-            Cadence
+            Workflow360
           </Link>
           <div className="ml-auto">
             <ThemeToggle />

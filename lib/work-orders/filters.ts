@@ -19,6 +19,11 @@ import {
 export const WORK_ORDER_SOURCES = ['recurring', 'oneoff'] as const
 export type WorkOrderSource = (typeof WORK_ORDER_SOURCES)[number]
 
+export const SOURCE_LABELS: Record<WorkOrderSource, string> = {
+  recurring: 'Recurring',
+  oneoff: 'One-off',
+}
+
 export type WorkOrderFilters = {
   statuses: WorkOrderStatus[]
   priorities: WorkOrderPriority[]

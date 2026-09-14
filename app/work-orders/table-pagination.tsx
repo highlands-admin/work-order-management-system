@@ -95,7 +95,9 @@ export function TablePagination({
   if (total === 0) return null
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+    // Paging is a screen affordance; the printed sheet says its row range in
+    // the header instead.
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 print:hidden">
       {/* Left: the page-size setting. */}
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground">Rows per page</span>

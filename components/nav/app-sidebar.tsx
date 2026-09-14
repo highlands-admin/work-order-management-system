@@ -150,7 +150,7 @@ export function AppSidebar({
           }}
           className="font-heading px-2 py-1.5 text-base font-semibold"
         >
-          Cadence
+          Workflow360
         </Link>
         {/* Gmail-style "Compose" CTA: the primary action gets a prominent,
             elevated button pinned above the navigation rather than sitting as

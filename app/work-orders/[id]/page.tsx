@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 
+import { PrintButton } from '@/components/print/print-button'
 import { buttonVariants } from '@/components/ui/button'
 import {
   CategoryBadge,
@@ -14,22 +15,20 @@ import { formatDateTime } from '@/lib/datetime/format'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import {
   FREQUENCY_LABELS,
-  IT_REQUEST_TYPE_LABELS,
-  MARKETING_REQUEST_TYPE_LABELS,
-  MARKETING_SIZE_FORMAT_LABELS,
-  MARKETING_TARGET_AUDIENCE_LABELS,
   PROPERTY_LABELS,
   REJECTABLE_MAIN_STATUSES,
-  type ITRequestType,
-  type MarketingRequestType,
-  type MarketingSizeFormat,
-  type MarketingTargetAudience,
   type Property,
   type RecurrenceFrequency,
   type WorkOrderCategory,
   type WorkOrderPriority,
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
+import {
+  itRequestTypeLabel,
+  marketingAudienceLabel,
+  marketingRequestTypeLabel,
+  marketingSizeFormatLabel,
+} from '@/lib/work-orders/labels'
 import { AttachmentGallery } from '@/components/work-orders/attachment-gallery'
 import { createClient } from '@/lib/supabase/server'
 import { fetchWorkOrderAttachments } from '@/lib/work-orders/attachments'
@@ -206,10 +205,12 @@ export default async function WorkOrderDetailPage({
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      {/* Action bar */}
-      <div className="flex items-center justify-between gap-3">
+      {/* Action bar. Screen only: every control in it is an action, and the
+          sheet is a record of the work order rather than a way to act on it. */}
+      <div className="flex items-center justify-between gap-3 print:hidden">
         <BackButton />
         <div className="flex items-center gap-2">
+          <PrintButton />
           {canEdit || canTransition ? (
             <Link
               href={`/work-orders/${data.id}/edit`}
@@ -511,54 +512,37 @@ function Empty() {
   return <span className="text-muted-foreground">—</span>
 }
 
+// The label lookups live in lib/work-orders/labels so the printable sheet
+// resolves these fields the same way. Each wrapper only adds this page's empty
+// marker.
+
 function formatRequestType(
   value: string | null,
   other: string | null
 ): ReactNode {
-  if (!value) return <Empty />
-  if (value === 'other') return other ?? <Empty />
-  return value in MARKETING_REQUEST_TYPE_LABELS
-    ? MARKETING_REQUEST_TYPE_LABELS[value as MarketingRequestType]
-    : value
+  return marketingRequestTypeLabel(value, other) ?? <Empty />
 }
 
 function formatItRequestType(value: string | null): ReactNode {
-  if (!value) {
-    return <span className="text-muted-foreground">Not specified</span>
-  }
-  return value in IT_REQUEST_TYPE_LABELS
-    ? IT_REQUEST_TYPE_LABELS[value as ITRequestType]
-    : value
+  return (
+    itRequestTypeLabel(value) ?? (
+      <span className="text-muted-foreground">Not specified</span>
+    )
+  )
 }
 
 function formatSizeFormat(
   values: string[] | null,
   other: string | null
 ): ReactNode {
-  if (!values || values.length === 0) return <Empty />
-  const labels = values.map((v) =>
-    v === 'other'
-      ? (other ?? MARKETING_SIZE_FORMAT_LABELS.other)
-      : v in MARKETING_SIZE_FORMAT_LABELS
-        ? MARKETING_SIZE_FORMAT_LABELS[v as MarketingSizeFormat]
-        : v
-  )
-  return labels.join(', ')
+  return marketingSizeFormatLabel(values, other) ?? <Empty />
 }
 
 function formatAudience(
   values: string[] | null,
   other: string | null
 ): ReactNode {
-  if (!values || values.length === 0) return <Empty />
-  const labels = values.map((v) =>
-    v === 'other'
-      ? (other ?? MARKETING_TARGET_AUDIENCE_LABELS.other)
-      : v in MARKETING_TARGET_AUDIENCE_LABELS
-        ? MARKETING_TARGET_AUDIENCE_LABELS[v as MarketingTargetAudience]
-        : v
-  )
-  return labels.join(', ')
+  return marketingAudienceLabel(values, other) ?? <Empty />
 }
 
 function formatUser(

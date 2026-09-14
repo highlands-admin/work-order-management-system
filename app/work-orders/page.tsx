@@ -3,7 +3,9 @@ import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 
+import { PrintSheetHeader } from '@/components/print/print-sheet-header'
 import { buttonVariants } from '@/components/ui/button'
+import { formatDateTime } from '@/lib/datetime/format'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -38,16 +40,18 @@ import {
   parsePage,
   parseSort,
   SORT_COLUMNS,
+  SORT_KEY_LABELS,
 } from '@/lib/work-orders/list-sort'
 import {
   parseSortCookieValue,
   SORT_COOKIE,
 } from '@/lib/work-orders/list-sort-cookie'
+import { describeFilters } from '@/lib/work-orders/print'
 
 import { FilterBar } from './filter-bar'
 import { WorkOrdersTable, type WorkOrderListItem } from './work-orders-table'
 
-export const metadata: Metadata = { title: 'Cadence' }
+export const metadata: Metadata = { title: { absolute: 'Workflow360' } }
 
 const FILER_ROLES = new Set(['administrator', 'requester'])
 
@@ -152,9 +156,29 @@ export default async function WorkOrdersPage({
   const filtersActive = hasActiveFilters(filters)
   const timeZone = await getTimeZone()
 
+  // What the print-only sheet header says. Printing reformats the page as it
+  // stands, so the sheet carries the page of rows on screen rather than the
+  // whole filtered set, and the range says so plainly.
+  const total = count ?? workOrders.length
+  const firstRow = workOrders.length > 0 ? from + 1 : 0
+  const printMeta = [
+    `Rows ${firstRow}-${from + workOrders.length} of ${total}`,
+    `Sorted by ${SORT_KEY_LABELS[order.key]} ${
+      order.dir === 'asc' ? 'ascending' : 'descending'
+    }`,
+    `Printed ${formatDateTime(new Date().toISOString(), timeZone)}`,
+  ].join(' \u00b7 ')
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
+      <PrintSheetHeader
+        title="Work Orders"
+        meta={printMeta}
+        filterLines={describeFilters(filters, userLabelById)}
+        landscape
+      />
+
+      <div className="flex items-start justify-between gap-4 print:hidden">
         <div>
           <h1 className="font-heading text-2xl font-semibold">Work Orders</h1>
           <p className="text-sm text-muted-foreground">
@@ -175,6 +199,7 @@ export default async function WorkOrdersPage({
       <FilterBar
         assigneeOptions={assigneeOptions}
         exportPath="/work-orders/export"
+        showPrint
         initialFilters={filters}
       />
 
