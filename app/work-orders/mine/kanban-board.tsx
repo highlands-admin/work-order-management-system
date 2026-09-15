@@ -131,7 +131,8 @@ export function KanbanBoard({
     to: WorkOrderStatus,
     card: WorkOrderListItem,
     resolution?: string,
-    validatedBy?: string
+    validatedBy?: string,
+    note?: string
   ) {
     setBoard((prev) => ({
       ...prev,
@@ -145,7 +146,8 @@ export function KanbanBoard({
         cardId,
         to,
         resolution,
-        validatedBy
+        validatedBy,
+        note
       )
       if (result.status === 'error') {
         // Revert the card to its original column.
@@ -155,6 +157,10 @@ export function KanbanBoard({
           [from]: [{ ...card, status: from }, ...prev[from]],
         }))
         setError(result.message ?? 'Could not update the status.')
+      } else if (result.message) {
+        // The move succeeded but something after it did not, such as the
+        // optional note the close dialog collects.
+        setError(result.message)
       }
     })
   }
@@ -184,7 +190,7 @@ export function KanbanBoard({
       return
     }
     // Moving to Closed requires a validator (and a resolution unless already
-    // Done): hold the move and prompt first.
+    // Done, plus an optional note): hold the move and prompt first.
     if (to === 'closed') {
       setCloseMove({ cardId, from, card })
       return
@@ -269,7 +275,7 @@ export function KanbanBoard({
         users={users}
         requireResolution={closeMove ? closeMove.from !== 'done' : true}
         pending={isPending}
-        onConfirm={({ resolution, validatedBy }) => {
+        onConfirm={({ resolution, validatedBy, note }) => {
           if (!closeMove) return
           commitMove(
             closeMove.cardId,
@@ -277,7 +283,8 @@ export function KanbanBoard({
             'closed',
             closeMove.card,
             resolution,
-            validatedBy
+            validatedBy,
+            note
           )
           setCloseMove(null)
         }}

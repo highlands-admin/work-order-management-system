@@ -19,16 +19,21 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  NOTE_MAX_LENGTH,
+  NOTE_TOO_LONG_MESSAGE,
+} from '@/lib/schemas/work-order'
+import {
   formatAssigneeLabel,
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
 
 // Controlled modal for closing a work order. Always collects the validator (a
-// dropdown of users, like the Assignee field). It also collects a resolution
-// when the work order is not already Done, since a direct Open/In Progress ->
-// Closed move has no resolution yet. Used by the imperative status surfaces (the
-// detail-page status picker and the kanban board), which call a Server Action
-// directly.
+// dropdown of users, like the Assignee field) and an optional note, so the
+// closer can record context without opening the work order afterward. It also
+// collects a resolution when the work order is not already Done, since a direct
+// Open/In Progress -> Closed move has no resolution yet. Used by the imperative
+// status surfaces (the detail-page status picker and the kanban board), which
+// call a Server Action directly.
 export function CloseDialog({
   open,
   onOpenChange,
@@ -40,7 +45,11 @@ export function CloseDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConfirm: (values: { resolution?: string; validatedBy: string }) => void
+  onConfirm: (values: {
+    resolution?: string
+    validatedBy: string
+    note?: string
+  }) => void
   onCancel?: () => void
   users: AssignableUser[]
   requireResolution: boolean
@@ -48,9 +57,11 @@ export function CloseDialog({
 }) {
   const [resolution, setResolution] = useState('')
   const [validatedBy, setValidatedBy] = useState('')
+  const [note, setNote] = useState('')
   const [errors, setErrors] = useState<{
     resolution?: string
     validatedBy?: string
+    note?: string
   }>({})
 
   const userItems = Object.fromEntries(
@@ -60,6 +71,7 @@ export function CloseDialog({
   function reset() {
     setResolution('')
     setValidatedBy('')
+    setNote('')
     setErrors({})
   }
 
@@ -80,6 +92,12 @@ export function CloseDialog({
     if (!validatedBy) {
       nextErrors.validatedBy = 'Select who validated this work order.'
     }
+    // The note is optional, but one that is too long would fail server-side
+    // validation and revert the status change, so catch it here instead.
+    const trimmedNote = note.trim()
+    if (trimmedNote.length > NOTE_MAX_LENGTH) {
+      nextErrors.note = NOTE_TOO_LONG_MESSAGE
+    }
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors)
       return
@@ -87,6 +105,7 @@ export function CloseDialog({
     onConfirm({
       resolution: requireResolution ? trimmed : undefined,
       validatedBy,
+      note: trimmedNote || undefined,
     })
     reset()
   }
@@ -159,6 +178,37 @@ export function CloseDialog({
             {errors.validatedBy ? (
               <p className="text-sm text-destructive">{errors.validatedBy}</p>
             ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="close-note" className="text-sm font-medium">
+              Note{' '}
+              <span
+                className="text-xs font-normal text-muted-foreground"
+                aria-hidden="true"
+              >
+                (optional)
+              </span>
+            </label>
+            <Textarea
+              id="close-note"
+              rows={3}
+              value={note}
+              onChange={(e) => {
+                setNote(e.target.value)
+                if (errors.note) {
+                  setErrors((p) => ({ ...p, note: undefined }))
+                }
+              }}
+              aria-invalid={errors.note ? true : undefined}
+              placeholder="Anything else worth recording on this work order?"
+            />
+            {errors.note ? (
+              <p className="text-sm text-destructive">{errors.note}</p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              Added to the work order as a note from you.
+            </p>
           </div>
         </div>
 

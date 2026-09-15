@@ -85,6 +85,22 @@ export const rejectWorkOrderSchema = z.object({
 
 export type RejectWorkOrderInput = z.infer<typeof rejectWorkOrderSchema>
 
+// Shared by every note surface, including the close dialog, which checks the
+// limit on the client before it calls the Server Action.
+export const NOTE_MAX_LENGTH = 10000
+export const NOTE_TOO_LONG_MESSAGE = 'Note is too long (max 10,000 characters)'
+
+// An optional note captured alongside an approval or a closure, so the actor can
+// record context in the same step instead of opening the work order afterward.
+// The text becomes a regular work order note, subject to the same length limit
+// as addWorkOrderNoteSchema.
+const inlineNoteField = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (v && v.length > 0 ? v : undefined))
+  .pipe(z.string().max(NOTE_MAX_LENGTH, NOTE_TOO_LONG_MESSAGE).optional())
+
 // Approving a submission is also where the administrator picks who works it, so
 // the approve form carries an optional assignee. Empty means the work order is
 // approved and left unassigned.
@@ -95,6 +111,7 @@ export const approveWorkOrderSchema = z.object({
     .optional()
     .transform((v) => (v && v.length > 0 ? v : undefined))
     .pipe(z.uuid({ message: 'Select a valid assignee' }).optional()),
+  note: inlineNoteField,
 })
 
 export type ApproveWorkOrderInput = z.infer<typeof approveWorkOrderSchema>
@@ -682,6 +699,7 @@ export const transitionStatusSchema = z
     status: z.enum(WORK_ORDER_STATUSES, { message: 'Select a status' }),
     resolution: trimmedOptional.pipe(z.string().max(5000).optional()),
     validatedBy: validatedByField,
+    note: inlineNoteField,
   })
   .superRefine(requireResolutionOnDone)
   .superRefine(requireValidatedByOnClosed)
@@ -698,6 +716,7 @@ export const changeStatusSchema = z
     status: z.enum(MAIN_TABLE_STATUSES, { message: 'Select a status' }),
     resolution: trimmedOptional.pipe(z.string().max(5000).optional()),
     validatedBy: validatedByField,
+    note: inlineNoteField,
   })
   .superRefine(requireResolutionOnDone)
   .superRefine(requireValidatedByOnClosed)
@@ -712,7 +731,7 @@ export const addWorkOrderNoteSchema = z.object({
     .string()
     .trim()
     .min(1, 'Note cannot be empty')
-    .max(10000, 'Note is too long (max 10,000 characters)'),
+    .max(NOTE_MAX_LENGTH, NOTE_TOO_LONG_MESSAGE),
 })
 
 export type AddWorkOrderNoteInput = z.infer<typeof addWorkOrderNoteSchema>

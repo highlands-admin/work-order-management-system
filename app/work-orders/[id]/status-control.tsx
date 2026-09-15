@@ -51,7 +51,8 @@ export function StatusControl({
   function commit(
     next: WorkOrderStatus,
     resolution?: string,
-    validatedBy?: string
+    validatedBy?: string,
+    note?: string
   ) {
     const previous = value
     setValue(next)
@@ -60,13 +61,18 @@ export function StatusControl({
         workOrderId,
         next,
         resolution,
-        validatedBy
+        validatedBy,
+        note
       )
       if (result.status === 'error') {
         setValue(previous)
         toast.error(result.message ?? 'Could not update the status.')
       } else {
-        toast.success(`Status changed to ${STATUS_LABELS[next]}.`)
+        // A message on success means the status changed but something after it
+        // did not, such as the optional note.
+        toast.success(
+          result.message ?? `Status changed to ${STATUS_LABELS[next]}.`
+        )
       }
     })
   }
@@ -74,8 +80,9 @@ export function StatusControl({
   function onChange(next: WorkOrderStatus) {
     if (next === value) return
     // Moving to Done requires a resolution; moving to Closed requires a
-    // validator (and a resolution unless already Done). Collect these in a
-    // modal, then commit. The select stays on its current value until confirmed.
+    // validator (and a resolution unless already Done, plus an optional note).
+    // Collect these in a modal, then commit. The select stays on its current
+    // value until confirmed.
     if (next === 'done') {
       setDoneDialogOpen(true)
       return
@@ -131,9 +138,9 @@ export function StatusControl({
         // Open / In Progress must supply one now.
         requireResolution={serverStatus !== 'done'}
         pending={isPending}
-        onConfirm={({ resolution, validatedBy }) => {
+        onConfirm={({ resolution, validatedBy, note }) => {
           setCloseDialogOpen(false)
-          commit('closed', resolution, validatedBy)
+          commit('closed', resolution, validatedBy, note)
         }}
       />
     </div>

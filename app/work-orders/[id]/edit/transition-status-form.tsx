@@ -134,7 +134,8 @@ export function TransitionStatusForm({
   }
 
   // Closing (inspector: done -> closed) requires recording who validated the
-  // work. The resolution is already present from the move to Done.
+  // work, and takes an optional note. The resolution is already present from the
+  // move to Done.
   if (target === 'closed') {
     return (
       <InspectorCloseForm
@@ -183,6 +184,7 @@ function InspectorCloseForm({
 }) {
   const [validatedBy, setValidatedBy] = useState('')
   const fieldError = state.fieldErrors?.validatedBy?.[0]
+  const noteError = state.fieldErrors?.note?.[0]
   const userItems = Object.fromEntries(
     users.map((u) => [u.user_id, formatAssigneeLabel(u)])
   )
@@ -212,6 +214,12 @@ function InspectorCloseForm({
               </AlertDialogDescription>
 
               <input type="hidden" name="status" value="closed" />
+              <label
+                htmlFor="inspector-close-validated-by"
+                className="text-sm font-medium"
+              >
+                Validated by
+              </label>
               <Select
                 name="validatedBy"
                 items={userItems}
@@ -221,6 +229,7 @@ function InspectorCloseForm({
                 }
               >
                 <SelectTrigger
+                  id="inspector-close-validated-by"
                   className="w-full"
                   aria-invalid={fieldError ? true : undefined}
                 >
@@ -237,6 +246,36 @@ function InspectorCloseForm({
               {fieldError ? (
                 <p className="text-sm text-destructive">{fieldError}</p>
               ) : null}
+
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="inspector-close-note"
+                  className="text-sm font-medium"
+                >
+                  Note{' '}
+                  <span
+                    className="text-xs font-normal text-muted-foreground"
+                    aria-hidden="true"
+                  >
+                    (optional)
+                  </span>
+                </label>
+                <Textarea
+                  id="inspector-close-note"
+                  name="note"
+                  rows={3}
+                  defaultValue={state.values?.note}
+                  aria-invalid={noteError ? true : undefined}
+                  placeholder="Anything else worth recording on this work order?"
+                />
+                {noteError ? (
+                  <p className="text-sm text-destructive">{noteError}</p>
+                ) : null}
+                <p className="text-xs text-muted-foreground">
+                  Added to the work order as a note from you.
+                </p>
+              </div>
+
               <FormError state={state} />
 
               <AlertDialogFooter>

@@ -16,7 +16,13 @@ import { toast } from 'sonner'
 import { FormError } from '@/components/auth/form-error'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { Button } from '@/components/ui/button'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
 import {
   Select,
   SelectContent,
@@ -109,13 +115,14 @@ export function QueueDetail({
   const { markEdited: markApproveEdited, getError: getApproveError } =
     useServerErrors(approveState, approveState.fieldErrors)
   const assignedToError = getApproveError('assignedTo')
+  const noteError = getApproveError('note')
 
   const prevApprove = useRef<AuthState>(initialAuthState)
   useEffect(() => {
     if (prevApprove.current === approveState) return
     prevApprove.current = approveState
     if (approveState.status === 'success') {
-      toast.success('Work order approved.')
+      toast.success(approveState.message ?? 'Work order approved.')
       onDone()
     } else if (approveState.status === 'error' && approveState.message) {
       toast.error(approveState.message)
@@ -245,9 +252,10 @@ export function QueueDetail({
           </form>
         ) : (
           // Approving is the moment the work order joins the live queue, so the
-          // assignee is picked here rather than in a follow-up edit. Reject sits
-          // inside the same form as a plain button, so it only ever swaps the
-          // panel and never submits the approval.
+          // assignee is picked here rather than in a follow-up edit, and an
+          // optional note can be recorded in the same step. Reject sits inside
+          // the same form as a plain button, so it only ever swaps the panel and
+          // never submits the approval.
           <form
             action={approveAction}
             noValidate
@@ -288,6 +296,24 @@ export function QueueDetail({
                   </SelectContent>
                 </Select>
                 <FieldError>{assignedToError}</FieldError>
+              </Field>
+              <Field data-invalid={noteError ? 'true' : undefined}>
+                <FieldLabel htmlFor={`note-${item.id}`}>
+                  Note <Optional />
+                </FieldLabel>
+                <Textarea
+                  id={`note-${item.id}`}
+                  name="note"
+                  rows={3}
+                  defaultValue={approveState.values?.note}
+                  onChange={() => markApproveEdited('note')}
+                  aria-invalid={noteError ? true : undefined}
+                  placeholder="Anything the assignee should know before starting?"
+                />
+                <FieldError>{noteError}</FieldError>
+                <FieldDescription>
+                  Added to the work order as a note from you.
+                </FieldDescription>
               </Field>
             </FieldGroup>
             <div className="flex justify-end gap-2">

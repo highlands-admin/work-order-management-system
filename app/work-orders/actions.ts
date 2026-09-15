@@ -186,6 +186,28 @@ async function notifyCategoryApprover(
   }
 }
 
+// Writes the optional note that the approve and close forms collect alongside
+// their own fields. The text becomes an ordinary work order note, so it lands in
+// the notes list and fires the same note notifications as one added by hand.
+// Called after the status change commits, which means a brand-new assignee is
+// among the recipients. Returns an error message when the insert fails; the
+// status change has already succeeded by then, so callers report the failure
+// instead of rolling back.
+async function addInlineNote(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  workOrderId: string,
+  authorId: string,
+  body: string | undefined
+): Promise<string | null> {
+  if (!body) return null
+  const { error } = await supabase.from('work_order_notes').insert({
+    work_order_id: workOrderId,
+    body,
+    created_by: authorId,
+  })
+  return error ? error.message : null
+}
+
 const FILER_ROLES = ['administrator', 'requester'] as const
 const EDITOR_ROLES = ['administrator', 'requester'] as const
 
@@ -675,6 +697,7 @@ export async function transitionWorkOrderStatusAction(
     status: String(formData.get('status') ?? ''),
     resolution: String(formData.get('resolution') ?? ''),
     validatedBy: String(formData.get('validatedBy') ?? ''),
+    note: String(formData.get('note') ?? ''),
   }
   const parsed = transitionStatusSchema.safeParse(raw)
   if (!parsed.success) {
@@ -736,6 +759,24 @@ export async function transitionWorkOrderStatusAction(
     return formError(undefined, raw, error.message)
   }
 
+  const noteError = await addInlineNote(
+    supabase,
+    workOrderId,
+    claims.sub,
+    parsed.data.note
+  )
+  if (noteError) {
+    // The status change stands, so refresh the affected pages before reporting
+    // the note failure in place instead of redirecting on to the list.
+    revalidatePath('/work-orders')
+    revalidatePath(`/work-orders/${workOrderId}/edit`)
+    return formError(
+      undefined,
+      raw,
+      `The status changed, but the note could not be saved: ${noteError}`
+    )
+  }
+
   revalidatePath('/work-orders')
   revalidatePath(`/work-orders/${workOrderId}/edit`)
   redirect('/work-orders?flash=status')
@@ -750,9 +791,15 @@ export async function changeWorkOrderStatusAction(
   workOrderId: string,
   status: string,
   resolution?: string,
-  validatedBy?: string
+  validatedBy?: string,
+  note?: string
 ): Promise<{ status: 'success' | 'error'; message?: string }> {
-  const parsed = changeStatusSchema.safeParse({ status, resolution, validatedBy })
+  const parsed = changeStatusSchema.safeParse({
+    status,
+    resolution,
+    validatedBy,
+    note,
+  })
   if (!parsed.success) {
     return {
       status: 'error',
@@ -837,11 +884,25 @@ export async function changeWorkOrderStatusAction(
     return { status: 'error', message: error.message }
   }
 
+  const noteError = await addInlineNote(
+    supabase,
+    workOrderId,
+    claims.sub,
+    parsed.data.note
+  )
+
   revalidatePath('/work-orders')
   revalidatePath('/work-orders/mine')
   revalidatePath(`/work-orders/${workOrderId}`)
   revalidatePath(`/work-orders/${workOrderId}/edit`)
-  return { status: 'success' }
+  // The status change stands either way, so a failed note is reported in the
+  // success message rather than as an error the caller would roll back.
+  return noteError
+    ? {
+        status: 'success',
+        message: `Status updated, but the note could not be saved: ${noteError}`,
+      }
+    : { status: 'success' }
 }
 
 // Inline priority change from the detail page. Admin-only: unlike status, the
@@ -903,7 +964,10 @@ export async function approveWorkOrderAction(
   // hidden marker says whether the submission had an opinion about the assignee.
   // Without it, an approval from the detail page would silently unassign the row.
   const assigneeSubmitted = formData.get('assigneeSubmitted') === '1'
-  const raw = { assignedTo: String(formData.get('assignedTo') ?? '') }
+  const raw = {
+    assignedTo: String(formData.get('assignedTo') ?? ''),
+    note: String(formData.get('note') ?? ''),
+  }
   const parsed = approveWorkOrderSchema.safeParse(raw)
   if (!parsed.success) {
     return formError(z4FieldErrors(parsed.error), raw)
@@ -975,6 +1039,13 @@ export async function approveWorkOrderAction(
     reporterEmail: workOrder.reported_by_email,
   }
 
+  const noteError = await addInlineNote(
+    supabase,
+    workOrderId,
+    claims.sub,
+    parsed.data.note
+  )
+
   // Tell the new assignee the work is theirs (unless the approver took it on).
   if (
     assigneeSubmitted &&
@@ -1000,7 +1071,14 @@ export async function approveWorkOrderAction(
   revalidatePath('/work-orders/submissions')
   revalidatePath('/work-orders')
   revalidatePath(`/work-orders/${workOrderId}`)
-  return { status: 'success', message: 'Approved.' }
+  // The approval stands either way, so a failed note is reported in the success
+  // message rather than as an error that would imply nothing happened.
+  return noteError
+    ? {
+        status: 'success',
+        message: `Approved, but the note could not be saved: ${noteError}`,
+      }
+    : { status: 'success', message: 'Approved.' }
 }
 
 // Approval-queue reject: only ever called against a pending submission. The
