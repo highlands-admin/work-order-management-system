@@ -2,7 +2,7 @@
 
 import { format, parseISO, startOfToday } from 'date-fns'
 import { RiCalendarLine, RiCloseLine } from '@remixicon/react'
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useState, type ChangeEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -25,7 +25,6 @@ export function DateTimePicker({
   placeholder = 'Pick a date and time',
   ariaInvalid,
   className,
-  defaultOffsetHours,
   disablePast,
 }: {
   id?: string
@@ -35,9 +34,6 @@ export function DateTimePicker({
   placeholder?: string
   ariaInvalid?: boolean
   className?: string
-  // When set and no `value` is provided, default the field to now + this many
-  // hours (e.g. 24 for "same time tomorrow").
-  defaultOffsetHours?: number
   // Grays out and blocks picking any day before today. Doesn't touch an
   // already-set past value (e.g. an overdue work order's existing due date)
   // -- it only stops a *new* past date from being picked.
@@ -52,21 +48,6 @@ export function DateTimePicker({
   function emit(nextDate: Date | undefined, nextTime: string) {
     onChange?.(composeIso(nextDate, nextTime))
   }
-
-  // Apply the default after mount so the server render stays empty and reading
-  // the clock never causes a hydration mismatch. Only fires when uncontrolled
-  // and still empty, so it won't clobber an existing value or user input.
-  useEffect(() => {
-    if (defaultOffsetHours === undefined || value || date !== undefined) return
-    const next = new Date(Date.now() + defaultOffsetHours * 60 * 60 * 1000)
-    const nextTime = format(next, 'HH:mm')
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setDate(next)
-    setTime(nextTime)
-    /* eslint-enable react-hooks/set-state-in-effect */
-    emit(next, nextTime)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   function handleDateSelect(next: Date | undefined) {
     setDate(next)

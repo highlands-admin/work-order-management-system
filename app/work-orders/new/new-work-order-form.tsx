@@ -636,7 +636,6 @@ function NewWorkOrderFormInner({
                   ariaInvalid={dueAtError ? true : undefined}
                   onChange={() => editField('dueAt')}
                   className="w-full"
-                  defaultOffsetHours={24}
                   disablePast
                 />
                 <FieldError>{dueAtError}</FieldError>
