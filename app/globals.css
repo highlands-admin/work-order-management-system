@@ -167,6 +167,15 @@
     @apply font-heading tracking-normal;
   }
 
+  /* Native <select> popups are painted by the OS (white on Windows) but the
+     options inherit the dark theme's light text, leaving only the highlighted
+     row readable. Pin the options to the popover tokens so both agree. */
+  select option,
+  select optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+
   /* Theme the scrollbars off the design tokens so every scroll area, including
      nested ones like the work order table, follows light/dark. color-scheme
      alone does not reliably restyle nested overflow regions across browsers. */
