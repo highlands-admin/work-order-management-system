@@ -83,12 +83,17 @@ type WorkOrder = {
   marketing_size_format_other: string | null
 }
 
+// The save button renders outside the <form> element so the notes section
+// can sit above it, and points back at the form with this id.
+const EDIT_FORM_ID = 'edit-work-order-form'
+
 export function EditWorkOrderForm({
   workOrder,
   allowedStatuses,
   assignableUsers,
   canAssign,
   attachments,
+  notes,
 }: {
   workOrder: WorkOrder
   allowedStatuses: WorkOrderStatus[]
@@ -97,6 +102,9 @@ export function EditWorkOrderForm({
   // approves it, so non-admins editing one do not see the assignee field.
   canAssign: boolean
   attachments: ExistingAttachment[]
+  // Rendered between the fields and the save button. It carries forms of its
+  // own, so it sits outside the edit form rather than nested inside it.
+  notes?: ReactNode
 }) {
   // Value -> label maps let each Select show the chosen option's label (not the
   // raw stored value) without the dropdown items being mounted.
@@ -105,7 +113,10 @@ export function EditWorkOrderForm({
   )
   const statusLocked = allowedStatuses.length <= 1
   const boundAction = updateWorkOrderAction.bind(null, workOrder.id)
-  const [state, action] = useActionState(boundAction, initialAuthState)
+  const [state, action, isPending] = useActionState(
+    boundAction,
+    initialAuthState
+  )
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
 
   const [storedState, setStoredState] = useState(state)
@@ -175,112 +186,380 @@ export function EditWorkOrderForm({
   }
 
   return (
-    <form action={action} noValidate className="flex flex-col gap-6">
-      <FormError state={state} />
-
-      <FormSection
-        id="issue"
-        title="Issue"
-        description="What kind of problem is this, and how urgent?"
+    <div className="flex flex-col gap-6">
+      <form
+        id={EDIT_FORM_ID}
+        action={action}
+        noValidate
+        className="flex flex-col gap-6"
       >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field data-invalid={categoryError ? 'true' : undefined}>
-            <FieldLabel htmlFor="category">
-              Category <Required />
-            </FieldLabel>
-            <Select
-              name="category"
-              items={CATEGORY_LABELS}
-              value={categoryValue}
-              onValueChange={(v) => {
-                setCategoryValue(typeof v === 'string' ? v : '')
-                markEdited('category')
-              }}
-            >
-              <SelectTrigger
-                id="category"
-                className="w-full"
-                aria-invalid={categoryError ? true : undefined}
-              >
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {WORK_ORDER_CATEGORIES_BY_LABEL.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {CATEGORY_LABELS[c]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{categoryError}</FieldError>
-          </Field>
+        <FormError state={state} />
 
-          <Field data-invalid={priorityError ? 'true' : undefined}>
-            <FieldLabel htmlFor="priority">
-              Priority <Required />
-            </FieldLabel>
-            <Select
-              name="priority"
-              items={PRIORITY_LABELS}
-              value={priorityValue}
-              onValueChange={(v) => {
-                setPriorityValue(typeof v === 'string' ? v : '')
-                markEdited('priority')
-              }}
-            >
-              <SelectTrigger
-                id="priority"
-                className="w-full"
-                aria-invalid={priorityError ? true : undefined}
-              >
-                <SelectValue placeholder="Select a priority" />
-              </SelectTrigger>
-              <SelectContent>
-                {WORK_ORDER_PRIORITIES.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {PRIORITY_LABELS[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{priorityError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
-
-      <FormSection
-        id="assignment"
-        title="Assignment"
-        description={
-          canAssign
-            ? 'Who is responsible for this work order.'
-            : 'An administrator sets the assignee when this submission is approved.'
-        }
-      >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          {canAssign ? (
-            <Field data-invalid={assignedToError ? 'true' : undefined}>
-              <FieldLabel htmlFor="assignedTo">
-                Assignee <Optional />
+        <FormSection
+          id="issue"
+          title="Issue"
+          description="What kind of problem is this, and how urgent?"
+        >
+          <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <Field data-invalid={categoryError ? 'true' : undefined}>
+              <FieldLabel htmlFor="category">
+                Category <Required />
               </FieldLabel>
               <Select
-                name="assignedTo"
-                items={assigneeItems}
-                value={assignedToValue}
+                name="category"
+                items={CATEGORY_LABELS}
+                value={categoryValue}
                 onValueChange={(v) => {
-                  setAssignedToValue(typeof v === 'string' ? v : '')
-                  markEdited('assignedTo')
+                  setCategoryValue(typeof v === 'string' ? v : '')
+                  markEdited('category')
                 }}
               >
                 <SelectTrigger
-                  id="assignedTo"
+                  id="category"
                   className="w-full"
-                  aria-invalid={assignedToError ? true : undefined}
+                  aria-invalid={categoryError ? true : undefined}
                 >
-                  <SelectValue placeholder="Unassigned" />
+                  <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={null}>Unassigned</SelectItem>
+                  {WORK_ORDER_CATEGORIES_BY_LABEL.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {CATEGORY_LABELS[c]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldError>{categoryError}</FieldError>
+            </Field>
+
+            <Field data-invalid={priorityError ? 'true' : undefined}>
+              <FieldLabel htmlFor="priority">
+                Priority <Required />
+              </FieldLabel>
+              <Select
+                name="priority"
+                items={PRIORITY_LABELS}
+                value={priorityValue}
+                onValueChange={(v) => {
+                  setPriorityValue(typeof v === 'string' ? v : '')
+                  markEdited('priority')
+                }}
+              >
+                <SelectTrigger
+                  id="priority"
+                  className="w-full"
+                  aria-invalid={priorityError ? true : undefined}
+                >
+                  <SelectValue placeholder="Select a priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  {WORK_ORDER_PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {PRIORITY_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldError>{priorityError}</FieldError>
+            </Field>
+          </FieldGroup>
+        </FormSection>
+
+        <FormSection
+          id="assignment"
+          title="Assignment"
+          description={
+            canAssign
+              ? 'Who is responsible for this work order.'
+              : 'An administrator sets the assignee when this submission is approved.'
+          }
+        >
+          <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {canAssign ? (
+              <Field data-invalid={assignedToError ? 'true' : undefined}>
+                <FieldLabel htmlFor="assignedTo">
+                  Assignee <Optional />
+                </FieldLabel>
+                <Select
+                  name="assignedTo"
+                  items={assigneeItems}
+                  value={assignedToValue}
+                  onValueChange={(v) => {
+                    setAssignedToValue(typeof v === 'string' ? v : '')
+                    markEdited('assignedTo')
+                  }}
+                >
+                  <SelectTrigger
+                    id="assignedTo"
+                    className="w-full"
+                    aria-invalid={assignedToError ? true : undefined}
+                  >
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>Unassigned</SelectItem>
+                    {assignableUsers.map((u) => (
+                      <SelectItem key={u.user_id} value={u.user_id}>
+                        {formatAssigneeLabel(u)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{assignedToError}</FieldError>
+              </Field>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Not assigned yet.
+              </p>
+            )}
+          </FieldGroup>
+        </FormSection>
+
+        <FormSection
+          id="status"
+          title="Status"
+          description={
+            statusLocked
+              ? workOrder.status === 'pending'
+                ? 'Awaiting administrator approval. Status will change once an admin reviews this submission.'
+                : workOrder.status === 'rejected'
+                  ? 'This submission was rejected. Only an administrator can reopen it.'
+                  : 'Status is locked for your role on this work order.'
+              : 'Where this ticket is in the workflow.'
+          }
+        >
+          <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <Field data-invalid={statusError ? 'true' : undefined}>
+              <FieldLabel htmlFor="status">
+                Status {statusLocked ? null : <Required />}
+              </FieldLabel>
+              {statusLocked ? (
+                <>
+                  <div
+                    id="status"
+                    className="flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
+                  >
+                    {STATUS_LABELS[workOrder.status]}
+                  </div>
+                  <input type="hidden" name="status" value={workOrder.status} />
+                </>
+              ) : (
+                <Select
+                  name="status"
+                  items={STATUS_LABELS}
+                  value={statusValue}
+                  onValueChange={(v) => {
+                    setStatusValue(typeof v === 'string' ? v : '')
+                    markEdited('status')
+                  }}
+                >
+                  <SelectTrigger
+                    id="status"
+                    className="w-full"
+                    aria-invalid={statusError ? true : undefined}
+                  >
+                    <SelectValue placeholder="Select a status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedStatuses.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {STATUS_LABELS[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <FieldError>{statusError}</FieldError>
+            </Field>
+          </FieldGroup>
+        </FormSection>
+
+        {categoryValue === 'marketing' ? (
+          <FormSection
+            id="marketing"
+            title="Marketing"
+            description="Details the design team needs for this marketing request."
+          >
+            <MarketingFields
+              state={state}
+              defaults={marketingDefaults}
+              markEdited={markEdited}
+              getError={getError}
+            />
+          </FormSection>
+        ) : null}
+
+        <FormSection
+          id="details"
+          title="Details"
+          description="What needs to happen, and by when."
+        >
+          <FieldGroup className="flex flex-col gap-5">
+            <Field data-invalid={titleError ? 'true' : undefined}>
+              <FieldLabel htmlFor="title">
+                Title <Required />
+              </FieldLabel>
+              <Input
+                id="title"
+                name="title"
+                autoComplete="off"
+                defaultValue={state.values?.title ?? workOrder.title}
+                onChange={() => markEdited('title')}
+                aria-invalid={titleError ? true : undefined}
+                placeholder="A short, descriptive name for this work order"
+                maxLength={120}
+                required
+              />
+              <FieldError>{titleError}</FieldError>
+            </Field>
+
+            {categoryValue === 'it' ? (
+              <Field data-invalid={itRequestTypeError ? 'true' : undefined}>
+                <FieldLabel htmlFor="itRequestType">
+                  Type of request <Optional />
+                </FieldLabel>
+                <Select
+                  name="itRequestType"
+                  items={IT_REQUEST_TYPE_LABELS}
+                  value={itRequestTypeValue}
+                  onValueChange={(v) => {
+                    setItRequestTypeValue(typeof v === 'string' ? v : '')
+                    markEdited('itRequestType')
+                  }}
+                >
+                  <SelectTrigger
+                    id="itRequestType"
+                    className="w-full sm:max-w-sm"
+                    aria-invalid={itRequestTypeError ? true : undefined}
+                  >
+                    <SelectValue placeholder="Not specified" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {IT_REQUEST_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {IT_REQUEST_TYPE_LABELS[t]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{itRequestTypeError}</FieldError>
+              </Field>
+            ) : null}
+
+            <Field data-invalid={descriptionError ? 'true' : undefined}>
+              <FieldLabel htmlFor="description">
+                Description <Required />
+              </FieldLabel>
+              <Textarea
+                id="description"
+                name="description"
+                rows={5}
+                defaultValue={state.values?.description ?? workOrder.description}
+                onChange={() => markEdited('description')}
+                aria-invalid={descriptionError ? true : undefined}
+                placeholder={
+                  categoryValue === 'marketing'
+                    ? MARKETING_DESCRIPTION_PLACEHOLDER
+                    : undefined
+                }
+                required
+              />
+              <FieldError>{descriptionError}</FieldError>
+            </Field>
+
+            <Field data-invalid={dueAtError ? 'true' : undefined}>
+              <FieldLabel htmlFor="dueAt">
+                Due date and time <Optional />
+              </FieldLabel>
+              <DateTimePicker
+                id="dueAt"
+                name="dueAt"
+                value={state.values?.dueAt ?? workOrder.due_at ?? undefined}
+                ariaInvalid={dueAtError ? true : undefined}
+                onChange={() => markEdited('dueAt')}
+                className="sm:max-w-sm"
+                disablePast
+              />
+              <FieldError>{dueAtError}</FieldError>
+            </Field>
+
+            {RECURRING_CATEGORIES.has(categoryValue as WorkOrderCategory) ? (
+              <Field data-invalid={providerError ? 'true' : undefined}>
+                <FieldLabel htmlFor="provider">
+                  Provider <Optional />
+                </FieldLabel>
+                <Input
+                  id="provider"
+                  name="provider"
+                  autoComplete="off"
+                  placeholder="e.g. Cartersville Sprinkler"
+                  defaultValue={state.values?.provider ?? workOrder.provider ?? ''}
+                  onChange={() => markEdited('provider')}
+                  aria-invalid={providerError ? true : undefined}
+                />
+                <FieldError>{providerError}</FieldError>
+              </Field>
+            ) : (
+              // Provider is only editable for recurring categories (matching the
+              // create form), but a work order outside those categories may
+              // already have a value saved from before this field was gated.
+              // Submit it unchanged via a hidden input so hiding the field here
+              // doesn't silently null it out on the next save.
+              <input
+                type="hidden"
+                name="provider"
+                value={state.values?.provider ?? workOrder.provider ?? ''}
+              />
+            )}
+
+            <Field data-invalid={resolutionError ? 'true' : undefined}>
+              <FieldLabel htmlFor="resolution">
+                Resolution{' '}
+                {statusValue === 'done' || statusValue === 'closed' ? (
+                  <Required />
+                ) : (
+                  <Optional />
+                )}
+              </FieldLabel>
+              <Textarea
+                id="resolution"
+                name="resolution"
+                rows={4}
+                defaultValue={state.values?.resolution ?? workOrder.resolution ?? ''}
+                onChange={() => markEdited('resolution')}
+                aria-invalid={resolutionError ? true : undefined}
+                placeholder={
+                  statusValue === 'done' || statusValue === 'closed'
+                    ? 'Required: describe how this work order was resolved.'
+                    : 'What was done to resolve this ticket?'
+                }
+              />
+              <FieldError>{resolutionError}</FieldError>
+            </Field>
+
+            <Field data-invalid={validatedByError ? 'true' : undefined}>
+              <FieldLabel htmlFor="validatedBy">
+                Validated by{' '}
+                {statusValue === 'closed' ? <Required /> : <Optional />}
+              </FieldLabel>
+              <Select
+                name="validatedBy"
+                items={assigneeItems}
+                value={validatedByValue}
+                onValueChange={(v) => {
+                  setValidatedByValue(typeof v === 'string' ? v : '')
+                  markEdited('validatedBy')
+                }}
+              >
+                <SelectTrigger
+                  id="validatedBy"
+                  className="w-full sm:max-w-sm"
+                  aria-invalid={validatedByError ? true : undefined}
+                >
+                  <SelectValue placeholder="Not validated" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={null}>Not validated</SelectItem>
                   {assignableUsers.map((u) => (
                     <SelectItem key={u.user_id} value={u.user_id}>
                       {formatAssigneeLabel(u)}
@@ -288,427 +567,172 @@ export function EditWorkOrderForm({
                   ))}
                 </SelectContent>
               </Select>
-              <FieldError>{assignedToError}</FieldError>
+              <FieldError>{validatedByError}</FieldError>
             </Field>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Not assigned yet.
-            </p>
-          )}
-        </FieldGroup>
-      </FormSection>
+          </FieldGroup>
+        </FormSection>
 
-      <FormSection
-        id="status"
-        title="Status"
-        description={
-          statusLocked
-            ? workOrder.status === 'pending'
-              ? 'Awaiting administrator approval. Status will change once an admin reviews this submission.'
-              : workOrder.status === 'rejected'
-                ? 'This submission was rejected. Only an administrator can reopen it.'
-                : 'Status is locked for your role on this work order.'
-            : 'Where this ticket is in the workflow.'
-        }
-      >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field data-invalid={statusError ? 'true' : undefined}>
-            <FieldLabel htmlFor="status">
-              Status {statusLocked ? null : <Required />}
-            </FieldLabel>
-            {statusLocked ? (
-              <>
-                <div
-                  id="status"
-                  className="flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
-                >
-                  {STATUS_LABELS[workOrder.status]}
-                </div>
-                <input type="hidden" name="status" value={workOrder.status} />
-              </>
-            ) : (
-              <Select
-                name="status"
-                items={STATUS_LABELS}
-                value={statusValue}
-                onValueChange={(v) => {
-                  setStatusValue(typeof v === 'string' ? v : '')
-                  markEdited('status')
-                }}
-              >
-                <SelectTrigger
-                  id="status"
-                  className="w-full"
-                  aria-invalid={statusError ? true : undefined}
-                >
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allowedStatuses.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {STATUS_LABELS[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <FieldError>{statusError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
-
-      {categoryValue === 'marketing' ? (
         <FormSection
-          id="marketing"
-          title="Marketing"
-          description="Details the design team needs for this marketing request."
+          id="attachments"
+          title="Attachments"
+          description="Photos or documents for this work order. Add new ones or remove existing files."
         >
-          <MarketingFields
-            state={state}
-            defaults={marketingDefaults}
-            markEdited={markEdited}
-            getError={getError}
+          <AttachmentUploader
+            existing={attachments}
+            compressImages={categoryValue !== 'marketing'}
+            category={categoryValue}
+            onUploadingChange={setAttachmentsUploading}
           />
         </FormSection>
-      ) : null}
 
-      <FormSection
-        id="details"
-        title="Details"
-        description="What needs to happen, and by when."
-      >
-        <FieldGroup className="flex flex-col gap-5">
-          <Field data-invalid={titleError ? 'true' : undefined}>
-            <FieldLabel htmlFor="title">
-              Title <Required />
-            </FieldLabel>
-            <Input
-              id="title"
-              name="title"
-              autoComplete="off"
-              defaultValue={state.values?.title ?? workOrder.title}
-              onChange={() => markEdited('title')}
-              aria-invalid={titleError ? true : undefined}
-              placeholder="A short, descriptive name for this work order"
-              maxLength={120}
-              required
-            />
-            <FieldError>{titleError}</FieldError>
-          </Field>
-
-          {categoryValue === 'it' ? (
-            <Field data-invalid={itRequestTypeError ? 'true' : undefined}>
-              <FieldLabel htmlFor="itRequestType">
-                Type of request <Optional />
+        <FormSection
+          id="location"
+          title="Location"
+          description="Where is the work needed?"
+        >
+          <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <Field data-invalid={propertyError ? 'true' : undefined}>
+              <FieldLabel htmlFor="property">
+                Facility {categoryValue === 'it' ? <Optional /> : <Required />}
               </FieldLabel>
               <Select
-                name="itRequestType"
-                items={IT_REQUEST_TYPE_LABELS}
-                value={itRequestTypeValue}
+                name="property"
+                items={PROPERTY_LABELS}
+                value={propertyValue}
                 onValueChange={(v) => {
-                  setItRequestTypeValue(typeof v === 'string' ? v : '')
-                  markEdited('itRequestType')
+                  setPropertyValue(typeof v === 'string' ? v : '')
+                  markEdited('property')
                 }}
               >
                 <SelectTrigger
-                  id="itRequestType"
-                  className="w-full sm:max-w-sm"
-                  aria-invalid={itRequestTypeError ? true : undefined}
+                  id="property"
+                  className="w-full"
+                  aria-invalid={propertyError ? true : undefined}
                 >
-                  <SelectValue placeholder="Not specified" />
+                  <SelectValue placeholder="Select a facility" />
                 </SelectTrigger>
                 <SelectContent>
-                  {IT_REQUEST_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {IT_REQUEST_TYPE_LABELS[t]}
+                  {PROPERTIES_BY_LABEL.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {PROPERTY_LABELS[p]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <FieldError>{itRequestTypeError}</FieldError>
+              <FieldError>{propertyError}</FieldError>
             </Field>
-          ) : null}
 
-          <Field data-invalid={descriptionError ? 'true' : undefined}>
-            <FieldLabel htmlFor="description">
-              Description <Required />
-            </FieldLabel>
-            <Textarea
-              id="description"
-              name="description"
-              rows={5}
-              defaultValue={state.values?.description ?? workOrder.description}
-              onChange={() => markEdited('description')}
-              aria-invalid={descriptionError ? true : undefined}
-              placeholder={
-                categoryValue === 'marketing'
-                  ? MARKETING_DESCRIPTION_PLACEHOLDER
-                  : undefined
-              }
-              required
-            />
-            <FieldError>{descriptionError}</FieldError>
-          </Field>
-
-          <Field data-invalid={dueAtError ? 'true' : undefined}>
-            <FieldLabel htmlFor="dueAt">
-              Due date and time <Optional />
-            </FieldLabel>
-            <DateTimePicker
-              id="dueAt"
-              name="dueAt"
-              value={state.values?.dueAt ?? workOrder.due_at ?? undefined}
-              ariaInvalid={dueAtError ? true : undefined}
-              onChange={() => markEdited('dueAt')}
-              className="sm:max-w-sm"
-              disablePast
-            />
-            <FieldError>{dueAtError}</FieldError>
-          </Field>
-
-          {RECURRING_CATEGORIES.has(categoryValue as WorkOrderCategory) ? (
-            <Field data-invalid={providerError ? 'true' : undefined}>
-              <FieldLabel htmlFor="provider">
-                Provider <Optional />
+            <Field data-invalid={unitNumberError ? 'true' : undefined}>
+              <FieldLabel htmlFor="unitNumber">
+                Unit number <Optional />
               </FieldLabel>
               <Input
-                id="provider"
-                name="provider"
+                id="unitNumber"
+                name="unitNumber"
                 autoComplete="off"
-                placeholder="e.g. Cartersville Sprinkler"
-                defaultValue={state.values?.provider ?? workOrder.provider ?? ''}
-                onChange={() => markEdited('provider')}
-                aria-invalid={providerError ? true : undefined}
+                defaultValue={state.values?.unitNumber ?? workOrder.unit_number ?? ''}
+                onChange={() => markEdited('unitNumber')}
+                aria-invalid={unitNumberError ? true : undefined}
+                placeholder="e.g. 2A"
               />
-              <FieldError>{providerError}</FieldError>
+              <FieldError>{unitNumberError}</FieldError>
             </Field>
-          ) : (
-            // Provider is only editable for recurring categories (matching the
-            // create form), but a work order outside those categories may
-            // already have a value saved from before this field was gated.
-            // Submit it unchanged via a hidden input so hiding the field here
-            // doesn't silently null it out on the next save.
-            <input
-              type="hidden"
-              name="provider"
-              value={state.values?.provider ?? workOrder.provider ?? ''}
-            />
-          )}
+          </FieldGroup>
+        </FormSection>
 
-          <Field data-invalid={resolutionError ? 'true' : undefined}>
-            <FieldLabel htmlFor="resolution">
-              Resolution{' '}
-              {statusValue === 'done' || statusValue === 'closed' ? (
-                <Required />
-              ) : (
-                <Optional />
-              )}
-            </FieldLabel>
-            <Textarea
-              id="resolution"
-              name="resolution"
-              rows={4}
-              defaultValue={state.values?.resolution ?? workOrder.resolution ?? ''}
-              onChange={() => markEdited('resolution')}
-              aria-invalid={resolutionError ? true : undefined}
-              placeholder={
-                statusValue === 'done' || statusValue === 'closed'
-                  ? 'Required: describe how this work order was resolved.'
-                  : 'What was done to resolve this ticket?'
-              }
-            />
-            <FieldError>{resolutionError}</FieldError>
-          </Field>
+        <FormSection
+          id="reporter"
+          title="Reporter"
+          description="Who reported this issue."
+        >
+          <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <Field data-invalid={nameError ? 'true' : undefined}>
+              <FieldLabel htmlFor="reportedByName">
+                Name <Optional />
+              </FieldLabel>
+              <Input
+                id="reportedByName"
+                name="reportedByName"
+                autoComplete="name"
+                placeholder="e.g. Alex Doe"
+                defaultValue={
+                  state.values?.reportedByName ?? workOrder.reported_by_name ?? ''
+                }
+                onChange={() => markEdited('reportedByName')}
+                aria-invalid={nameError ? true : undefined}
+              />
+              <FieldError>{nameError}</FieldError>
+            </Field>
 
-          <Field data-invalid={validatedByError ? 'true' : undefined}>
-            <FieldLabel htmlFor="validatedBy">
-              Validated by{' '}
-              {statusValue === 'closed' ? <Required /> : <Optional />}
-            </FieldLabel>
-            <Select
-              name="validatedBy"
-              items={assigneeItems}
-              value={validatedByValue}
-              onValueChange={(v) => {
-                setValidatedByValue(typeof v === 'string' ? v : '')
-                markEdited('validatedBy')
-              }}
-            >
-              <SelectTrigger
-                id="validatedBy"
-                className="w-full sm:max-w-sm"
-                aria-invalid={validatedByError ? true : undefined}
-              >
-                <SelectValue placeholder="Not validated" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={null}>Not validated</SelectItem>
-                {assignableUsers.map((u) => (
-                  <SelectItem key={u.user_id} value={u.user_id}>
-                    {formatAssigneeLabel(u)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{validatedByError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
+            <Field data-invalid={emailError ? 'true' : undefined}>
+              <FieldLabel htmlFor="reportedByEmail">
+                Email <Optional />
+              </FieldLabel>
+              <Input
+                id="reportedByEmail"
+                name="reportedByEmail"
+                type="email"
+                autoComplete="email"
+                placeholder="username@highlands.care"
+                defaultValue={
+                  state.values?.reportedByEmail ??
+                  workOrder.reported_by_email ??
+                  ''
+                }
+                onChange={() => markEdited('reportedByEmail')}
+                aria-invalid={emailError ? true : undefined}
+              />
+              <FieldError>{emailError}</FieldError>
+            </Field>
 
-      <FormSection
-        id="attachments"
-        title="Attachments"
-        description="Photos or documents for this work order. Add new ones or remove existing files."
-      >
-        <AttachmentUploader
-          existing={attachments}
-          compressImages={categoryValue !== 'marketing'}
-          category={categoryValue}
-          onUploadingChange={setAttachmentsUploading}
-        />
-      </FormSection>
+            <Field data-invalid={phoneError ? 'true' : undefined}>
+              <FieldLabel htmlFor="reportedByPhone">
+                Phone <Optional />
+              </FieldLabel>
+              <PhoneInput
+                id="reportedByPhone"
+                name="reportedByPhone"
+                autoComplete="tel"
+                placeholder="(555) 123-4567"
+                defaultValue={
+                  state.values?.reportedByPhone ??
+                  workOrder.reported_by_phone ??
+                  ''
+                }
+                onValueChange={() => markEdited('reportedByPhone')}
+                aria-invalid={phoneError ? true : undefined}
+              />
+              <FieldError>{phoneError}</FieldError>
+            </Field>
+          </FieldGroup>
+        </FormSection>
 
-      <FormSection
-        id="location"
-        title="Location"
-        description="Where is the work needed?"
-      >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field data-invalid={propertyError ? 'true' : undefined}>
-            <FieldLabel htmlFor="property">
-              Facility {categoryValue === 'it' ? <Optional /> : <Required />}
-            </FieldLabel>
-            <Select
-              name="property"
-              items={PROPERTY_LABELS}
-              value={propertyValue}
-              onValueChange={(v) => {
-                setPropertyValue(typeof v === 'string' ? v : '')
-                markEdited('property')
-              }}
-            >
-              <SelectTrigger
-                id="property"
-                className="w-full"
-                aria-invalid={propertyError ? true : undefined}
-              >
-                <SelectValue placeholder="Select a facility" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROPERTIES_BY_LABEL.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {PROPERTY_LABELS[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldError>{propertyError}</FieldError>
-          </Field>
+        <FormSection
+          id="notifications"
+          title="Notifications"
+          description="Recipients get notified of every update to this work order, just like the assignee."
+        >
+          <NotifyRecipientsField
+            users={assignableUsers}
+            defaultValue={workOrder.notify_recipients ?? []}
+          />
+        </FormSection>
+      </form>
 
-          <Field data-invalid={unitNumberError ? 'true' : undefined}>
-            <FieldLabel htmlFor="unitNumber">
-              Unit number <Optional />
-            </FieldLabel>
-            <Input
-              id="unitNumber"
-              name="unitNumber"
-              autoComplete="off"
-              defaultValue={state.values?.unitNumber ?? workOrder.unit_number ?? ''}
-              onChange={() => markEdited('unitNumber')}
-              aria-invalid={unitNumberError ? true : undefined}
-              placeholder="e.g. 2A"
-            />
-            <FieldError>{unitNumberError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
+      {notes}
 
-      <FormSection
-        id="reporter"
-        title="Reporter"
-        description="Who reported this issue."
-      >
-        <FieldGroup className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          <Field data-invalid={nameError ? 'true' : undefined}>
-            <FieldLabel htmlFor="reportedByName">
-              Name <Optional />
-            </FieldLabel>
-            <Input
-              id="reportedByName"
-              name="reportedByName"
-              autoComplete="name"
-              placeholder="e.g. Alex Doe"
-              defaultValue={
-                state.values?.reportedByName ?? workOrder.reported_by_name ?? ''
-              }
-              onChange={() => markEdited('reportedByName')}
-              aria-invalid={nameError ? true : undefined}
-            />
-            <FieldError>{nameError}</FieldError>
-          </Field>
-
-          <Field data-invalid={emailError ? 'true' : undefined}>
-            <FieldLabel htmlFor="reportedByEmail">
-              Email <Optional />
-            </FieldLabel>
-            <Input
-              id="reportedByEmail"
-              name="reportedByEmail"
-              type="email"
-              autoComplete="email"
-              placeholder="username@highlands.care"
-              defaultValue={
-                state.values?.reportedByEmail ??
-                workOrder.reported_by_email ??
-                ''
-              }
-              onChange={() => markEdited('reportedByEmail')}
-              aria-invalid={emailError ? true : undefined}
-            />
-            <FieldError>{emailError}</FieldError>
-          </Field>
-
-          <Field data-invalid={phoneError ? 'true' : undefined}>
-            <FieldLabel htmlFor="reportedByPhone">
-              Phone <Optional />
-            </FieldLabel>
-            <PhoneInput
-              id="reportedByPhone"
-              name="reportedByPhone"
-              autoComplete="tel"
-              placeholder="(555) 123-4567"
-              defaultValue={
-                state.values?.reportedByPhone ??
-                workOrder.reported_by_phone ??
-                ''
-              }
-              onValueChange={() => markEdited('reportedByPhone')}
-              aria-invalid={phoneError ? true : undefined}
-            />
-            <FieldError>{phoneError}</FieldError>
-          </Field>
-        </FieldGroup>
-      </FormSection>
-
-      <FormSection
-        id="notifications"
-        title="Notifications"
-        description="Recipients get notified of every update to this work order, just like the assignee."
-      >
-        <NotifyRecipientsField
-          users={assignableUsers}
-          defaultValue={workOrder.notify_recipients ?? []}
-        />
-      </FormSection>
-
+      {/* Outside the form element, wired back to it by id, so the notes
+          section above can keep its own forms. */}
       <div className="flex items-center justify-end gap-3 pt-2">
         <SubmitButton
+          form={EDIT_FORM_ID}
+          pending={isPending}
           label={attachmentsUploading ? 'Uploading…' : 'Save changes'}
           pendingLabel="Saving..."
           disabled={attachmentsUploading}
         />
       </div>
-    </form>
+    </div>
   )
 }
 

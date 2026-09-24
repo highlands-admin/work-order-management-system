@@ -134,6 +134,20 @@ export default async function EditWorkOrderPage({
         ? ['pending']
         : ['rejected']
 
+  // Roles that cannot act on the work order at all do not get the section.
+  const notesSection =
+    isEditor || isTechnician || isInspector ? (
+      <NotesSection
+        workOrderId={data.id}
+        notes={notesData ?? []}
+        userById={userLabelById}
+        currentUserId={claims.sub ?? ''}
+        canModerate={isAdmin}
+        assigneeId={data.assigned_to}
+        timeZone={timeZone}
+      />
+    ) : null
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
@@ -161,14 +175,18 @@ export default async function EditWorkOrderPage({
           assignableUsers={assignableUsers}
           canAssign={isAdmin || isApproved}
           attachments={attachments}
+          notes={notesSection}
         />
       ) : isTechnician || isInspector ? (
-        <TransitionStatusForm
-          workOrderId={data.id}
-          currentStatus={data.status}
-          role={role as 'technician' | 'inspector'}
-          assignableUsers={assignableUsers}
-        />
+        <>
+          <TransitionStatusForm
+            workOrderId={data.id}
+            currentStatus={data.status}
+            role={role as 'technician' | 'inspector'}
+            assignableUsers={assignableUsers}
+          />
+          {notesSection}
+        </>
       ) : (
         <div className="rounded-xl bg-card p-6 ring-1 ring-foreground/10 shadow-md dark:shadow-none">
           <p className="text-sm text-muted-foreground">
@@ -176,21 +194,6 @@ export default async function EditWorkOrderPage({
           </p>
         </div>
       )}
-
-      {/* Notes sit below the form so an update and the note explaining it get
-          written in one place. Roles that cannot act on the work order at all
-          do not see the section. */}
-      {isEditor || isTechnician || isInspector ? (
-        <NotesSection
-          workOrderId={data.id}
-          notes={notesData ?? []}
-          userById={userLabelById}
-          currentUserId={claims.sub ?? ''}
-          canModerate={isAdmin}
-          assigneeId={data.assigned_to}
-          timeZone={timeZone}
-        />
-      ) : null}
     </div>
   )
 }
