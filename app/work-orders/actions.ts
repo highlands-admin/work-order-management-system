@@ -1366,6 +1366,7 @@ export async function updateWorkOrderNoteAction(
   }
 
   revalidatePath(`/work-orders/${data.work_order_id}`)
+  revalidatePath(`/work-orders/${data.work_order_id}/edit`)
   return { status: 'success', message: 'Note updated.' }
 }
 
@@ -1395,6 +1396,7 @@ export async function deleteWorkOrderNoteAction(
   }
 
   revalidatePath(`/work-orders/${data.work_order_id}`)
+  revalidatePath(`/work-orders/${data.work_order_id}/edit`)
   return { status: 'success', message: 'Note deleted.' }
 }
 

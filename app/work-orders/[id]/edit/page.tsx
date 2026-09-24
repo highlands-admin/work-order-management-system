@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
+import { NotesSection, type NoteRow } from '@/app/work-orders/notes-section'
 import { buttonVariants } from '@/components/ui/button'
+import { getTimeZone } from '@/lib/datetime/timezone'
 import {
   MAIN_TABLE_STATUSES,
   STATUS_LABELS,
@@ -14,7 +16,10 @@ import {
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
 import { fetchWorkOrderAttachments } from '@/lib/work-orders/attachments'
-import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
+import {
+  fetchAssignableUsers,
+  formatAssigneeLabel,
+} from '@/lib/work-orders/assignable-users'
 
 import { EditWorkOrderForm } from './edit-work-order-form'
 import { TransitionStatusForm } from './transition-status-form'
@@ -67,16 +72,23 @@ export default async function EditWorkOrderPage({
 
   if (!claims) redirect('/login')
 
-  const [{ data, error }, assignableUsers] = await Promise.all([
-    supabase
-      .from('work_orders')
-      .select(
-        'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, notify_recipients, validated_by, created_by, reported_by_name, reported_by_email, reported_by_phone, provider, it_request_type, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other'
-      )
-      .eq('id', id)
-      .maybeSingle<WorkOrderRow>(),
-    fetchAssignableUsers(supabase),
-  ])
+  const [{ data, error }, assignableUsers, { data: notesData }] =
+    await Promise.all([
+      supabase
+        .from('work_orders')
+        .select(
+          'id, work_order_code, title, category, status, property, unit_number, priority, due_at, description, resolution, assigned_to, notify_recipients, validated_by, created_by, reported_by_name, reported_by_email, reported_by_phone, provider, it_request_type, marketing_request_type, marketing_request_type_other, marketing_event_name, marketing_target_audience, marketing_target_audience_other, marketing_key_message, marketing_size_format, marketing_size_format_other'
+        )
+        .eq('id', id)
+        .maybeSingle<WorkOrderRow>(),
+      fetchAssignableUsers(supabase),
+      supabase
+        .from('work_order_notes')
+        .select('id, body, created_by, created_at, updated_at')
+        .eq('work_order_id', id)
+        .order('created_at', { ascending: true })
+        .returns<NoteRow[]>(),
+    ])
 
   if (error) {
     return (
@@ -90,6 +102,12 @@ export default async function EditWorkOrderPage({
   if (!data) notFound()
 
   const attachments = await fetchWorkOrderAttachments(supabase, data.id)
+  const timeZone = await getTimeZone()
+  // Plain object label map for the (client) notes section, which needs a
+  // serializable prop across the Server/Client boundary.
+  const userLabelById: Record<string, string> = Object.fromEntries(
+    assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
+  )
 
   const role = claims.user_role
   const isAdmin = role === 'administrator'
@@ -158,6 +176,21 @@ export default async function EditWorkOrderPage({
           </p>
         </div>
       )}
+
+      {/* Notes sit below the form so an update and the note explaining it get
+          written in one place. Roles that cannot act on the work order at all
+          do not see the section. */}
+      {isEditor || isTechnician || isInspector ? (
+        <NotesSection
+          workOrderId={data.id}
+          notes={notesData ?? []}
+          userById={userLabelById}
+          currentUserId={claims.sub ?? ''}
+          canModerate={isAdmin}
+          assigneeId={data.assigned_to}
+          timeZone={timeZone}
+        />
+      ) : null}
     </div>
   )
 }
