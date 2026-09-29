@@ -48,7 +48,7 @@ export function OrganizationSettingsForm({
       </Field>
 
       <Field data-invalid={domainError ? 'true' : undefined}>
-        <FieldLabel htmlFor="settings-domain">Signup domain</FieldLabel>
+        <FieldLabel htmlFor="settings-domain">Signup domain (optional)</FieldLabel>
         <Input
           id="settings-domain"
           name="domain"
@@ -66,7 +66,7 @@ export function OrganizationSettingsForm({
       </Field>
 
       <div className="flex items-center gap-3">
-        <SubmitButton label="Save" pendingLabel="Saving…" size="default" />
+        <SubmitButton label="Save changes" pendingLabel="Saving..." size="lg" />
         {state.status === 'success' && state.message ? (
           <span className="text-sm text-muted-foreground" aria-live="polite">
             {state.message}

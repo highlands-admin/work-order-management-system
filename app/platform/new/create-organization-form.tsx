@@ -4,12 +4,18 @@ import { useActionState } from 'react'
 
 import { FormError } from '@/components/auth/form-error'
 import { SubmitButton } from '@/components/auth/submit-button'
-import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 
-import { initialAuthState } from '../(auth)/auth-state'
-import { createOrganizationAction } from './actions'
+import { initialAuthState } from '../../(auth)/auth-state'
+import { createOrganizationAction } from '../actions'
 
 export function CreateOrganizationForm() {
   const [state, action] = useActionState(
@@ -20,17 +26,21 @@ export function CreateOrganizationForm() {
   const nameError = getError('name')
   const domainError = getError('domain')
   const adminEmailError = getError('adminEmail')
+  const adminFirstNameError = getError('adminFirstName')
+  const adminLastNameError = getError('adminLastName')
 
   return (
     <form action={action} noValidate className="flex flex-col gap-4">
       <FormError state={state} />
 
       <Field data-invalid={nameError ? 'true' : undefined}>
-        <FieldLabel htmlFor="org-name">Organization name</FieldLabel>
+        <FieldLabel htmlFor="name">Organization name</FieldLabel>
         <Input
-          id="org-name"
+          id="name"
           name="name"
           autoComplete="off"
+          autoFocus
+          placeholder="Acme Senior Living"
           defaultValue={state.values?.name}
           onChange={() => markEdited('name')}
           aria-invalid={nameError ? true : undefined}
@@ -40,9 +50,9 @@ export function CreateOrganizationForm() {
       </Field>
 
       <Field data-invalid={domainError ? 'true' : undefined}>
-        <FieldLabel htmlFor="org-domain">Signup domain</FieldLabel>
+        <FieldLabel htmlFor="domain">Signup domain (optional)</FieldLabel>
         <Input
-          id="org-domain"
+          id="domain"
           name="domain"
           autoComplete="off"
           placeholder="example.com"
@@ -51,57 +61,72 @@ export function CreateOrganizationForm() {
           aria-invalid={domainError ? true : undefined}
         />
         <FieldDescription>
-          People with an email at this domain can sign up and join as
-          requesters. Leave blank to allow invitations only.
+          Anyone with an email at this domain can sign up as a requester. Leave
+          blank to allow invitations only.
         </FieldDescription>
         <FieldError>{domainError}</FieldError>
       </Field>
 
+      <Separator className="my-1" />
+
+      <div>
+        <p className="text-sm font-medium">First administrator</p>
+        <p className="text-sm text-muted-foreground">
+          They receive an email invitation and set their own password.
+        </p>
+      </div>
+
       <Field data-invalid={adminEmailError ? 'true' : undefined}>
-        <FieldLabel htmlFor="org-admin-email">
-          First administrator&apos;s email
-        </FieldLabel>
+        <FieldLabel htmlFor="adminEmail">Email</FieldLabel>
         <Input
-          id="org-admin-email"
+          id="adminEmail"
           name="adminEmail"
           type="email"
           autoComplete="off"
+          placeholder="name@example.com"
           defaultValue={state.values?.adminEmail}
           onChange={() => markEdited('adminEmail')}
           aria-invalid={adminEmailError ? true : undefined}
           required
         />
-        <FieldDescription>
-          They receive an invitation to join as an administrator.
-        </FieldDescription>
         <FieldError>{adminEmailError}</FieldError>
       </Field>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field>
-          <FieldLabel htmlFor="org-admin-first">First name</FieldLabel>
+      <div className="grid grid-cols-2 gap-3">
+        <Field data-invalid={adminFirstNameError ? 'true' : undefined}>
+          <FieldLabel htmlFor="adminFirstName">First name (optional)</FieldLabel>
           <Input
-            id="org-admin-first"
+            id="adminFirstName"
             name="adminFirstName"
             autoComplete="off"
+            placeholder="Alex"
             defaultValue={state.values?.adminFirstName}
+            onChange={() => markEdited('adminFirstName')}
+            aria-invalid={adminFirstNameError ? true : undefined}
           />
+          <FieldError>{adminFirstNameError}</FieldError>
         </Field>
-        <Field>
-          <FieldLabel htmlFor="org-admin-last">Last name</FieldLabel>
+
+        <Field data-invalid={adminLastNameError ? 'true' : undefined}>
+          <FieldLabel htmlFor="adminLastName">Last name (optional)</FieldLabel>
           <Input
-            id="org-admin-last"
+            id="adminLastName"
             name="adminLastName"
             autoComplete="off"
+            placeholder="Doe"
             defaultValue={state.values?.adminLastName}
+            onChange={() => markEdited('adminLastName')}
+            aria-invalid={adminLastNameError ? true : undefined}
           />
+          <FieldError>{adminLastNameError}</FieldError>
         </Field>
       </div>
 
       <SubmitButton
         label="Create organization"
-        pendingLabel="Creating…"
-        className="self-start"
+        pendingLabel="Creating..."
+        size="lg"
+        className="w-full"
       />
     </form>
   )

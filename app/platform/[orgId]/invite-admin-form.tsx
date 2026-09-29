@@ -41,6 +41,7 @@ export function InviteAdminForm({ organizationId }: { organizationId: string }) 
           name="email"
           type="email"
           autoComplete="off"
+          placeholder="name@example.com"
           defaultValue={state.status === 'error' ? state.values?.email : ''}
           onChange={() => markEdited('email')}
           aria-invalid={emailError ? true : undefined}
@@ -49,22 +50,28 @@ export function InviteAdminForm({ organizationId }: { organizationId: string }) 
         <FieldError>{emailError}</FieldError>
       </Field>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3">
         <Field>
-          <FieldLabel htmlFor="invite-admin-first">First name</FieldLabel>
+          <FieldLabel htmlFor="invite-admin-first">
+            First name (optional)
+          </FieldLabel>
           <Input
             id="invite-admin-first"
             name="firstName"
             autoComplete="off"
+            placeholder="Alex"
             defaultValue={state.status === 'error' ? state.values?.firstName : ''}
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="invite-admin-last">Last name</FieldLabel>
+          <FieldLabel htmlFor="invite-admin-last">
+            Last name (optional)
+          </FieldLabel>
           <Input
             id="invite-admin-last"
             name="lastName"
             autoComplete="off"
+            placeholder="Doe"
             defaultValue={state.status === 'error' ? state.values?.lastName : ''}
           />
         </Field>
@@ -73,8 +80,8 @@ export function InviteAdminForm({ organizationId }: { organizationId: string }) 
       <div className="flex items-center gap-3">
         <SubmitButton
           label="Send invitation"
-          pendingLabel="Sending…"
-          size="default"
+          pendingLabel="Sending..."
+          size="lg"
         />
         {state.status === 'success' && state.message ? (
           <span className="text-sm text-muted-foreground" aria-live="polite">

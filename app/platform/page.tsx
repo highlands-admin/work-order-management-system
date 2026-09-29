@@ -1,6 +1,8 @@
+import { RiAddLine } from '@remixicon/react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+import { buttonVariants } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -11,8 +13,6 @@ import {
 } from '@/components/ui/table'
 import { listPlatformOrganizations } from '@/lib/platform/organizations'
 
-import { CreateOrganizationForm } from './create-organization-form'
-
 export const metadata: Metadata = { title: 'Organizations' }
 
 const HEAD_CLASS = 'px-4 text-xs uppercase tracking-wide text-muted-foreground'
@@ -21,13 +21,20 @@ export default async function PlatformPage() {
   const { organizations, error } = await listPlatformOrganizations()
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold">Organizations</h1>
-        <p className="text-sm text-muted-foreground">
-          Every organization using the app. Platform admins manage settings and
-          properties here but cannot see any organization&apos;s work orders.
-        </p>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold">Organizations</h1>
+          <p className="text-sm text-muted-foreground">
+            Every organization using the app. Platform admins manage settings
+            and properties here but cannot see any organization&apos;s work
+            orders.
+          </p>
+        </div>
+        <Link href="/platform/new" className={buttonVariants({ size: 'cta' })}>
+          <RiAddLine className="size-5" />
+          New organization
+        </Link>
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -76,19 +83,6 @@ export default async function PlatformPage() {
           </Table>
         )}
       </div>
-
-      <section className="flex max-w-xl flex-col gap-4">
-        <div>
-          <h2 className="font-heading text-lg font-semibold">
-            New organization
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Creates the organization and invites its first administrator. Add
-            its properties on the next page.
-          </p>
-        </div>
-        <CreateOrganizationForm />
-      </section>
     </div>
   )
 }

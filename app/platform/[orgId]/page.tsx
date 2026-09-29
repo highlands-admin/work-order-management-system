@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import { FormSection } from '@/components/forms/form-section'
 import { PropertiesManager } from '@/components/properties/properties-manager'
 import { listPlatformOrganizations } from '@/lib/platform/organizations'
 import { createClient } from '@/lib/supabase/server'
@@ -42,7 +43,7 @@ export default async function PlatformOrganizationPage({
   ).map((row) => ({ key: row.key, name: row.name, isActive: row.is_active }))
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div>
         <Link
           href="/platform"
@@ -54,40 +55,48 @@ export default async function PlatformOrganizationPage({
           {organization.name}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {organization.member_count} members, {organization.admin_count}{' '}
-          administrators
+          {organization.member_count}{' '}
+          {organization.member_count === 1 ? 'member' : 'members'},{' '}
+          {organization.admin_count}{' '}
+          {organization.admin_count === 1 ? 'administrator' : 'administrators'}
           {organization.pending_admin_invites > 0
-            ? `, ${organization.pending_admin_invites} administrator invitation pending`
+            ? `, ${organization.pending_admin_invites} administrator ${
+                organization.pending_admin_invites === 1
+                  ? 'invitation'
+                  : 'invitations'
+              } pending`
             : ''}
-          .
         </p>
       </div>
 
-      <section className="flex max-w-xl flex-col gap-4">
-        <h2 className="font-heading text-lg font-semibold">Settings</h2>
+      <FormSection
+        id="settings"
+        title="Settings"
+        description="The organization's name and who can sign up without an invitation."
+      >
         <OrganizationSettingsForm
           organizationId={organization.id}
           name={organization.name}
           domain={organization.allowed_email_domain}
         />
-      </section>
+      </FormSection>
 
-      <section className="flex max-w-xl flex-col gap-4">
-        <div>
-          <h2 className="font-heading text-lg font-semibold">
-            Invite an administrator
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Administrators manage the organization&apos;s users, approvers, and
-            properties.
-          </p>
-        </div>
+      <FormSection
+        id="invite-admin"
+        title="Invite an administrator"
+        description="Administrators manage the organization's users, approvers, and properties."
+      >
         <InviteAdminForm organizationId={organization.id} />
-      </section>
+      </FormSection>
 
-      <section className="flex flex-col gap-4">
+      <section aria-labelledby="properties-title" className="flex flex-col gap-4">
         <div>
-          <h2 className="font-heading text-lg font-semibold">Properties</h2>
+          <h2
+            id="properties-title"
+            className="font-heading text-lg font-semibold"
+          >
+            Properties
+          </h2>
           <p className="text-sm text-muted-foreground">
             The facilities offered on this organization&apos;s work order forms.
             Its administrators can also manage these.
