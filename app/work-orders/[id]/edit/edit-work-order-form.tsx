@@ -680,7 +680,7 @@ export function EditWorkOrderForm({
                 name="reportedByEmail"
                 type="email"
                 autoComplete="email"
-                placeholder="username@highlands.care"
+                placeholder="name@example.com"
                 defaultValue={
                   state.values?.reportedByEmail ??
                   workOrder.reported_by_email ??

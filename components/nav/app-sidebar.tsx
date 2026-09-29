@@ -3,6 +3,7 @@
 import {
   RiArchiveLine,
   RiBuilding2Line,
+  RiGlobalLine,
   RiBarChartBoxLine,
   RiCheckDoubleLine,
   RiCheckboxCircleLine,
@@ -99,6 +100,21 @@ export function AppSidebar({
       active = false
     }
   }, [pathname])
+
+  // Whether to show the Platform group. This only decides the link; the
+  // /platform layout checks super admin status on the server.
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  useEffect(() => {
+    let active = true
+    createClient()
+      .rpc('is_super_admin')
+      .then(({ data }) => {
+        if (active) setIsSuperAdmin(data === true)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const canFile = userRole ? FILER_ROLES.has(userRole) : false
   const isAdmin = userRole === 'administrator'
@@ -263,6 +279,23 @@ export function AppSidebar({
                     pathname={pathname}
                   />
                 ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
+        {isSuperAdmin ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Platform</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <NavMenuItem
+                  item={{
+                    title: 'Organizations',
+                    href: '/platform',
+                    icon: RiGlobalLine,
+                  }}
+                  pathname={pathname}
+                />
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

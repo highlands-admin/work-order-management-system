@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto'
 import { revalidatePath } from 'next/cache'
 
 import { sendInvitationEmail } from '@/lib/email/send-invitation'
+import { formError, formSuccess, z4FieldErrors } from '@/lib/forms/form-state'
 import {
   addPropertySchema,
   changeRoleSchema,
@@ -16,26 +17,14 @@ import {
   type SetCategoryApproversInput,
 } from '@/lib/schemas/admin'
 import { createClient } from '@/lib/supabase/server'
-import { propertyKeyFromName } from '@/lib/work-orders/properties'
+import {
+  nextAvailablePropertyKey,
+  propertyKeyFromName,
+} from '@/lib/work-orders/properties'
 
 import type { AuthState } from '../(auth)/auth-state'
 
 const INVITATION_TTL_DAYS = 7
-
-function formError(
-  fieldErrors: Record<string, string[]> | undefined,
-  values: Record<string, string>,
-  message?: string
-): AuthState {
-  return { status: 'error', fieldErrors, values, message }
-}
-
-function formSuccess(
-  message: string,
-  values: Record<string, string> = {}
-): AuthState {
-  return { status: 'success', message, values }
-}
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -310,17 +299,15 @@ export async function addPropertyAction(
     return formError({ name: ['Use at least one letter or number'] }, raw)
   }
 
-  // Keys are internal and never change, so a retired property keeps its key
-  // and a new one with a similar name gets a numbered suffix instead.
   const { data: existing, error: lookupError } = await supabase
     .from('properties')
     .select('key')
-    .like('key', `${baseKey}%`)
   if (lookupError) return formError(undefined, raw, lookupError.message)
 
-  const taken = new Set((existing ?? []).map((row) => row.key as string))
-  let key = baseKey
-  for (let n = 2; taken.has(key); n++) key = `${baseKey}_${n}`
+  const key = nextAvailablePropertyKey(
+    baseKey,
+    (existing ?? []).map((row) => row.key as string)
+  )
 
   const { error } = await supabase
     .from('properties')
@@ -391,16 +378,4 @@ export async function setPropertyActiveAction(input: {
 
   revalidatePath('/admin/properties')
   return null
-}
-
-function z4FieldErrors(error: {
-  issues: { path: PropertyKey[]; message: string }[]
-}): Record<string, string[]> {
-  const result: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const key = String(issue.path[0] ?? '_form')
-    if (!result[key]) result[key] = []
-    result[key].push(issue.message)
-  }
-  return result
 }

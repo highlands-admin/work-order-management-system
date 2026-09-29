@@ -8,11 +8,17 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 
-import { initialAuthState } from '../../(auth)/auth-state'
-import { addPropertyAction } from '../actions'
+import { initialAuthState, type AuthState } from '@/app/(auth)/auth-state'
 
-export function AddPropertyForm() {
-  const [state, action] = useActionState(addPropertyAction, initialAuthState)
+// Adds a property. The page passes the Server Action, so the same form serves
+// an organization's own admin page and the platform admin page, where the
+// action is bound to the organization being configured.
+export function AddPropertyForm({
+  addAction,
+}: {
+  addAction: (prev: AuthState, formData: FormData) => Promise<AuthState>
+}) {
+  const [state, action] = useActionState(addAction, initialAuthState)
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
   const nameError = getError('name')
   const formRef = useRef<HTMLFormElement>(null)

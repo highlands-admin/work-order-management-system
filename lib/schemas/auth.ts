@@ -40,11 +40,10 @@ export const acceptInviteSchema = z
 export type AcceptInviteInput = z.infer<typeof acceptInviteSchema>
 
 // Public self-signup. The account is created with email confirmation, and the
-// signup trigger assigns the default 'requester' role. Open signup is
-// restricted to the organization's email domain; the DB trigger enforces the
-// same rule so the form cannot be bypassed.
-export const SIGNUP_EMAIL_DOMAIN = 'highlands.care'
-
+// signup trigger places the user in the organization that registered their
+// email domain, as a requester. The action checks the domain before creating
+// the account; the trigger enforces the same rule so the form cannot be
+// bypassed.
 export const signUpSchema = z
   .object({
     email,
@@ -52,10 +51,6 @@ export const signUpSchema = z
     lastName: z.string().trim().min(1, 'Last name is required').max(50),
     password,
     confirmPassword: z.string(),
-  })
-  .refine((data) => data.email.endsWith(`@${SIGNUP_EMAIL_DOMAIN}`), {
-    message: `Sign up requires a @${SIGNUP_EMAIL_DOMAIN} email address.`,
-    path: ['email'],
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',

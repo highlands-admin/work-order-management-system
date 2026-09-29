@@ -112,6 +112,27 @@ export async function signUpAction(
   }
 
   const supabase = await createClient()
+
+  // Supabase Auth reports a refused signup as a generic database error, so
+  // check the domain first to give a useful message.
+  const { data: domainAllowed, error: domainError } = await supabase.rpc(
+    'signup_domain_allowed',
+    { p_email: parsed.data.email }
+  )
+  if (domainError) {
+    return formError(undefined, safeValues, domainError.message)
+  }
+  if (domainAllowed !== true) {
+    return formError(
+      {
+        email: [
+          'Your organization is not set up for self-signup. Use the link in your invitation email, or ask your administrator to invite you.',
+        ],
+      },
+      safeValues
+    )
+  }
+
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,

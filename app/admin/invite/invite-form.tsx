@@ -39,7 +39,7 @@ export function InviteForm() {
           type="email"
           autoComplete="off"
           autoFocus
-          placeholder="username@highlands.care"
+          placeholder="name@example.com"
           defaultValue={state.values?.email}
           onChange={() => markEdited('email')}
           aria-invalid={emailError ? true : undefined}

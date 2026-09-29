@@ -281,8 +281,89 @@ values ('bbbbbbbb-0000-0000-0000-000000000002');
 
 select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
 
-select is((select count(*)::int from public.organizations), 2,
-  'a super admin sees every organization');
+select is((select count(*)::int from public.organizations), 1,
+  'RLS shows a super admin only their own organization');
+select is((select count(*)::int from public.platform_list_organizations()), 2,
+  'platform_list_organizations shows a super admin every organization');
+select is((select count(*)::int from public.platform_list_properties(
+             (select id from public.organizations where slug = 'highlands'))),
+  0,
+  'platform_list_properties returns rows for the named organization only');
+
+select lives_ok(
+  $$ select public.platform_create_organization('Org C', 'org-c', 'OrgC.test') $$,
+  'a super admin can create an organization'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select allowed_email_domain from public.organizations where slug = 'org-c'),
+  'orgc.test',
+  'the signup domain is stored lowercase'
+);
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
+
+select lives_ok(
+  $$ select public.platform_add_property(
+       (select o.id from public.platform_list_organizations() o where o.slug = 'org-c'),
+       'main', 'Main Campus') $$,
+  'a super admin can add a property to another organization'
+);
+select lives_ok(
+  $$ select public.platform_update_property(
+       (select o.id from public.platform_list_organizations() o where o.slug = 'org-c'),
+       'main', 'Main Campus East', null) $$,
+  'a super admin can rename another organization''s property'
+);
+select lives_ok(
+  $$ select public.platform_invite_admin(
+       (select o.id from public.platform_list_organizations() o where o.slug = 'org-c'),
+       'Boss@OrgC.test', 'Cy', null, 'token-c', now() + interval '7 days') $$,
+  'a super admin can invite an organization''s first administrator'
+);
+select is(
+  (select pending_admin_invites from public.platform_list_organizations() where slug = 'org-c'),
+  1,
+  'the overview counts the pending administrator invitation'
+);
+select is((select count(*)::int from public.invitations), 0,
+  'the invitation is not visible to the super admin through RLS');
+
+-- The invited administrator signs up and lands in Org C.
+select pg_temp.act_as_postgres();
+insert into auth.users (id, email)
+values ('cccccccc-0000-0000-0000-000000000001', 'boss@orgc.test');
+select is(
+  (select ur.role::text || '@' || o.slug
+     from public.user_roles ur join public.organizations o on o.id = ur.organization_id
+    where ur.user_id = 'cccccccc-0000-0000-0000-000000000001'),
+  'administrator@org-c',
+  'the invited administrator joins the new organization as an administrator'
+);
+
+select pg_temp.act_as('cccccccc-0000-0000-0000-000000000001');
+select is((select string_agg(name, ',') from public.properties), 'Main Campus East',
+  'the new organization sees the property the super admin configured');
+
+-- Everyone else is refused by the platform functions.
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000001');
+select throws_ok($$ select * from public.platform_list_organizations() $$, '42501', null,
+  'an org administrator cannot list organizations');
+select throws_ok($$ select public.platform_create_organization('X', 'x', null) $$, '42501', null,
+  'an org administrator cannot create organizations');
+select throws_ok(
+  $$ select public.platform_add_property(
+       (select id from public.organizations limit 1), 'x', 'X') $$,
+  '42501', null,
+  'an org administrator cannot use the platform property functions');
+
+select pg_temp.act_as_postgres();
+set local role anon;
+select ok(public.signup_domain_allowed('someone@ORGB.test'),
+  'signup_domain_allowed accepts a registered domain');
+select ok(not public.signup_domain_allowed('someone@unknown.test'),
+  'signup_domain_allowed rejects an unregistered domain');
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
 select is((select count(*)::int from public.work_orders
             where organization_id <> 'bbbbbbbb-0000-0000-0000-000000000000'), 0,
   'super admin status grants no access to other organizations'' work orders');

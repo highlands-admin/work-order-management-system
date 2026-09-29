@@ -8,11 +8,29 @@ import { Input } from '@/components/ui/input'
 import { TableCell, TableRow } from '@/components/ui/table'
 import type { PropertyOption } from '@/lib/work-orders/properties'
 
-import { renamePropertyAction, setPropertyActiveAction } from '../actions'
+export type RenamePropertyAction = (input: {
+  key: string
+  name: string
+}) => Promise<string | null>
+
+export type SetPropertyActiveAction = (input: {
+  key: string
+  isActive: boolean
+}) => Promise<string | null>
 
 // One property with an inline rename field and a retire or restore button.
-// Save appears only once the name differs from the stored one.
-export function PropertyRow({ property }: { property: PropertyOption }) {
+// Save appears only once the name differs from the stored one. The page passes
+// the Server Actions, so the row works on both the organization admin page and
+// the platform admin page.
+export function PropertyRow({
+  property,
+  renameAction,
+  setActiveAction,
+}: {
+  property: PropertyOption
+  renameAction: RenamePropertyAction
+  setActiveAction: SetPropertyActiveAction
+}) {
   const [name, setName] = useState(property.name)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -24,7 +42,7 @@ export function PropertyRow({ property }: { property: PropertyOption }) {
     if (!dirty) return
     setError(null)
     startTransition(async () => {
-      const message = await renamePropertyAction({
+      const message = await renameAction({
         key: property.key,
         name: trimmed,
       })
@@ -35,7 +53,7 @@ export function PropertyRow({ property }: { property: PropertyOption }) {
   function toggleActive(): void {
     setError(null)
     startTransition(async () => {
-      const message = await setPropertyActiveAction({
+      const message = await setActiveAction({
         key: property.key,
         isActive: !property.isActive,
       })

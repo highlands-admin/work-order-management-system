@@ -9,7 +9,7 @@ export function EmailField({
   id = 'email',
   name = 'email',
   label = 'Email',
-  placeholder = 'username@highlands.care',
+  placeholder = 'name@example.com',
   autoFocus,
   defaultValue = '',
   serverError,

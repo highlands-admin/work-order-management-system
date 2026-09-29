@@ -55,11 +55,24 @@ export function selectableProperties(
 export function propertyKeyFromName(name: string): string | null {
   const key = name
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 48)
     .replace(/_+$/g, '')
   return key.length > 0 ? key : null
+}
+
+// The first free key for a new property. Keys are internal and never change,
+// so a retired property keeps its key and a new one with a similar name gets
+// a numbered suffix instead.
+export function nextAvailablePropertyKey(
+  baseKey: string,
+  taken: Iterable<string>
+): string {
+  const used = new Set(taken)
+  let key = baseKey
+  for (let n = 2; used.has(key); n++) key = `${baseKey}_${n}`
+  return key
 }
