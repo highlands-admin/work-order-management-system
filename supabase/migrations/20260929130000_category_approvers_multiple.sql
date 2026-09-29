@@ -9,6 +9,12 @@
 --   alter table public.category_approvers drop constraint category_approvers_pkey;
 --   alter table public.category_approvers add primary key (category);
 --   then recreate get_category_approver from 20260929120000_category_approvers.sql
+--   revoke select, insert, update, delete on public.category_approvers from authenticated;
+
+-- 20260929120000 enabled RLS but did not grant table privileges, so every
+-- query failed with "permission denied" before RLS ran. The policies still
+-- restrict access to administrators.
+grant select, insert, update, delete on public.category_approvers to authenticated;
 
 alter table public.category_approvers drop constraint category_approvers_pkey;
 alter table public.category_approvers add primary key (category, user_id);

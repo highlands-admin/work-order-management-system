@@ -250,9 +250,10 @@ export async function setCategoryApproversAction(
     }
   }
 
-  // Remove approvers no longer selected, then add the new ones. The upsert
-  // ignores rows that already exist, so unchanged approvers keep their
-  // created_at.
+  // Remove approvers no longer selected, then add the new ones. RLS scopes
+  // both statements to the caller's organization, and organization_id is
+  // filled by its column default. The upsert ignores rows that already exist,
+  // so unchanged approvers keep their created_at.
   let removal = supabase
     .from('category_approvers')
     .delete()
@@ -268,7 +269,10 @@ export async function setCategoryApproversAction(
       .from('category_approvers')
       .upsert(
         userIds.map((userId) => ({ category, user_id: userId })),
-        { onConflict: 'category,user_id', ignoreDuplicates: true }
+        {
+          onConflict: 'organization_id,category,user_id',
+          ignoreDuplicates: true,
+        }
       )
     if (upsertError) return upsertError.message
   }
