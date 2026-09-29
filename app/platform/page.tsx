@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { buttonVariants } from '@/components/ui/button'
+import { LinkTableRow } from '@/components/ui/link-table-row'
 import {
   Table,
   TableBody,
@@ -56,7 +57,7 @@ export default async function PlatformPage() {
             </TableHeader>
             <TableBody>
               {organizations.map((org) => (
-                <TableRow key={org.id}>
+                <LinkTableRow key={org.id} href={`/platform/${org.id}`}>
                   <TableCell className="px-4 py-3">
                     <Link
                       href={`/platform/${org.id}`}
@@ -77,7 +78,7 @@ export default async function PlatformPage() {
                       </span>
                     ) : null}
                   </TableCell>
-                </TableRow>
+                </LinkTableRow>
               ))}
             </TableBody>
           </Table>
