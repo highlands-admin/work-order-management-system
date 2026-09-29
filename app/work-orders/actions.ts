@@ -32,7 +32,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import { syncWorkOrderAttachments } from '@/lib/work-orders/attachments'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
-import { getCategoryApprover } from '@/lib/work-orders/category-approvers'
+import { getCategoryApprovers } from '@/lib/work-orders/category-approvers'
 import { nextOccurrenceAfter } from '@/lib/work-orders/recurrence'
 
 import type { AuthState } from '../(auth)/auth-state'
@@ -163,24 +163,34 @@ function rejectedRowToWorkOrder(row: RejectedWorkOrderRow): AssignmentWorkOrder 
   }
 }
 
-// Emails the category's designated approver that a work order is waiting in the
-// approval queue. Never throws: a failed notification must not fail the work
-// order creation it follows. No-ops for categories without a configured
-// approver.
-async function notifyCategoryApprover(
+// Emails each of the category's designated approvers that a work order is
+// waiting in the approval queue. Each approver gets a separate email so the
+// greeting uses their own name and recipients do not see each other's
+// addresses. Never throws: a failed notification must not fail the work order
+// creation it follows. No-ops for categories without configured approvers.
+async function notifyCategoryApprovers(
+  supabase: Awaited<ReturnType<typeof createClient>>,
   category: WorkOrderCategory,
   submittedByName: string | null,
   workOrder: AssignmentWorkOrder
 ): Promise<void> {
   try {
-    const approver = getCategoryApprover(category)
-    if (!approver) return
-    await sendApprovalRequestEmail({
-      to: approver.email,
-      approverName: approver.name,
-      submittedByName,
-      workOrder,
-    })
+    const approvers = await getCategoryApprovers(supabase, category)
+    const results = await Promise.all(
+      approvers.map((approver) =>
+        sendApprovalRequestEmail({
+          to: approver.email,
+          approverName: approver.name,
+          submittedByName,
+          workOrder,
+        })
+      )
+    )
+    for (const result of results) {
+      if (result.error) {
+        console.error('Failed to send approval request notification', result.error)
+      }
+    }
   } catch (error) {
     console.error('Failed to send approval request notification', error)
   }
@@ -468,9 +478,10 @@ export async function createWorkOrderAction(
     )
   }
 
-  // A submission that needs approval pings the category's approver.
+  // A submission that needs approval pings the category's approvers.
   if (initialStatus === 'pending') {
-    await notifyCategoryApprover(
+    await notifyCategoryApprovers(
+      supabase,
       parsed.data.category,
       actorName(claims),
       notificationWorkOrder

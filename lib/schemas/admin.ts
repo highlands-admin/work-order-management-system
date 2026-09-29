@@ -1,5 +1,7 @@
 import * as z from 'zod'
 
+import { WORK_ORDER_CATEGORIES } from '@/lib/schemas/work-order'
+
 export const APP_ROLES = [
   'administrator',
   'requester',
@@ -39,3 +41,13 @@ export const invitationIdSchema = z.object({
 })
 
 export type InvitationIdInput = z.infer<typeof invitationIdSchema>
+
+// The full set of approvers for a category. An empty list clears it.
+export const setCategoryApproversSchema = z.object({
+  category: z.enum(WORK_ORDER_CATEGORIES),
+  userIds: z.array(z.uuid('Invalid user')).max(50),
+})
+
+export type SetCategoryApproversInput = z.infer<
+  typeof setCategoryApproversSchema
+>

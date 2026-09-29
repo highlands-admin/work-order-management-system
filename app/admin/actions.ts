@@ -9,6 +9,8 @@ import {
   changeRoleSchema,
   inviteSchema,
   invitationIdSchema,
+  setCategoryApproversSchema,
+  type SetCategoryApproversInput,
 } from '@/lib/schemas/admin'
 import { createClient } from '@/lib/supabase/server'
 
@@ -213,6 +215,66 @@ export async function changeUserRoleAction(formData: FormData): Promise<void> {
     .eq('user_id', parsed.data.userId)
 
   revalidatePath('/admin/users')
+}
+
+// Replaces the approver set for one category with the given users. Called
+// directly from the approvers page rather than through a form, so it takes
+// typed arguments. Returns an error message for the page to show, or null.
+export async function setCategoryApproversAction(
+  input: SetCategoryApproversInput
+): Promise<string | null> {
+  const parsed = setCategoryApproversSchema.safeParse(input)
+  if (!parsed.success) return 'Invalid approver selection.'
+
+  let supabase
+  try {
+    ({ supabase } = await requireAdmin())
+  } catch (err) {
+    return (err as Error).message
+  }
+
+  const { category } = parsed.data
+  const userIds = [...new Set(parsed.data.userIds)]
+
+  // Only administrators can act on the approval queue, so only they can be
+  // approvers. get_category_approvers enforces the same rule at send time.
+  if (userIds.length > 0) {
+    const { data: roles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('user_id', userIds)
+      .eq('role', 'administrator')
+    if (rolesError) return rolesError.message
+    if ((roles ?? []).length !== userIds.length) {
+      return 'Approvers must be administrators.'
+    }
+  }
+
+  // Remove approvers no longer selected, then add the new ones. The upsert
+  // ignores rows that already exist, so unchanged approvers keep their
+  // created_at.
+  let removal = supabase
+    .from('category_approvers')
+    .delete()
+    .eq('category', category)
+  if (userIds.length > 0) {
+    removal = removal.not('user_id', 'in', `(${userIds.join(',')})`)
+  }
+  const { error: deleteError } = await removal
+  if (deleteError) return deleteError.message
+
+  if (userIds.length > 0) {
+    const { error: upsertError } = await supabase
+      .from('category_approvers')
+      .upsert(
+        userIds.map((userId) => ({ category, user_id: userId })),
+        { onConflict: 'category,user_id', ignoreDuplicates: true }
+      )
+    if (upsertError) return upsertError.message
+  }
+
+  revalidatePath('/admin/approvers')
+  return null
 }
 
 function z4FieldErrors(error: {

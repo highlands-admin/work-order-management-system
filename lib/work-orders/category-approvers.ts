@@ -1,34 +1,44 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+
 import type { WorkOrderCategory } from '@/lib/schemas/work-order'
 
 export type CategoryApprover = {
-  name: string
+  name: string | null
   email: string
 }
 
-// Categories routed to a dedicated approver who is emailed when a work order in
-// that category enters the approval queue. The display name is stable config;
-// the address is read from the environment so it stays out of the repo and can
-// differ per deployment. Categories without an entry have no dedicated approver
-// and rely on administrators watching the queue.
-const APPROVER_ENV: Partial<
-  Record<WorkOrderCategory, { name: string; envVar: string }>
-> = {
-  maintenance: { name: 'Walter Grimes', envVar: 'APPROVER_EMAIL_MAINTENANCE' },
-  it: { name: 'Steven Brooks', envVar: 'APPROVER_EMAIL_IT' },
-  marketing: { name: 'Marissa Rampley', envVar: 'APPROVER_EMAIL_MARKETING' },
+type ApproverRow = {
+  user_id: string
+  email: string | null
+  first_name: string | null
+  last_name: string | null
 }
 
-// Resolves the approver for a category, or null when none is configured (no
-// mapping, or the environment variable is unset). The caller treats null as
-// "no notification to send".
-export function getCategoryApprover(
+// Resolves every designated approver for a category from the
+// category_approvers table, which administrators manage at /admin/approvers.
+// Approvers who are no longer administrators are excluded by the RPC. Returns
+// an empty list when the category has no approvers or the lookup fails. The
+// caller treats an empty list as "no notification to send".
+export async function getCategoryApprovers(
+  supabase: SupabaseClient,
   category: WorkOrderCategory
-): CategoryApprover | null {
-  const config = APPROVER_ENV[category]
-  if (!config) return null
+): Promise<CategoryApprover[]> {
+  const { data, error } = await supabase.rpc('get_category_approvers', {
+    p_category: category,
+  })
 
-  const email = process.env[config.envVar]?.trim()
-  if (!email) return null
+  if (error) {
+    console.error('get_category_approvers failed', error)
+    return []
+  }
 
-  return { name: config.name, email }
+  return ((data ?? []) as ApproverRow[]).flatMap((row) => {
+    const email = row.email?.trim()
+    if (!email) return []
+    const name = [row.first_name, row.last_name]
+      .map((part) => part?.trim())
+      .filter(Boolean)
+      .join(' ')
+    return [{ name: name || null, email }]
+  })
 }
