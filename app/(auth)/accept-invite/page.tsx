@@ -46,12 +46,45 @@ export default async function AcceptInvitePage({
 
   const invite = invites[0]
 
+  if (invite.account_exists) {
+    return (
+      <AuthCard
+        title="You already have an account"
+        description={
+          <>
+            <span className="font-medium text-foreground">{invite.email}</span>{' '}
+            already has a Workflow360 account. Each account belongs to one
+            organization, so it cannot join{' '}
+            <span className="font-medium text-foreground">
+              {invite.organization_name}
+            </span>
+            . Ask the person who invited you to use a different email.
+          </>
+        }
+        footer={
+          <Link
+            href="/login"
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            Back to sign in
+          </Link>
+        }
+      >
+        <div />
+      </AuthCard>
+    )
+  }
+
   return (
     <AuthCard
       title="Accept Your Invitation"
       description={
         <>
-          You have been invited to join as{' '}
+          You have been invited to join{' '}
+          <span className="font-medium text-foreground">
+            {invite.organization_name}
+          </span>{' '}
+          as{' '}
           <span className="font-medium text-foreground">{invite.role}</span>{' '}
           with the email{' '}
           <span className="font-medium text-foreground">{invite.email}</span>.

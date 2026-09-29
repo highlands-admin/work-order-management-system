@@ -55,10 +55,25 @@ export function getBucket(): string {
 
 // A random, unguessable key keeps the object name from leaking the original
 // filename and avoids collisions. The extension is preserved so the object is
-// recognizable in the bucket.
-export function generateObjectKey(filename: string): string {
+// recognizable in the bucket. The organization segment lets every route that
+// accepts a key from the browser reject one from another organization.
+export function generateObjectKey(
+  filename: string,
+  organizationId: string
+): string {
   const ext = extname(filename).toLowerCase().slice(0, 10)
-  return `${OBJECT_PREFIX}/${randomUUID()}${ext}`
+  return `${OBJECT_PREFIX}/${organizationId}/${randomUUID()}${ext}`
+}
+
+// Whether a key was issued to this organization. Keys from before
+// organization prefixes existed return false, so they cannot be used through
+// the draft routes; saved ones are still served through the authorized page
+// render. The database enforces the same rule when a key is linked.
+export function keyBelongsToOrganization(
+  key: string,
+  organizationId: string
+): boolean {
+  return key.startsWith(`${OBJECT_PREFIX}/${organizationId}/`)
 }
 
 // Presigned PUT URL the browser uploads to directly, bypassing the app server

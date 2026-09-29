@@ -15,9 +15,9 @@ import {
   type SetPropertyActiveAction,
 } from './property-row'
 
-// The add form and the property table. Shared by /admin/properties, which
-// manages the caller's organization, and the platform organization page, which
-// passes actions bound to the organization being configured.
+// The add form and the property table for one organization. The platform
+// organization page passes actions bound to the organization being
+// configured.
 export function PropertiesManager({
   properties,
   addAction,

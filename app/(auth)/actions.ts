@@ -66,6 +66,13 @@ export async function acceptInviteAction(
     )
   }
 
+  // An invitation only applies when the account is created, so an existing
+  // account cannot use it. Supabase Auth would otherwise answer the signUp
+  // below with a silent no-op for an address that is already registered.
+  if (invite.account_exists) {
+    return formError(undefined, safeValues, 'This email already has a Workflow360 account. Each account belongs to one organization, so it cannot accept this invitation. Ask the person who invited you to use a different email.')
+  }
+
   const { error: signUpError } = await supabase.auth.signUp({
     email: invite.email,
     password: parsed.data.password,

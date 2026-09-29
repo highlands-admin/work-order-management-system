@@ -4,6 +4,7 @@
 type InvitationTemplateInput = {
   greeting: string
   invitedBy: string
+  organizationName: string
   roleLabel: string
   acceptUrl: string
 }
@@ -11,6 +12,7 @@ type InvitationTemplateInput = {
 export function renderInvitationHtml({
   greeting,
   invitedBy,
+  organizationName,
   roleLabel,
   acceptUrl,
 }: InvitationTemplateInput): string {
@@ -22,8 +24,8 @@ export function renderInvitationHtml({
     <tr><td align="center">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px;background:#fff;border:1px solid #e4e4e7;border-radius:8px;">
         <tr><td style="padding:32px;">
-          <p style="margin:0 0 12px;font-size:15px;line-height:22px;">${greeting}</p>
-          <p style="margin:0 0 16px;font-size:15px;line-height:22px;">${invitedBy} to join Workflow360 as a <strong>${roleLabel}</strong>.</p>
+          <p style="margin:0 0 12px;font-size:15px;line-height:22px;">${escapeHtml(greeting)}</p>
+          <p style="margin:0 0 16px;font-size:15px;line-height:22px;">${escapeHtml(invitedBy)} to join <strong>${escapeHtml(organizationName)}</strong> on Workflow360 as a <strong>${escapeHtml(roleLabel)}</strong>.</p>
           <p style="margin:24px 0;text-align:center;">
             <a href="${acceptUrl}" style="display:inline-block;padding:10px 18px;background:#18181b;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;">Accept invitation</a>
           </p>
@@ -40,16 +42,27 @@ export function renderInvitationHtml({
 export function renderInvitationText({
   greeting,
   invitedBy,
+  organizationName,
   roleLabel,
   acceptUrl,
 }: InvitationTemplateInput): string {
   return [
     greeting,
     '',
-    `${invitedBy} to join Workflow360 as a ${roleLabel}.`,
+    `${invitedBy} to join ${organizationName} on Workflow360 as a ${roleLabel}.`,
     '',
     `Accept invitation: ${acceptUrl}`,
     '',
     'This invitation will expire. If you did not expect it, you can ignore this email.',
   ].join('\n')
+}
+
+// Names come from user profiles and organization settings, so escape them
+// before they reach the HTML body.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }

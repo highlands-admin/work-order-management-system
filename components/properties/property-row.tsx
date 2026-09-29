@@ -20,8 +20,7 @@ export type SetPropertyActiveAction = (input: {
 
 // One property with an inline rename field and a retire or restore button.
 // Save appears only once the name differs from the stored one. The page passes
-// the Server Actions, so the row works on both the organization admin page and
-// the platform admin page.
+// the Server Actions, bound to the organization being configured.
 export function PropertyRow({
   property,
   renameAction,

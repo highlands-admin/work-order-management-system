@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react'
 
+import { FormSection } from '@/components/forms/form-section'
 import { FormError } from '@/components/auth/form-error'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { Button } from '@/components/ui/button'
@@ -1032,39 +1033,6 @@ function StepPanel({
 }) {
   // Hidden (not unmounted) so all fields stay in the form and submit together.
   return <div className={active ? 'flex flex-col gap-6' : 'hidden'}>{children}</div>
-}
-
-function FormSection({
-  id,
-  title,
-  description,
-  children,
-}: {
-  id: string
-  title: string
-  description?: string
-  children: ReactNode
-}) {
-  const titleId = `${id}-title`
-  return (
-    <section
-      aria-labelledby={titleId}
-      className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none"
-    >
-      <header className="border-b bg-muted/30 px-6 py-4">
-        <h2
-          id={titleId}
-          className="font-heading text-base font-semibold tracking-tight"
-        >
-          {title}
-        </h2>
-        {description ? (
-          <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
-        ) : null}
-      </header>
-      <div className="px-6 py-6">{children}</div>
-    </section>
-  )
 }
 
 function Required() {

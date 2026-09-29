@@ -64,12 +64,24 @@ async function inviteAdministrator(
   supabase: Awaited<ReturnType<typeof createClient>>,
   input: {
     organizationId: string
+    organizationName: string
     email: string
     firstName: string | null
     lastName: string | null
     inviterName: string | null
   }
 ): Promise<string | null> {
+  // Each account belongs to one organization, and an invitation only applies
+  // when the account is created, so an existing account could never use it.
+  const { data: hasAccount, error: accountError } = await supabase.rpc(
+    'platform_email_has_account',
+    { p_email: input.email }
+  )
+  if (accountError) return accountError.message
+  if (hasAccount === true) {
+    return `${input.email} already has an account. Each account belongs to one organization, so invite a different email.`
+  }
+
   const token = randomBytes(24).toString('hex')
   const expiresAt = new Date(
     Date.now() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000
@@ -89,6 +101,7 @@ async function inviteAdministrator(
     to: input.email,
     token,
     role: 'administrator',
+    organizationName: input.organizationName,
     firstName: input.firstName,
     invitedByName: input.inviterName,
   })
@@ -120,6 +133,24 @@ export async function createOrganizationAction(
     return formError(undefined, raw, (err as Error).message)
   }
   const { supabase, inviterName } = context
+
+  // Checked before creating anything, so an unusable administrator email
+  // does not leave behind an organization with nobody to run it.
+  const { data: hasAccount, error: accountError } = await supabase.rpc(
+    'platform_email_has_account',
+    { p_email: parsed.data.adminEmail }
+  )
+  if (accountError) return formError(undefined, raw, accountError.message)
+  if (hasAccount === true) {
+    return formError(
+      {
+        adminEmail: [
+          'This email already has an account. Each account belongs to one organization, so use a different email.',
+        ],
+      },
+      raw
+    )
+  }
 
   const baseSlug = slugFromName(parsed.data.name)
   if (!baseSlug) {
@@ -153,6 +184,7 @@ export async function createOrganizationAction(
 
   const inviteError = await inviteAdministrator(supabase, {
     organizationId: organizationId as string,
+    organizationName: parsed.data.name,
     email: parsed.data.adminEmail,
     firstName: parsed.data.adminFirstName || null,
     lastName: parsed.data.adminLastName || null,
@@ -232,8 +264,20 @@ export async function inviteOrganizationAdminAction(
     return formError(undefined, raw, (err as Error).message)
   }
 
+  const { data: organizations, error: listError } = await context.supabase.rpc(
+    'platform_list_organizations'
+  )
+  if (listError) return formError(undefined, raw, listError.message)
+  const organization = (
+    (organizations ?? []) as { id: string; name: string }[]
+  ).find((org) => org.id === parsed.data.organizationId)
+  if (!organization) {
+    return formError(undefined, raw, 'Organization not found.')
+  }
+
   const inviteError = await inviteAdministrator(context.supabase, {
     organizationId: parsed.data.organizationId,
+    organizationName: organization.name,
     email: parsed.data.email,
     firstName: parsed.data.firstName || null,
     lastName: parsed.data.lastName || null,
@@ -247,9 +291,8 @@ export async function inviteOrganizationAdminAction(
 }
 
 // The property actions below are bound to an organization id on the page
-// (action.bind(null, organizationId)), so they plug into the same components
-// as the organization admin's own property actions. Bound arguments travel
-// through the browser, so the id is validated like any other input.
+// (action.bind(null, organizationId)). Bound arguments travel through the
+// browser, so the id is validated like any other input.
 const organizationIdSchema = z.uuid()
 
 export async function platformAddPropertyAction(

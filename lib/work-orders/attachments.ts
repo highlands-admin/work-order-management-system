@@ -3,7 +3,12 @@ import {
   attachmentMetadataSchema,
   maxAttachmentBytes,
 } from '@/lib/schemas/attachment'
-import { deleteObjects, presignDownloadUrl } from '@/lib/storage/s3'
+import {
+  deleteObjects,
+  keyBelongsToOrganization,
+  presignDownloadUrl,
+} from '@/lib/storage/s3'
+import { getCurrentOrgId } from '@/lib/supabase/current-org'
 import type { createClient } from '@/lib/supabase/server'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
@@ -85,6 +90,7 @@ export async function syncWorkOrderAttachments(
   }
 
   const sizeCap = maxAttachmentBytes(category)
+  const organizationId = await getCurrentOrgId(supabase)
   const added = formData
     .getAll('attachment')
     .map((value) => {
@@ -95,6 +101,13 @@ export async function syncWorkOrderAttachments(
       }
     })
     .filter((value): value is NonNullable<typeof value> => value !== null)
+    // Drop keys issued to another organization. The database refuses them
+    // too, but filtering here keeps one bad key from failing the whole insert.
+    .filter(
+      (value) =>
+        organizationId !== null &&
+        keyBelongsToOrganization(value.key, organizationId)
+    )
     // Drop anything over this category's cap. The presign endpoint already
     // enforces it, so this is the authoritative backstop against a file linked
     // with a size beyond what the saved category allows.

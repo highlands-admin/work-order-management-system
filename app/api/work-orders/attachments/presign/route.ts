@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { presignRequestSchema } from '@/lib/schemas/attachment'
 import { generateObjectKey, presignUploadUrl } from '@/lib/storage/s3'
+import { getCurrentOrgId } from '@/lib/supabase/current-org'
 import { createClient } from '@/lib/supabase/server'
 
 // The AWS SDK relies on Node APIs, so this handler must run on the Node
@@ -14,8 +15,8 @@ export const runtime = 'nodejs'
 // limit does not apply to the upload itself.
 export async function POST(request: NextRequest): Promise<Response> {
   const supabase = await createClient()
-  const { data: claimData } = await supabase.auth.getClaims()
-  if (!claimData?.claims?.sub) {
+  const organizationId = await getCurrentOrgId(supabase)
+  if (!organizationId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   // The key is generated server-side so the client cannot choose where the
   // object lands. The row that links this key to a work order is inserted later
   // by the create/update action, gated by RLS.
-  const key = generateObjectKey(parsed.data.filename)
+  const key = generateObjectKey(parsed.data.filename, organizationId)
 
   try {
     const uploadUrl = await presignUploadUrl(key, parsed.data.contentType)

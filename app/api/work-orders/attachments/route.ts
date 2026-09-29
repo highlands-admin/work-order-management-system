@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { deleteObjects, presignDownloadUrl } from '@/lib/storage/s3'
+import {
+  deleteObjects,
+  keyBelongsToOrganization,
+  presignDownloadUrl,
+} from '@/lib/storage/s3'
+import { getCurrentOrgId } from '@/lib/supabase/current-org'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -12,13 +17,16 @@ export const runtime = 'nodejs'
 // random UUIDs, so an unlinked key cannot be guessed.
 export async function GET(request: NextRequest): Promise<Response> {
   const supabase = await createClient()
-  const { data: claimData } = await supabase.auth.getClaims()
-  if (!claimData?.claims?.sub) {
+  const organizationId = await getCurrentOrgId(supabase)
+  if (!organizationId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // The linked check below only sees the caller's own organization through
+  // RLS, so it cannot protect another organization's objects. The key prefix
+  // does: keys are issued per organization by the presign route.
   const key = request.nextUrl.searchParams.get('key')
-  if (!key || !key.startsWith('work-orders/')) {
+  if (!key || !keyBelongsToOrganization(key, organizationId)) {
     return NextResponse.json({ error: 'Invalid key.' }, { status: 400 })
   }
 
@@ -55,13 +63,16 @@ export async function GET(request: NextRequest): Promise<Response> {
 // That guard means this endpoint cannot be used to wipe saved attachments.
 export async function DELETE(request: NextRequest): Promise<Response> {
   const supabase = await createClient()
-  const { data: claimData } = await supabase.auth.getClaims()
-  if (!claimData?.claims?.sub) {
+  const organizationId = await getCurrentOrgId(supabase)
+  if (!organizationId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // The linked check below only sees the caller's own organization through
+  // RLS, so it cannot protect another organization's objects. The key prefix
+  // does: keys are issued per organization by the presign route.
   const key = request.nextUrl.searchParams.get('key')
-  if (!key || !key.startsWith('work-orders/')) {
+  if (!key || !keyBelongsToOrganization(key, organizationId)) {
     return NextResponse.json({ error: 'Invalid key.' }, { status: 400 })
   }
 

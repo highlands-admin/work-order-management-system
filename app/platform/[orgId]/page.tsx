@@ -84,7 +84,7 @@ export default async function PlatformOrganizationPage({
       <FormSection
         id="invite-admin"
         title="Invite an administrator"
-        description="Administrators manage the organization's users, approvers, and properties."
+        description="Administrators manage the organization's users and approvers."
       >
         <InviteAdminForm organizationId={organization.id} />
       </FormSection>
@@ -99,7 +99,7 @@ export default async function PlatformOrganizationPage({
           </h2>
           <p className="text-sm text-muted-foreground">
             The facilities offered on this organization&apos;s work order forms.
-            Its administrators can also manage these.
+            Only platform admins can change them.
           </p>
         </div>
         {propertiesError ? (

@@ -115,7 +115,8 @@ values ('aaaaaaaa-1111-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-0000000
 insert into public.work_order_attachments
   (work_order_id, object_key, content_type, size_bytes, uploaded_by)
 values
-  ('aaaaaaaa-1111-0000-0000-000000000001', 'a/photo.jpg', 'image/jpeg', 100,
+  ('aaaaaaaa-1111-0000-0000-000000000001',
+   'work-orders/' || public.current_org_id() || '/photo.jpg', 'image/jpeg', 100,
    'aaaaaaaa-0000-0000-0000-000000000001');
 
 insert into public.invitations (email, role, invited_by, token, expires_at)
@@ -132,6 +133,28 @@ values
   ('aaaaaaaa-2222-0000-0000-000000000001', 'A backups', 'it', 'low', 'Check backups',
    'monthly', current_date, now(),
    'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001');
+
+select throws_ok(
+  $$ insert into public.work_order_attachments
+       (work_order_id, object_key, content_type, size_bytes, uploaded_by)
+     values ('aaaaaaaa-1111-0000-0000-000000000001',
+             'work-orders/bbbbbbbb-0000-0000-0000-000000000000/stolen.jpg',
+             'image/jpeg', 1, 'aaaaaaaa-0000-0000-0000-000000000001') $$,
+  '42501',
+  'Attachment key does not belong to this organization',
+  'an attachment key under another organization''s prefix is refused'
+);
+
+select throws_ok(
+  $$ insert into public.work_order_attachments
+       (work_order_id, object_key, content_type, size_bytes, uploaded_by)
+     values ('aaaaaaaa-1111-0000-0000-000000000001',
+             'work-orders/legacy-style.jpg',
+             'image/jpeg', 1, 'aaaaaaaa-0000-0000-0000-000000000001') $$,
+  '42501',
+  'Attachment key does not belong to this organization',
+  'new attachments must use an organization-prefixed key'
+);
 
 -- Org B data.
 select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000001');
@@ -369,6 +392,8 @@ select is((select count(*)::int from public.work_orders
   'super admin status grants no access to other organizations'' work orders');
 
 -- ── properties ─────────────────────────────────────────────────────────────
+-- Platform admins manage properties through the platform functions. The Org B
+-- requester (bbbbbbbb-...-0002) is the platform admin set up above.
 
 select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000001');
 
@@ -385,16 +410,42 @@ select throws_ok(
   'Org B cannot use a property key that only Highlands has'
 );
 
-insert into public.properties (key, name) values ('norcross', 'Norcross Annex');
+select throws_ok(
+  $$ insert into public.properties (key, name) values ('annex', 'Annex') $$,
+  '42501',
+  null,
+  'an org administrator cannot add properties directly'
+);
+
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
+select public.platform_add_property(
+  'bbbbbbbb-0000-0000-0000-000000000000', 'norcross', 'Norcross Annex');
+
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000001');
 
 select lives_ok(
   $$ insert into public.work_orders
        (title, category, priority, description, status, property, created_by, updated_by)
      values ('Leak', 'maintenance', 'high', 'x', 'open', 'norcross',
              'bbbbbbbb-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001') $$,
-  'Org B can reuse a key once it adds its own property'
+  'Org B can reuse a key once a platform admin adds its own property'
 );
 
+select throws_ok(
+  $$ update public.properties set name = 'Renamed' where key = 'norcross' $$,
+  '42501',
+  null,
+  'an org administrator cannot rename properties directly'
+);
+
+select throws_ok(
+  $$ delete from public.properties where key = 'norcross' $$,
+  '42501',
+  null,
+  'properties cannot be deleted, only retired'
+);
+
+select pg_temp.act_as_postgres();
 select throws_ok(
   $$ update public.properties set key = 'renamed' where key = 'norcross' $$,
   '42501',
@@ -402,7 +453,11 @@ select throws_ok(
   'a property key cannot change'
 );
 
-update public.properties set is_active = false where key = 'norcross';
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
+select public.platform_update_property(
+  'bbbbbbbb-0000-0000-0000-000000000000', 'norcross', null, false);
+
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000001');
 
 select throws_ok(
   $$ insert into public.work_orders
@@ -421,20 +476,6 @@ select lives_ok(
   'work orders already on a retired property can still be edited'
 );
 
-delete from public.properties where key = 'norcross';
-
-select is((select count(*)::int from public.properties), 1,
-  'properties cannot be deleted, only retired');
-
-select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
-
-select throws_ok(
-  $$ insert into public.properties (key, name) values ('annex', 'Annex') $$,
-  '42501',
-  null,
-  'a requester cannot add properties'
-);
-
 select pg_temp.act_as('aaaaaaaa-0000-0000-0000-000000000001');
 
 select is(
@@ -442,6 +483,39 @@ select is(
   'Norcross',
   'the Highlands property is unaffected by the Org B property with the same key'
 );
+
+-- ── invitations and existing accounts ─────────────────────────────────────
+
+select pg_temp.act_as_postgres();
+insert into public.invitations
+  (organization_id, email, role, invited_by, token, expires_at)
+values
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'A.Tech@highlands.care', 'technician',
+   'bbbbbbbb-0000-0000-0000-000000000001', 'token-existing', now() + interval '1 day'),
+  ('bbbbbbbb-0000-0000-0000-000000000000', 'fresh@elsewhere.test', 'technician',
+   'bbbbbbbb-0000-0000-0000-000000000001', 'token-fresh', now() + interval '1 day');
+
+set local role anon;
+select is(
+  (select organization_name || ':' || account_exists from public.invitation_by_token('token-existing')),
+  'Org B:true',
+  'invitation_by_token names the organization and flags an existing account'
+);
+select is(
+  (select account_exists from public.invitation_by_token('token-fresh')),
+  false,
+  'invitation_by_token reports no account for a new email'
+);
+select throws_ok($$ select public.platform_email_has_account('a.tech@highlands.care') $$,
+  '42501', null, 'anonymous visitors cannot check whether an email has an account');
+
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000001');
+select throws_ok($$ select public.platform_email_has_account('a.tech@highlands.care') $$,
+  '42501', null, 'org administrators cannot check accounts outside their organization');
+
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
+select ok(public.platform_email_has_account(' A.Tech@Highlands.care '),
+  'platform admins can check whether an email has an account');
 
 -- ── cron job ───────────────────────────────────────────────────────────────
 

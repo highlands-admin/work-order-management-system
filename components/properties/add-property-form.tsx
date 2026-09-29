@@ -10,9 +10,8 @@ import { useServerErrors } from '@/lib/hooks/use-server-errors'
 
 import { initialAuthState, type AuthState } from '@/app/(auth)/auth-state'
 
-// Adds a property. The page passes the Server Action, so the same form serves
-// an organization's own admin page and the platform admin page, where the
-// action is bound to the organization being configured.
+// Adds a property. The page passes the Server Action, bound to the
+// organization being configured.
 export function AddPropertyForm({
   addAction,
 }: {

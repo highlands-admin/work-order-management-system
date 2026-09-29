@@ -11,6 +11,9 @@ type SendInvitationInput = {
   to: string
   token: string
   role: AppRole
+  // Named in the subject and body, since the app now hosts more than one
+  // organization.
+  organizationName: string
   firstName?: string | null
   invitedByName?: string | null
 }
@@ -29,6 +32,7 @@ export async function sendInvitationEmail(
   )}`
   const templateInput = {
     acceptUrl,
+    organizationName: input.organizationName,
     roleLabel: ROLE_LABELS[input.role],
     greeting: input.firstName ? `Hi ${input.firstName},` : 'Hi,',
     invitedBy: input.invitedByName
@@ -40,7 +44,7 @@ export async function sendInvitationEmail(
   const { error } = await resend.emails.send({
     from,
     to: input.to,
-    subject: `You have been invited to Workflow360`,
+    subject: `You have been invited to join ${input.organizationName} on Workflow360`,
     html: renderInvitationHtml(templateInput),
     text: renderInvitationText(templateInput),
   })
