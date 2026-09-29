@@ -32,12 +32,10 @@ import {
   IT_REQUEST_TYPE_LABELS,
   MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
-  PROPERTY_LABELS,
   RECURRING_CATEGORIES,
   STATUS_LABELS,
   WORK_ORDER_CATEGORIES_BY_LABEL,
   WORK_ORDER_PRIORITIES,
-  PROPERTIES_BY_LABEL,
   type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
@@ -48,6 +46,11 @@ import {
   formatAssigneeLabel,
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
+import {
+  selectableProperties,
+  toPropertyLabels,
+  type PropertyOption,
+} from '@/lib/work-orders/properties'
 
 import { initialAuthState } from '../../../(auth)/auth-state'
 import { updateWorkOrderAction } from '../../actions'
@@ -89,6 +92,7 @@ const EDIT_FORM_ID = 'edit-work-order-form'
 
 export function EditWorkOrderForm({
   workOrder,
+  properties,
   allowedStatuses,
   assignableUsers,
   canAssign,
@@ -96,6 +100,9 @@ export function EditWorkOrderForm({
   notes,
 }: {
   workOrder: WorkOrder
+  // The organization's properties. Active ones are offered, plus the current
+  // value if it has been retired.
+  properties: PropertyOption[]
   allowedStatuses: WorkOrderStatus[]
   assignableUsers: AssignableUser[]
   // A submission still awaiting approval is assigned by the administrator who
@@ -597,7 +604,7 @@ export function EditWorkOrderForm({
               </FieldLabel>
               <Select
                 name="property"
-                items={PROPERTY_LABELS}
+                items={toPropertyLabels(properties)}
                 value={propertyValue}
                 onValueChange={(v) => {
                   setPropertyValue(typeof v === 'string' ? v : '')
@@ -612,9 +619,9 @@ export function EditWorkOrderForm({
                   <SelectValue placeholder="Select a facility" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PROPERTIES_BY_LABEL.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {PROPERTY_LABELS[p]}
+                  {selectableProperties(properties, workOrder.property).map((p) => (
+                    <SelectItem key={p.key} value={p.key}>
+                      {p.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

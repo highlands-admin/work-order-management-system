@@ -24,11 +24,17 @@ import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import {
   CATEGORY_LABELS,
   FREQUENCY_LABELS,
-  PROPERTY_LABELS,
   RECURRENCE_FREQUENCIES,
 } from '@/lib/schemas/work-order'
 import { UNASSIGNED } from '@/lib/work-orders/filters'
-import { CATEGORY_OPTIONS, PROPERTY_OPTIONS } from '@/lib/work-orders/filter-options'
+import { CATEGORY_OPTIONS } from '@/lib/work-orders/filter-options'
+import {
+  propertyLabel,
+  toPropertyFilterOptions,
+  toPropertyLabels,
+  type PropertyLabels,
+  type PropertyOption,
+} from '@/lib/work-orders/properties'
 import {
   RECURRING_FILTERS_COOKIE,
   writeFilterCookie,
@@ -51,9 +57,12 @@ export const FREQUENCY_OPTIONS = RECURRENCE_FREQUENCIES.map((v) => ({
 }))
 
 export function RecurringFilterBar({
+  properties,
   assigneeOptions,
   initialFilters,
 }: {
+  // The organization's properties, for the Facility facet and its chips.
+  properties: PropertyOption[]
   assigneeOptions: Option<string>[]
   // The server-resolved effective filters for the first render: the URL's, or
   // a persisted cookie's when the URL carries none. Seeds the optimistic state
@@ -93,6 +102,11 @@ export function RecurringFilterBar({
   }
 
   // "Unassigned" is always offered, ahead of the user list.
+  const propertyOptions = useMemo(
+    () => toPropertyFilterOptions(properties),
+    [properties]
+  )
+  const propertyLabels = useMemo(() => toPropertyLabels(properties), [properties])
   const assigneeFilterOptions = useMemo<Option<string>[]>(
     () => [{ value: UNASSIGNED, label: 'Unassigned' }, ...assigneeOptions],
     [assigneeOptions]
@@ -162,7 +176,7 @@ export function RecurringFilterBar({
         />
         <MultiSelectFilter
           label="Facility"
-          options={PROPERTY_OPTIONS}
+          options={propertyOptions}
           selected={draft.properties}
           onChange={(v) => setDraft((d) => ({ ...d, properties: v }))}
         />
@@ -293,6 +307,7 @@ export function RecurringFilterBar({
         filters={filters}
         onChange={commit}
         assigneeLabels={assigneeLabels}
+        propertyLabels={propertyLabels}
       />
     </div>
   )
@@ -302,10 +317,12 @@ function ActiveFilterChips({
   filters,
   onChange,
   assigneeLabels,
+  propertyLabels,
 }: {
   filters: RecurringFilters
   onChange: (next: RecurringFilters) => void
   assigneeLabels: Record<string, string>
+  propertyLabels: PropertyLabels
 }) {
   const chips: { key: string; label: string; remove: () => void }[] = []
 
@@ -323,7 +340,7 @@ function ActiveFilterChips({
   for (const p of filters.properties) {
     chips.push({
       key: `property-${p}`,
-      label: `Facility: ${PROPERTY_LABELS[p]}`,
+      label: `Facility: ${propertyLabel(propertyLabels, p)}`,
       remove: () =>
         onChange({
           ...filters,

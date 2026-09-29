@@ -26,6 +26,7 @@ type ReminderRow = {
   priority: WorkOrderPriority
   status: WorkOrderStatus
   property: Property | null
+  property_name: string | null
   unit_number: string | null
   due_at: string | null
   description: string
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       priority: row.priority,
       status: row.status,
       property: row.property,
+      propertyName: row.property_name,
       unitNumber: row.unit_number,
       dueAt: row.due_at,
       description: row.description,

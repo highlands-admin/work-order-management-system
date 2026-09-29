@@ -8,7 +8,6 @@ import {
 import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
-  PROPERTY_LABELS,
 } from '@/lib/schemas/work-order'
 import { getSiteUrl } from '@/lib/site-url'
 
@@ -41,7 +40,7 @@ export async function sendWorkOrderRejectedEmail(
     { label: 'Priority', value: PRIORITY_LABELS[wo.priority] },
   ]
   if (wo.property) {
-    rows.push({ label: 'Property', value: PROPERTY_LABELS[wo.property] })
+    rows.push({ label: 'Property', value: wo.propertyName ?? wo.property })
   }
   if (wo.unitNumber) rows.push({ label: 'Unit', value: wo.unitNumber })
 

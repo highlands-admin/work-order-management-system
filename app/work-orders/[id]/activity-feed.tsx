@@ -5,9 +5,9 @@ import {
   MARKETING_SIZE_FORMAT_LABELS,
   MARKETING_TARGET_AUDIENCE_LABELS,
   PRIORITY_LABELS,
-  PROPERTY_LABELS,
   STATUS_LABELS,
 } from '@/lib/schemas/work-order'
+import { propertyLabel, type PropertyLabels } from '@/lib/work-orders/properties'
 
 import type { ReactNode } from 'react'
 
@@ -97,10 +97,13 @@ function hasVisibleContent(event: ActivityEvent): boolean {
 export function ActivityFeed({
   events,
   userLabelById,
+  propertyLabels,
   timeZone,
 }: {
   events: ActivityEvent[]
   userLabelById: Record<string, string>
+  // Includes retired properties, so older changes still show facility names.
+  propertyLabels: PropertyLabels
   timeZone: string
 }) {
   function actorName(actorId: string | null): string {
@@ -164,6 +167,7 @@ export function ActivityFeed({
                 <ActivityBody
                   event={event}
                   userLabelById={userLabelById}
+                  propertyLabels={propertyLabels}
                   timeZone={timeZone}
                 />
               </div>
@@ -178,10 +182,12 @@ export function ActivityFeed({
 function ActivityBody({
   event,
   userLabelById,
+  propertyLabels,
   timeZone,
 }: {
   event: ActivityEvent
   userLabelById: Record<string, string>
+  propertyLabels: PropertyLabels
   timeZone: string
 }) {
   if (event.action === 'updated') {
@@ -205,13 +211,13 @@ function ActivityBody({
             ) : (
               <>
                 <ValueChip>
-                  {formatValue(field, change.from, userLabelById, timeZone)}
+                  {formatValue(field, change.from, userLabelById, propertyLabels, timeZone)}
                 </ValueChip>
                 <span aria-hidden="true" className="text-muted-foreground">
                   →
                 </span>
                 <ValueChip>
-                  {formatValue(field, change.to, userLabelById, timeZone)}
+                  {formatValue(field, change.to, userLabelById, propertyLabels, timeZone)}
                 </ValueChip>
               </>
             )}
@@ -274,6 +280,7 @@ function formatValue(
   field: string,
   value: unknown,
   userLabelById: Record<string, string>,
+  propertyLabels: PropertyLabels,
   timeZone: string
 ): string {
   if (value === null || value === undefined || value === '') {
@@ -292,9 +299,7 @@ function formatValue(
         CATEGORY_LABELS[value as keyof typeof CATEGORY_LABELS] ?? String(value)
       )
     case 'property':
-      return (
-        PROPERTY_LABELS[value as keyof typeof PROPERTY_LABELS] ?? String(value)
-      )
+      return propertyLabel(propertyLabels, String(value))
     case 'assigned_to':
     case 'rejected_by':
     case 'validated_by':

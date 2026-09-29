@@ -20,6 +20,7 @@ import {
   fetchAssignableUsers,
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
 
 import { EditWorkOrderForm } from './edit-work-order-form'
 import { TransitionStatusForm } from './transition-status-form'
@@ -171,6 +172,7 @@ export default async function EditWorkOrderPage({
       {isEditor ? (
         <EditWorkOrderForm
           workOrder={data}
+          properties={await getProperties()}
           allowedStatuses={allowedStatuses}
           assignableUsers={assignableUsers}
           canAssign={isAdmin || isApproved}

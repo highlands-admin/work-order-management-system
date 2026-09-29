@@ -7,7 +7,6 @@ import {
 import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
-  PROPERTY_LABELS,
   STATUS_LABELS,
   type Property,
   type WorkOrderCategory,
@@ -24,6 +23,9 @@ export type AssignmentWorkOrder = {
   priority: WorkOrderPriority
   status: WorkOrderStatus
   property: Property | null
+  // Display name for property, resolved by the caller because the name is
+  // per organization.
+  propertyName: string | null
   unitNumber: string | null
   dueAt: string | null
   description: string
@@ -55,7 +57,7 @@ export async function sendWorkOrderAssignmentEmail(
     { label: 'Status', value: STATUS_LABELS[wo.status] },
   ]
   if (wo.property) {
-    rows.push({ label: 'Property', value: PROPERTY_LABELS[wo.property] })
+    rows.push({ label: 'Property', value: wo.propertyName ?? wo.property })
   }
   if (wo.unitNumber) rows.push({ label: 'Unit', value: wo.unitNumber })
   if (wo.dueAt) rows.push({ label: 'Due', value: formatDateTime(wo.dueAt) })

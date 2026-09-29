@@ -43,6 +43,8 @@ import {
   parseRecurringSort,
   RECURRING_SORT_COLUMNS,
 } from '@/lib/work-orders/recurring-sort'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
+import { toPropertyLabels } from '@/lib/work-orders/properties'
 
 import { RecurringCalendar, type CalendarSchedule } from './recurring-calendar'
 import { RecurringFilterBar } from './recurring-filter-bar'
@@ -157,11 +159,13 @@ export default async function RecurringWorkOrdersPage({
       .order('next_due_at', { ascending: true, nullsFirst: false })
   }
 
-  const [{ data, error }, assignableUsers, timeZone] = await Promise.all([
-    query,
-    fetchAssignableUsers(supabase),
-    getTimeZone(),
-  ])
+  const [{ data, error }, assignableUsers, timeZone, properties] =
+    await Promise.all([
+      query,
+      fetchAssignableUsers(supabase),
+      getTimeZone(),
+      getProperties(),
+    ])
 
   const userLabelById = new Map(
     assignableUsers.map((u) => [u.user_id, formatAssigneeLabel(u)])
@@ -215,6 +219,7 @@ export default async function RecurringWorkOrdersPage({
 
       {isTable ? (
         <RecurringFilterBar
+          properties={properties}
           assigneeOptions={assigneeOptions}
           initialFilters={filters}
         />
@@ -223,7 +228,10 @@ export default async function RecurringWorkOrdersPage({
       {error ? (
         <p className="text-sm text-destructive">{error.message}</p>
       ) : view === 'calendar' ? (
-        <RecurringCalendar schedules={calendarSchedules} />
+        <RecurringCalendar
+          schedules={calendarSchedules}
+          propertyLabels={toPropertyLabels(properties)}
+        />
       ) : rows.length === 0 ? (
         filtersActive ? (
           <NoMatches />
@@ -233,6 +241,7 @@ export default async function RecurringWorkOrdersPage({
       ) : (
         <RecurringTable
           schedules={tableRows}
+          properties={properties}
           userLabelById={Object.fromEntries(userLabelById)}
           timeZone={timeZone}
           sort={sort}

@@ -42,16 +42,19 @@ import {
   MARKETING_BRIEF_EXEMPT_REQUEST_TYPES,
   MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
-  PROPERTY_LABELS,
   RECURRENCE_FREQUENCIES,
   RECURRING_CATEGORIES,
   WORK_ORDER_CATEGORIES_BY_LABEL,
   WORK_ORDER_PRIORITIES,
-  PROPERTIES_BY_LABEL,
   type MarketingRequestType,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
 import { cn } from '@/lib/utils'
+import {
+  selectableProperties,
+  toPropertyLabels,
+  type PropertyOption,
+} from '@/lib/work-orders/properties'
 
 import {
   formatAssigneeLabel,
@@ -117,6 +120,8 @@ type ReporterDefaults = {
 }
 
 type NewWorkOrderFormProps = {
+  // The organization's properties. Only active ones are offered.
+  properties: PropertyOption[]
   reporterDefaults?: ReporterDefaults
   assignableUsers: AssignableUser[]
   // Requester submissions get their assignee at approval time, so only roles
@@ -150,11 +155,14 @@ export function NewWorkOrderForm(props: NewWorkOrderFormProps): ReactElement {
 }
 
 function NewWorkOrderFormInner({
+  properties,
   reporterDefaults,
   assignableUsers,
   canAssign,
   initialDraft,
 }: NewWorkOrderFormProps & { initialDraft: WorkOrderDraft | null }) {
+  const propertyChoices = selectableProperties(properties)
+  const propertyItems = toPropertyLabels(properties)
   // Value -> label maps let the Select render the chosen option's label (not the
   // raw stored value) without the dropdown items being mounted, and still show
   // the placeholder when nothing is selected.
@@ -764,7 +772,7 @@ function NewWorkOrderFormInner({
                 </FieldLabel>
                 <Select
                   name="property"
-                  items={PROPERTY_LABELS}
+                  items={propertyItems}
                   value={propertyValue}
                   onValueChange={(v) => {
                     setPropertyValue(typeof v === 'string' ? v : '')
@@ -779,9 +787,9 @@ function NewWorkOrderFormInner({
                     <SelectValue placeholder="Select a facility" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PROPERTIES_BY_LABEL.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {PROPERTY_LABELS[p]}
+                    {propertyChoices.map((p) => (
+                      <SelectItem key={p.key} value={p.key}>
+                        {p.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -44,6 +44,7 @@ import {
   MINE_SORT_COOKIE,
   parseSortCookieValue,
 } from '@/lib/work-orders/list-sort-cookie'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
 
 import { FilterBar } from '../filter-bar'
 import { WorkOrdersTable, type WorkOrderListItem } from '../work-orders-table'
@@ -167,6 +168,7 @@ export default async function MyWorkOrdersPage({
   }
 
   const timeZone = await getTimeZone()
+  const properties = await getProperties()
   const filtersActive = hasActiveFilters(filters)
   // The board's close flow needs the user directory for the Validated By field.
   const assignableUsers = await fetchAssignableUsers(supabase)
@@ -187,6 +189,7 @@ export default async function MyWorkOrdersPage({
 
       {view === 'board' ? (
         <BoardWorkspace
+          properties={properties}
           workOrders={workOrders}
           timeZone={timeZone}
           users={assignableUsers}
@@ -201,13 +204,14 @@ export default async function MyWorkOrdersPage({
         />
       ) : (
         <>
-          <FilterBar showAssignee={false} initialFilters={filters} />
+          <FilterBar properties={properties} showAssignee={false} initialFilters={filters} />
 
           {error ? (
             <p className="text-sm text-destructive">{error.message}</p>
           ) : null}
 
           <WorkOrdersTable
+            properties={properties}
             workOrders={workOrders}
             userLabelById={{}}
             timeZone={timeZone}

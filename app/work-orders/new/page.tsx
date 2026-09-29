@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/server'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
 
 import { NewWorkOrderForm } from './new-work-order-form'
 
@@ -56,6 +57,7 @@ export default async function NewWorkOrderPage() {
         </p>
       </div>
       <NewWorkOrderForm
+        properties={await getProperties()}
         reporterDefaults={reporterDefaults}
         assignableUsers={assignableUsers}
         canAssign={claims.user_role === 'administrator'}

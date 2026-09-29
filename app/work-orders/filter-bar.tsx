@@ -37,7 +37,6 @@ import { cn } from '@/lib/utils'
 import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
-  PROPERTY_LABELS,
   STATUS_LABELS,
 } from '@/lib/schemas/work-order'
 import {
@@ -55,9 +54,15 @@ import {
 import {
   CATEGORY_OPTIONS,
   PRIORITY_OPTIONS,
-  PROPERTY_OPTIONS,
   STATUS_OPTIONS,
 } from '@/lib/work-orders/filter-options'
+import {
+  propertyLabel,
+  toPropertyFilterOptions,
+  toPropertyLabels,
+  type PropertyLabels,
+  type PropertyOption,
+} from '@/lib/work-orders/properties'
 import {
   filtersCookieForPath,
   writeFilterCookie,
@@ -72,6 +77,7 @@ const SOURCE_OPTIONS: Option<WorkOrderSource>[] = WORK_ORDER_SOURCES.map((v) => 
 }))
 
 export function FilterBar({
+  properties,
   assigneeOptions = [],
   showAssignee = true,
   showStatus = true,
@@ -80,6 +86,8 @@ export function FilterBar({
   initialFilters,
   trailingActions,
 }: {
+  // The organization's properties, for the Facility facet and its chips.
+  properties: PropertyOption[]
   assigneeOptions?: Option<string>[]
   showAssignee?: boolean
   // The Archive lists only rejected work orders, so the status facet carries no
@@ -105,6 +113,12 @@ export function FilterBar({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+
+  const propertyOptions = useMemo(
+    () => toPropertyFilterOptions(properties),
+    [properties]
+  )
+  const propertyLabels = useMemo(() => toPropertyLabels(properties), [properties])
 
   // "Unassigned" is always offered, ahead of the user list.
   const assigneeFilterOptions = useMemo<Option<string>[]>(
@@ -218,7 +232,7 @@ export function FilterBar({
         />
         <MultiSelectFilter
           label="Facility"
-          options={PROPERTY_OPTIONS}
+          options={propertyOptions}
           selected={draft.properties}
           onChange={(v) => setDraft((d) => withFilter(d, 'properties', v))}
         />
@@ -460,6 +474,7 @@ export function FilterBar({
         filters={filters}
         onChange={commit}
         assigneeLabels={assigneeLabels}
+        propertyLabels={propertyLabels}
         showAssignee={showAssignee}
       />
     </div>
@@ -526,11 +541,13 @@ function ActiveFilterChips({
   filters,
   onChange,
   assigneeLabels,
+  propertyLabels,
   showAssignee,
 }: {
   filters: WorkOrderFilters
   onChange: (next: WorkOrderFilters) => void
   assigneeLabels: Record<string, string>
+  propertyLabels: PropertyLabels
   showAssignee: boolean
 }) {
   const chips: { key: string; label: string; remove: () => void }[] = []
@@ -580,7 +597,7 @@ function ActiveFilterChips({
   for (const p of filters.properties) {
     chips.push({
       key: `property-${p}`,
-      label: `Property: ${PROPERTY_LABELS[p]}`,
+      label: `Property: ${propertyLabel(propertyLabels, p)}`,
       remove: () =>
         onChange(
           withFilter(

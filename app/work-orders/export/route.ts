@@ -5,9 +5,7 @@ import { getTimeZone } from '@/lib/datetime/timezone'
 import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
-  PROPERTY_LABELS,
   STATUS_LABELS,
-  type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
   type WorkOrderStatus,
@@ -19,6 +17,8 @@ import {
   formatAssigneeLabel,
 } from '@/lib/work-orders/assignable-users'
 import { parseWorkOrderFilters } from '@/lib/work-orders/filters'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
+import { propertyLabel, toPropertyLabels } from '@/lib/work-orders/properties'
 
 // A CSV download needs to set Content-Disposition, so it lives in a route
 // handler rather than a Server Action. It mirrors the /work-orders list query
@@ -43,11 +43,14 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   query = applyWorkOrderFilters(query, filters)
 
-  const [{ data, error }, assignableUsers, timeZone] = await Promise.all([
-    query,
-    fetchAssignableUsers(supabase),
-    getTimeZone(),
-  ])
+  const [{ data, error }, assignableUsers, timeZone, properties] =
+    await Promise.all([
+      query,
+      fetchAssignableUsers(supabase),
+      getTimeZone(),
+      getProperties(),
+    ])
+  const propertyLabels = toPropertyLabels(properties)
 
   if (error) {
     return new NextResponse(`Failed to export: ${error.message}`, {
@@ -80,7 +83,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       CATEGORY_LABELS[row.category as WorkOrderCategory] ?? row.category ?? '',
       STATUS_LABELS[row.status as WorkOrderStatus] ?? row.status ?? '',
       PRIORITY_LABELS[row.priority as WorkOrderPriority] ?? row.priority ?? '',
-      PROPERTY_LABELS[row.property as Property] ?? row.property ?? '',
+      propertyLabel(propertyLabels, row.property),
       row.unit_number ?? '',
       row.assigned_to ? (userLabelById.get(row.assigned_to) ?? '') : '',
       row.reported_by_name ?? '',

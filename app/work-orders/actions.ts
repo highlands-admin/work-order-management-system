@@ -33,6 +33,8 @@ import { createClient } from '@/lib/supabase/server'
 import { syncWorkOrderAttachments } from '@/lib/work-orders/attachments'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 import { getCategoryApprovers } from '@/lib/work-orders/category-approvers'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
+import { toPropertyLabels } from '@/lib/work-orders/properties'
 import { nextOccurrenceAfter } from '@/lib/work-orders/recurrence'
 
 import type { AuthState } from '../(auth)/auth-state'
@@ -146,7 +148,20 @@ type RejectedWorkOrderRow = {
   created_by: string
 }
 
-function rejectedRowToWorkOrder(row: RejectedWorkOrderRow): AssignmentWorkOrder {
+// Resolves a property key to its display name for notification emails.
+// Property names are per organization, so they come from the database rather
+// than a constant.
+async function resolvePropertyName(
+  property: Property | null
+): Promise<string | null> {
+  if (!property) return null
+  const labels = toPropertyLabels(await getProperties())
+  return labels[property] ?? property
+}
+
+async function rejectedRowToWorkOrder(
+  row: RejectedWorkOrderRow
+): Promise<AssignmentWorkOrder> {
   return {
     id: row.id,
     code: row.work_order_code,
@@ -155,6 +170,7 @@ function rejectedRowToWorkOrder(row: RejectedWorkOrderRow): AssignmentWorkOrder 
     priority: row.priority,
     status: row.status,
     property: row.property,
+    propertyName: await resolvePropertyName(row.property),
     unitNumber: row.unit_number,
     dueAt: row.due_at,
     description: row.description,
@@ -461,6 +477,7 @@ export async function createWorkOrderAction(
     priority: parsed.data.priority,
     status: initialStatus,
     property: parsed.data.property ?? null,
+    propertyName: await resolvePropertyName(parsed.data.property ?? null),
     unitNumber: parsed.data.unitNumber ?? null,
     dueAt: parsed.data.dueAt ?? null,
     description: parsed.data.description,
@@ -681,6 +698,7 @@ export async function updateWorkOrderAction(
       priority: parsed.data.priority,
       status: parsed.data.status,
       property: parsed.data.property ?? null,
+      propertyName: await resolvePropertyName(parsed.data.property ?? null),
       unitNumber: parsed.data.unitNumber ?? null,
       dueAt: parsed.data.dueAt ?? null,
       description: parsed.data.description,
@@ -1043,6 +1061,7 @@ export async function approveWorkOrderAction(
     priority: workOrder.priority,
     status: workOrder.status,
     property: workOrder.property,
+    propertyName: await resolvePropertyName(workOrder.property),
     unitNumber: workOrder.unit_number,
     dueAt: workOrder.due_at,
     description: workOrder.description,
@@ -1151,7 +1170,7 @@ export async function rejectWorkOrderAction(
     claims.sub,
     actorName(claims),
     parsed.data.reason,
-    rejectedRowToWorkOrder(updated)
+    await rejectedRowToWorkOrder(updated)
   )
 
   revalidatePath('/work-orders/submissions')
@@ -1221,7 +1240,7 @@ export async function rejectApprovedWorkOrderAction(
     claims.sub,
     actorName(claims),
     parsed.data.reason,
-    rejectedRowToWorkOrder(updated)
+    await rejectedRowToWorkOrder(updated)
   )
 
   revalidatePath('/work-orders')

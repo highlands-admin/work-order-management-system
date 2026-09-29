@@ -23,8 +23,11 @@ import {
   ALL_STATUS_OPTIONS,
   CATEGORY_OPTIONS,
   PRIORITY_OPTIONS,
-  PROPERTY_OPTIONS,
 } from '@/lib/work-orders/filter-options'
+import {
+  toPropertyFilterOptions,
+  type PropertyOption,
+} from '@/lib/work-orders/properties'
 import {
   EMPTY_FILTERS,
   SOURCE_LABELS,
@@ -56,15 +59,23 @@ const SOURCE_OPTIONS: Option<WorkOrderSource>[] = WORK_ORDER_SOURCES.map((v) => 
 // lists are the shared ones, so the two stay in step.
 export function DashboardFilters({
   selected,
+  properties,
   assigneeOptions = [],
 }: {
   selected: WorkOrderFilters
+  // The organization's properties, for the Facility facet.
+  properties: PropertyOption[]
   assigneeOptions?: Option<string>[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+
+  const propertyOptions = useMemo(
+    () => toPropertyFilterOptions(properties),
+    [properties]
+  )
 
   // "Unassigned" is always offered, ahead of the user list, matching FilterBar.
   const assigneeFilterOptions = useMemo<Option<string>[]>(
@@ -151,7 +162,7 @@ export function DashboardFilters({
         />
         <MultiSelectFilter
           label="Facility"
-          options={PROPERTY_OPTIONS}
+          options={propertyOptions}
           selected={draft.properties}
           onChange={(v) => setDraft((d) => withFilter(d, 'properties', v))}
         />

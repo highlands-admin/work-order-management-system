@@ -4,7 +4,6 @@
 // navigates to a new URL rather than holding ephemeral state.
 
 import {
-  PROPERTIES,
   WORK_ORDER_CATEGORIES,
   WORK_ORDER_PRIORITIES,
   WORK_ORDER_STATUSES,
@@ -13,6 +12,7 @@ import {
   type WorkOrderPriority,
   type WorkOrderStatus,
 } from '@/lib/schemas/work-order'
+import { PROPERTY_KEY_PATTERN } from '@/lib/work-orders/properties'
 
 // Whether a work order came from a recurring schedule or was filed one-off.
 // A list-only facet (not a domain enum), so it lives here with the filters.
@@ -98,6 +98,26 @@ function readCsv<T extends string>(
   return out
 }
 
+// Property keys are per organization, so they are checked by shape rather than
+// against a fixed list. An unknown key simply matches no rows.
+export function readPropertyCsv(
+  source: RawSearchParams,
+  key: string
+): string[] {
+  const raw = readString(source, key)
+  if (!raw) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const part of raw.split(',')) {
+    const trimmed = part.trim()
+    if (PROPERTY_KEY_PATTERN.test(trimmed) && !seen.has(trimmed)) {
+      seen.add(trimmed)
+      out.push(trimmed)
+    }
+  }
+  return out
+}
+
 // Sentinel value for the "no assignee" filter option (distinct from any UUID).
 export const UNASSIGNED = 'unassigned'
 
@@ -140,7 +160,7 @@ export function parseWorkOrderFilters(
     statuses: readCsv(source, PARAM.status, WORK_ORDER_STATUSES),
     priorities: readCsv(source, PARAM.priority, WORK_ORDER_PRIORITIES),
     categories: readCsv(source, PARAM.category, WORK_ORDER_CATEGORIES),
-    properties: readCsv(source, PARAM.property, PROPERTIES),
+    properties: readPropertyCsv(source, PARAM.property),
     assignees: readAssigneeCsv(source, PARAM.assignee),
     sources: readCsv(source, PARAM.source, WORK_ORDER_SOURCES),
     q: readString(source, PARAM.q).slice(0, 200),

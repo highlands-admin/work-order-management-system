@@ -12,6 +12,8 @@ import {
   fetchAssignableUsers,
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
+import { toPropertyLabels } from '@/lib/work-orders/properties'
 
 import { type QueueBucket, type QueueEntry } from './queue-detail'
 import { SubmissionQueue } from './submission-queue'
@@ -131,6 +133,7 @@ export default async function SubmissionsPage() {
     .sort(compareQueue)
   const fetchError = pendingResult.error
   const timeZone = await getTimeZone()
+  const propertyLabels = toPropertyLabels(await getProperties())
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col">
@@ -151,6 +154,7 @@ export default async function SubmissionsPage() {
         pending={pending}
         canModerate={canModerate}
         assignableUsers={assignableUsers}
+        propertyLabels={propertyLabels}
         timeZone={timeZone}
       />
     </div>

@@ -2,6 +2,7 @@
 
 import {
   RiArchiveLine,
+  RiBuilding2Line,
   RiBarChartBoxLine,
   RiCheckDoubleLine,
   RiCheckboxCircleLine,
@@ -70,6 +71,7 @@ const adminItems: NavItem[] = [
   { title: 'Invitations', href: '/admin/invitations', icon: RiMailSendLine },
   { title: 'Users', href: '/admin/users', icon: RiGroupLine },
   { title: 'Approvers', href: '/admin/approvers', icon: RiCheckboxCircleLine },
+  { title: 'Properties', href: '/admin/properties', icon: RiBuilding2Line },
 ]
 
 export function AppSidebar({

@@ -30,8 +30,6 @@ import {
   CATEGORY_LABELS,
   FREQUENCY_LABELS,
   PRIORITY_LABELS,
-  PROPERTY_LABELS,
-  PROPERTIES_BY_LABEL,
   RECURRENCE_FREQUENCIES,
   WORK_ORDER_CATEGORIES_BY_LABEL,
   WORK_ORDER_PRIORITIES,
@@ -44,6 +42,11 @@ import {
   formatAssigneeLabel,
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
+import {
+  selectableProperties,
+  toPropertyLabels,
+  type PropertyOption,
+} from '@/lib/work-orders/properties'
 
 import { initialAuthState } from '../../../../(auth)/auth-state'
 import {
@@ -77,9 +80,13 @@ export type RecurringSchedule = {
 
 export function EditRecurringForm({
   schedule,
+  properties,
   assignableUsers,
 }: {
   schedule: RecurringSchedule
+  // The organization's properties. Active ones are offered, plus the current
+  // value if it has been retired.
+  properties: PropertyOption[]
   assignableUsers: AssignableUser[]
 }) {
   const updateAction = updateRecurringWorkOrderAction.bind(null, schedule.id)
@@ -317,7 +324,7 @@ export function EditRecurringForm({
               </FieldLabel>
               <Select
                 name="property"
-                items={PROPERTY_LABELS}
+                items={toPropertyLabels(properties)}
                 value={propertyValue}
                 onValueChange={(v) => {
                   setPropertyValue(typeof v === 'string' ? v : '')
@@ -328,9 +335,9 @@ export function EditRecurringForm({
                   <SelectValue placeholder="Select a facility" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PROPERTIES_BY_LABEL.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {PROPERTY_LABELS[p]}
+                  {selectableProperties(properties, schedule.property).map((p) => (
+                    <SelectItem key={p.key} value={p.key}>
+                      {p.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

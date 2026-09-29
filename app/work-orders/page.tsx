@@ -47,6 +47,8 @@ import {
   SORT_COOKIE,
 } from '@/lib/work-orders/list-sort-cookie'
 import { describeFilters } from '@/lib/work-orders/print'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
+import { toPropertyLabels } from '@/lib/work-orders/properties'
 
 import { FilterBar } from './filter-bar'
 import { WorkOrdersTable, type WorkOrderListItem } from './work-orders-table'
@@ -155,6 +157,7 @@ export default async function WorkOrdersPage({
   }))
   const filtersActive = hasActiveFilters(filters)
   const timeZone = await getTimeZone()
+  const properties = await getProperties()
 
   // What the print-only sheet header says. Printing reformats the page as it
   // stands, so the sheet carries the page of rows on screen rather than the
@@ -174,7 +177,7 @@ export default async function WorkOrdersPage({
       <PrintSheetHeader
         title="Work Orders"
         meta={printMeta}
-        filterLines={describeFilters(filters, userLabelById)}
+        filterLines={describeFilters(filters, userLabelById, toPropertyLabels(properties))}
         landscape
       />
 
@@ -197,6 +200,7 @@ export default async function WorkOrdersPage({
       </div>
 
       <FilterBar
+        properties={properties}
         assigneeOptions={assigneeOptions}
         exportPath="/work-orders/export"
         showPrint
@@ -208,6 +212,7 @@ export default async function WorkOrdersPage({
       ) : null}
 
       <WorkOrdersTable
+        properties={properties}
         workOrders={workOrders}
         userLabelById={userLabelById}
         timeZone={timeZone}

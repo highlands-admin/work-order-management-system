@@ -41,6 +41,7 @@ import {
   ARCHIVE_SORT_COOKIE,
   parseSortCookieValue,
 } from '@/lib/work-orders/list-sort-cookie'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
 
 import { FilterBar } from '../filter-bar'
 import {
@@ -160,6 +161,7 @@ export default async function ArchivePage({
     label: formatAssigneeLabel(u),
   }))
   const timeZone = await getTimeZone()
+  const properties = await getProperties()
 
   return (
     <div className="flex flex-col gap-6">
@@ -173,6 +175,7 @@ export default async function ArchivePage({
       </div>
 
       <FilterBar
+        properties={properties}
         assigneeOptions={assigneeOptions}
         showStatus={false}
         initialFilters={filters}
@@ -183,6 +186,7 @@ export default async function ArchivePage({
       ) : null}
 
       <WorkOrdersTable
+        properties={properties}
         workOrders={workOrders}
         userLabelById={userLabelById}
         timeZone={timeZone}

@@ -1,6 +1,8 @@
 import { startOfToday } from 'date-fns'
 import * as z from 'zod'
 
+import { PROPERTY_KEY_PATTERN } from '@/lib/work-orders/properties'
+
 export const WORK_ORDER_CATEGORIES = [
   'it',
   'marketing',
@@ -132,38 +134,10 @@ export const PRIORITY_LABELS: Record<WorkOrderPriority, string> = {
   low: 'Low',
 }
 
-export const PROPERTIES = [
-  'norcross',
-  'jefferson',
-  'rome',
-  'gaston',
-  'cartersville',
-  'columbia',
-  'forest_city',
-  'clinton',
-  'corporate',
-] as const
-
-export type Property = (typeof PROPERTIES)[number]
-
-export const PROPERTY_LABELS: Record<Property, string> = {
-  norcross: 'Norcross',
-  jefferson: 'Jefferson',
-  rome: 'Rome',
-  gaston: 'Gaston',
-  cartersville: 'Cartersville',
-  columbia: 'Columbia',
-  forest_city: 'Forest City',
-  clinton: 'Clinton',
-  corporate: 'Corporate',
-}
-
-// Properties ordered alphabetically by their display label, for rendering
-// selectable lists (dropdowns, filters, queue facets) in the frontend.
-// PROPERTIES keeps its own order because it backs the Postgres enum.
-export const PROPERTIES_BY_LABEL: readonly Property[] = [...PROPERTIES].sort(
-  (a, b) => PROPERTY_LABELS[a].localeCompare(PROPERTY_LABELS[b])
-)
+// A property (facility) key. Each organization manages its own properties in
+// the properties table, so keys are validated by shape here and by a foreign
+// key in the database. Display names come from lib/work-orders/properties.
+export type Property = string
 
 // Recurrence cadences for recurring work orders (inspections and licenses).
 // Mirrors the recurrence_frequency enum in the database.
@@ -324,13 +298,20 @@ const trimmedOptional = z
 
 // Property is required for every category except IT. We let the field arrive
 // as an empty string (the case when the form hides the select for IT) or as
-// a real enum value; refinement below rejects empty for non-IT.
+// a property key; refinement below rejects empty for non-IT. The database
+// confirms the key belongs to the caller's organization and is active.
 const optionalProperty = z
   .string()
   .trim()
   .optional()
   .transform((v) => (v && v.length > 0 ? v : undefined))
-  .pipe(z.enum(PROPERTIES).optional())
+  .pipe(
+    z
+      .string()
+      .max(48)
+      .regex(PROPERTY_KEY_PATTERN, 'Choose a facility')
+      .optional()
+  )
 
 // Marketing selects arrive as a possibly empty string when the field is hidden
 // for non-marketing categories. Empty becomes undefined, then the enum check

@@ -25,7 +25,6 @@ import {
 import { formatDate, formatDateTime, formatRelative } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
-  PROPERTY_LABELS,
   type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
@@ -35,9 +34,14 @@ import { cn } from '@/lib/utils'
 import {
   CATEGORY_OPTIONS,
   PRIORITY_OPTIONS,
-  PROPERTY_OPTIONS,
   STATUS_OPTIONS,
 } from '@/lib/work-orders/filter-options'
+import {
+  propertyLabel,
+  toPropertyFilterOptions,
+  toPropertyLabels,
+  type PropertyOption,
+} from '@/lib/work-orders/properties'
 import {
   UNASSIGNED,
   hasFilterParams,
@@ -178,6 +182,7 @@ type ResizeState = {
 
 export function WorkOrdersTable({
   workOrders,
+  properties,
   emptyMessage,
   userLabelById,
   timeZone,
@@ -191,6 +196,8 @@ export function WorkOrdersTable({
   highlight,
 }: {
   workOrders: WorkOrderListItem[]
+  // The organization's properties, for the Facility column and its filter.
+  properties: PropertyOption[]
   emptyMessage: string
   userLabelById: Record<string, string>
   timeZone: string
@@ -223,6 +230,12 @@ export function WorkOrdersTable({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+
+  const propertyOptions = useMemo(
+    () => toPropertyFilterOptions(properties),
+    [properties]
+  )
+  const propertyLabels = useMemo(() => toPropertyLabels(properties), [properties])
 
   // The "My Work Orders" table omits the assignee column (every row is the
   // viewer's), and the Archive omits the status column (every row is rejected).
@@ -316,7 +329,7 @@ export function WorkOrdersTable({
         return (
           <MultiSelectFilter
             label="Facility"
-            options={PROPERTY_OPTIONS}
+            options={propertyOptions}
             selected={filters.properties}
             onChange={(v) => commitFilter(withFilter(filters, 'properties', v))}
             trigger={
@@ -602,7 +615,7 @@ export function WorkOrdersTable({
                 <PriorityBadge priority={wo.priority} />
               </TableCell>
               <TableCell className="truncate px-4 py-3">
-                {wo.property ? PROPERTY_LABELS[wo.property] : '—'}
+                {wo.property ? propertyLabel(propertyLabels, wo.property) : '—'}
               </TableCell>
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {formatDate(wo.created_at, timeZone)}

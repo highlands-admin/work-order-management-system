@@ -287,6 +287,81 @@ select is((select count(*)::int from public.work_orders
             where organization_id <> 'bbbbbbbb-0000-0000-0000-000000000000'), 0,
   'super admin status grants no access to other organizations'' work orders');
 
+-- ── properties ─────────────────────────────────────────────────────────────
+
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000001');
+
+select is((select count(*)::int from public.properties), 0,
+  'properties: Org B sees none of the Highlands properties');
+
+select throws_ok(
+  $$ insert into public.work_orders
+       (title, category, priority, description, status, property, created_by, updated_by)
+     values ('Leak', 'maintenance', 'high', 'x', 'open', 'norcross',
+             'bbbbbbbb-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001') $$,
+  null,
+  null,
+  'Org B cannot use a property key that only Highlands has'
+);
+
+insert into public.properties (key, name) values ('norcross', 'Norcross Annex');
+
+select lives_ok(
+  $$ insert into public.work_orders
+       (title, category, priority, description, status, property, created_by, updated_by)
+     values ('Leak', 'maintenance', 'high', 'x', 'open', 'norcross',
+             'bbbbbbbb-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001') $$,
+  'Org B can reuse a key once it adds its own property'
+);
+
+select throws_ok(
+  $$ update public.properties set key = 'renamed' where key = 'norcross' $$,
+  '42501',
+  null,
+  'a property key cannot change'
+);
+
+update public.properties set is_active = false where key = 'norcross';
+
+select throws_ok(
+  $$ insert into public.work_orders
+       (title, category, priority, description, status, property, created_by, updated_by)
+     values ('Drip', 'maintenance', 'low', 'x', 'open', 'norcross',
+             'bbbbbbbb-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001') $$,
+  '23514',
+  null,
+  'new work orders cannot use a retired property'
+);
+
+select lives_ok(
+  $$ update public.work_orders
+        set title = 'Leak (retitled)', updated_by = 'bbbbbbbb-0000-0000-0000-000000000001'
+      where property = 'norcross' $$,
+  'work orders already on a retired property can still be edited'
+);
+
+delete from public.properties where key = 'norcross';
+
+select is((select count(*)::int from public.properties), 1,
+  'properties cannot be deleted, only retired');
+
+select pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
+
+select throws_ok(
+  $$ insert into public.properties (key, name) values ('annex', 'Annex') $$,
+  '42501',
+  null,
+  'a requester cannot add properties'
+);
+
+select pg_temp.act_as('aaaaaaaa-0000-0000-0000-000000000001');
+
+select is(
+  (select name from public.properties where key = 'norcross'),
+  'Norcross',
+  'the Highlands property is unaffected by the Org B property with the same key'
+);
+
 -- ── cron job ───────────────────────────────────────────────────────────────
 
 select pg_temp.act_as_postgres();

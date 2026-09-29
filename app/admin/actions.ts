@@ -6,13 +6,17 @@ import { revalidatePath } from 'next/cache'
 
 import { sendInvitationEmail } from '@/lib/email/send-invitation'
 import {
+  addPropertySchema,
   changeRoleSchema,
   inviteSchema,
   invitationIdSchema,
+  renamePropertySchema,
   setCategoryApproversSchema,
+  setPropertyActiveSchema,
   type SetCategoryApproversInput,
 } from '@/lib/schemas/admin'
 import { createClient } from '@/lib/supabase/server'
+import { propertyKeyFromName } from '@/lib/work-orders/properties'
 
 import type { AuthState } from '../(auth)/auth-state'
 
@@ -278,6 +282,114 @@ export async function setCategoryApproversAction(
   }
 
   revalidatePath('/admin/approvers')
+  return null
+}
+
+// Postgres unique_violation. The only unique constraint a property write can
+// hit from here is the per-organization name index.
+const UNIQUE_VIOLATION = '23505'
+const DUPLICATE_PROPERTY_NAME = 'A property with this name already exists.'
+
+export async function addPropertyAction(
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const raw = { name: String(formData.get('name') ?? '') }
+  const parsed = addPropertySchema.safeParse(raw)
+  if (!parsed.success) return formError(z4FieldErrors(parsed.error), raw)
+
+  let supabase
+  try {
+    ({ supabase } = await requireAdmin())
+  } catch (err) {
+    return formError(undefined, raw, (err as Error).message)
+  }
+
+  const baseKey = propertyKeyFromName(parsed.data.name)
+  if (!baseKey) {
+    return formError({ name: ['Use at least one letter or number'] }, raw)
+  }
+
+  // Keys are internal and never change, so a retired property keeps its key
+  // and a new one with a similar name gets a numbered suffix instead.
+  const { data: existing, error: lookupError } = await supabase
+    .from('properties')
+    .select('key')
+    .like('key', `${baseKey}%`)
+  if (lookupError) return formError(undefined, raw, lookupError.message)
+
+  const taken = new Set((existing ?? []).map((row) => row.key as string))
+  let key = baseKey
+  for (let n = 2; taken.has(key); n++) key = `${baseKey}_${n}`
+
+  const { error } = await supabase
+    .from('properties')
+    .insert({ key, name: parsed.data.name })
+  if (error) {
+    return formError(
+      error.code === UNIQUE_VIOLATION ? { name: [DUPLICATE_PROPERTY_NAME] } : undefined,
+      raw,
+      error.code === UNIQUE_VIOLATION ? undefined : error.message
+    )
+  }
+
+  revalidatePath('/admin/properties')
+  return formSuccess(`Added ${parsed.data.name}.`)
+}
+
+// Called directly from the properties table rather than through a form, so it
+// takes typed arguments. Returns an error message for the row, or null.
+export async function renamePropertyAction(input: {
+  key: string
+  name: string
+}): Promise<string | null> {
+  const parsed = renamePropertySchema.safeParse(input)
+  if (!parsed.success) {
+    return parsed.error.issues[0]?.message ?? 'Invalid name.'
+  }
+
+  let supabase
+  try {
+    ({ supabase } = await requireAdmin())
+  } catch (err) {
+    return (err as Error).message
+  }
+
+  const { error } = await supabase
+    .from('properties')
+    .update({ name: parsed.data.name })
+    .eq('key', parsed.data.key)
+  if (error) {
+    return error.code === UNIQUE_VIOLATION ? DUPLICATE_PROPERTY_NAME : error.message
+  }
+
+  revalidatePath('/admin/properties')
+  return null
+}
+
+// Retiring hides a property from the work order forms. Existing work orders
+// keep it, and it stays available as a filter.
+export async function setPropertyActiveAction(input: {
+  key: string
+  isActive: boolean
+}): Promise<string | null> {
+  const parsed = setPropertyActiveSchema.safeParse(input)
+  if (!parsed.success) return 'Invalid property.'
+
+  let supabase
+  try {
+    ({ supabase } = await requireAdmin())
+  } catch (err) {
+    return (err as Error).message
+  }
+
+  const { error } = await supabase
+    .from('properties')
+    .update({ is_active: parsed.data.isActive })
+    .eq('key', parsed.data.key)
+  if (error) return error.message
+
+  revalidatePath('/admin/properties')
   return null
 }
 

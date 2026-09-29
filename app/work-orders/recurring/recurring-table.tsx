@@ -19,13 +19,18 @@ import { formatDateTime } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
   FREQUENCY_LABELS,
-  PROPERTY_LABELS,
   type Property,
   type RecurrenceFrequency,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
 import { UNASSIGNED } from '@/lib/work-orders/filters'
-import { CATEGORY_OPTIONS, PROPERTY_OPTIONS } from '@/lib/work-orders/filter-options'
+import { CATEGORY_OPTIONS } from '@/lib/work-orders/filter-options'
+import {
+  propertyLabel,
+  toPropertyFilterOptions,
+  toPropertyLabels,
+  type PropertyOption,
+} from '@/lib/work-orders/properties'
 import {
   RECURRING_WIDTHS_COOKIE,
   writeWidthsCookie,
@@ -135,6 +140,7 @@ type ResizeState = {
 
 export function RecurringTable({
   schedules,
+  properties,
   userLabelById,
   timeZone,
   sort,
@@ -143,6 +149,8 @@ export function RecurringTable({
   initialFilters,
 }: {
   schedules: RecurringTableRow[]
+  // The organization's properties, for the Facility column and its filter.
+  properties: PropertyOption[]
   userLabelById: Record<string, string>
   timeZone: string
   sort: RecurringSort | null
@@ -175,6 +183,11 @@ export function RecurringTable({
   // the same cookie + navigation RecurringFilterBar uses, so both entry points
   // stay in sync automatically. Derived fresh every render rather than held in
   // state -- see the identical pattern (and why) on WorkOrdersTable.
+  const propertyOptions = useMemo(
+    () => toPropertyFilterOptions(properties),
+    [properties]
+  )
+  const propertyLabels = useMemo(() => toPropertyLabels(properties), [properties])
   const rawParams = useMemo(
     () => Object.fromEntries(searchParams.entries()),
     [searchParams]
@@ -227,7 +240,7 @@ export function RecurringTable({
         return (
           <MultiSelectFilter
             label="Facility"
-            options={PROPERTY_OPTIONS}
+            options={propertyOptions}
             selected={filters.properties}
             onChange={(v) =>
               commitFilter({ ...filters, properties: v })
@@ -442,7 +455,7 @@ export function RecurringTable({
               </TableCell>
               <TableCell className="truncate px-4 py-3 align-top">
                 {row.property ? (
-                  PROPERTY_LABELS[row.property]
+                  propertyLabel(propertyLabels, row.property)
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}

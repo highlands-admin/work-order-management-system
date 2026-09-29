@@ -47,6 +47,7 @@ import {
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
 import { formatLocation } from '@/lib/work-orders/location'
+import type { PropertyLabels } from '@/lib/work-orders/properties'
 
 import type { AuthState } from '../../(auth)/auth-state'
 import { initialAuthState } from '../../(auth)/auth-state'
@@ -79,12 +80,14 @@ export function QueueDetail({
   item,
   canModerate,
   assignableUsers,
+  propertyLabels,
   timeZone,
   onDone,
 }: {
   item: QueueEntry
   canModerate: boolean
   assignableUsers: AssignableUser[]
+  propertyLabels: PropertyLabels
   timeZone: string
   onDone: () => void
 }) {
@@ -139,7 +142,11 @@ export function QueueDetail({
     }
   }, [rejectState, onDone])
 
-  const locationLabel = formatLocation(item.property, item.unitNumber)
+  const locationLabel = formatLocation(
+    item.property,
+    item.unitNumber,
+    propertyLabels
+  )
 
   return (
     <div className="border-t bg-muted/20 px-4 py-4">

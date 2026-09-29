@@ -10,6 +10,7 @@ import {
 } from '@/lib/schemas/work-order'
 import { createClient } from '@/lib/supabase/server'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
 
 import { EditRecurringForm, type RecurringSchedule } from './edit-recurring-form'
 
@@ -84,7 +85,11 @@ export default async function EditRecurringSchedulePage({
         <BackButton fallbackHref="/work-orders/recurring?view=table" />
       </div>
 
-      <EditRecurringForm schedule={data} assignableUsers={assignableUsers} />
+      <EditRecurringForm
+        schedule={data}
+        properties={await getProperties()}
+        assignableUsers={assignableUsers}
+      />
     </div>
   )
 }

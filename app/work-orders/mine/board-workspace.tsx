@@ -6,6 +6,7 @@ import type { WorkOrderStatus } from '@/lib/schemas/work-order'
 import type { AssignableUser } from '@/lib/work-orders/assignable-users'
 import { writeBoardColumnsCookie } from '@/lib/work-orders/board-columns-cookie'
 import type { WorkOrderFilters } from '@/lib/work-orders/filters'
+import type { PropertyOption } from '@/lib/work-orders/properties'
 
 import { FilterBar } from '../filter-bar'
 import type { WorkOrderListItem } from '../work-orders-table'
@@ -18,6 +19,7 @@ import { KanbanBoard } from './kanban-board'
 // columns render, and persists the choice to a cookie for the next visit.
 export function BoardWorkspace({
   workOrders,
+  properties,
   timeZone,
   users,
   initialColumns,
@@ -26,6 +28,7 @@ export function BoardWorkspace({
   error,
 }: {
   workOrders: WorkOrderListItem[]
+  properties: PropertyOption[]
   timeZone: string
   users: AssignableUser[]
   initialColumns: WorkOrderStatus[]
@@ -44,6 +47,7 @@ export function BoardWorkspace({
   return (
     <>
       <FilterBar
+        properties={properties}
         showAssignee={false}
         initialFilters={initialFilters}
         trailingActions={

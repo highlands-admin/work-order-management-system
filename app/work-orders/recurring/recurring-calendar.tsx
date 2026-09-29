@@ -23,11 +23,12 @@ import {
 } from '@/components/ui/popover'
 import { CategoryBadge } from '@/components/work-orders/work-order-badge'
 import {
-  PROPERTY_LABELS,
   type Property,
   type RecurrenceFrequency,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
+import { formatLocation } from '@/lib/work-orders/location'
+import type { PropertyLabels } from '@/lib/work-orders/properties'
 import { occurrencesInRange } from '@/lib/work-orders/recurrence'
 import { cn } from '@/lib/utils'
 
@@ -65,8 +66,10 @@ function dateKey(d: Date): string {
 
 export function RecurringCalendar({
   schedules,
+  propertyLabels,
 }: {
   schedules: CalendarSchedule[]
+  propertyLabels: PropertyLabels
 }) {
   const today = new Date()
   const [month, setMonth] = useState(
@@ -204,6 +207,7 @@ export function RecurringCalendar({
                     schedule={s}
                     date={d}
                     canEdit={s.editable}
+                    propertyLabels={propertyLabels}
                   />
                 ))}
                 {items.length > MAX_CHIPS ? (
@@ -227,10 +231,12 @@ function ScheduleChip({
   schedule,
   date,
   canEdit,
+  propertyLabels,
 }: {
   schedule: CalendarSchedule
   date: Date
   canEdit: boolean
+  propertyLabels: PropertyLabels
 }) {
   const dueLabel = date.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -238,11 +244,11 @@ function ScheduleChip({
     day: 'numeric',
     year: 'numeric',
   })
-  const location = schedule.property
-    ? schedule.unit_number
-      ? `${PROPERTY_LABELS[schedule.property]} · Unit ${schedule.unit_number}`
-      : PROPERTY_LABELS[schedule.property]
-    : null
+  const location = formatLocation(
+    schedule.property,
+    schedule.unit_number,
+    propertyLabels
+  )
 
   return (
     <Popover>

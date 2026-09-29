@@ -15,7 +15,6 @@ import { formatDateTime } from '@/lib/datetime/format'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import {
   FREQUENCY_LABELS,
-  PROPERTY_LABELS,
   REJECTABLE_MAIN_STATUSES,
   type Property,
   type RecurrenceFrequency,
@@ -37,6 +36,8 @@ import {
   formatAssigneeLabel,
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
+import { propertyLabel, toPropertyLabels } from '@/lib/work-orders/properties'
 
 import { NotesSection, type NoteRow } from '../notes-section'
 import { ActivityFeed, type ActivityEvent } from './activity-feed'
@@ -202,6 +203,7 @@ export default async function WorkOrderDetailPage({
     )
   const isOverdue = computeIsOverdue(data.due_at, data.status)
   const timeZone = await getTimeZone()
+  const propertyLabels = toPropertyLabels(await getProperties())
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -367,6 +369,7 @@ export default async function WorkOrderDetailPage({
           <ActivityFeed
             events={activityData ?? []}
             userLabelById={userLabelById}
+            propertyLabels={propertyLabels}
             timeZone={timeZone}
           />
         </div>
@@ -383,7 +386,7 @@ export default async function WorkOrderDetailPage({
               ) : null}
               <DetailItem label="Facility">
                 {data.property ? (
-                  PROPERTY_LABELS[data.property]
+                  propertyLabel(propertyLabels, data.property)
                 ) : (
                   <span className="text-muted-foreground">Not specified</span>
                 )}

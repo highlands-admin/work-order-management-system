@@ -6,7 +6,6 @@
 import {
   CATEGORY_LABELS,
   PRIORITY_LABELS,
-  PROPERTY_LABELS,
   STATUS_LABELS,
 } from '@/lib/schemas/work-order'
 import {
@@ -14,6 +13,7 @@ import {
   UNASSIGNED,
   type WorkOrderFilters,
 } from '@/lib/work-orders/filters'
+import { propertyLabel, type PropertyLabels } from '@/lib/work-orders/properties'
 
 // Formats a YYYY-MM-DD filter bound without a time zone conversion. Passing the
 // bare string to Date() would read it as UTC midnight, which prints as the
@@ -38,7 +38,8 @@ function formatRange(from: string | null, to: string | null): string {
 // the same facets the table was showing.
 export function describeFilters(
   filters: WorkOrderFilters,
-  assigneeLabelById: Record<string, string>
+  assigneeLabelById: Record<string, string>,
+  propertyLabels: PropertyLabels
 ): string[] {
   const lines: string[] = []
 
@@ -60,7 +61,7 @@ export function describeFilters(
   }
   if (filters.properties.length) {
     lines.push(
-      `Facility: ${filters.properties.map((p) => PROPERTY_LABELS[p]).join(', ')}`
+      `Facility: ${filters.properties.map((p) => propertyLabel(propertyLabels, p)).join(', ')}`
     )
   }
   if (filters.assignees.length) {

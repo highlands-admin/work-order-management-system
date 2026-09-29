@@ -4,14 +4,13 @@
 // controls. Any change navigates to a new URL rather than holding local state.
 
 import {
-  PROPERTIES,
   RECURRENCE_FREQUENCIES,
   WORK_ORDER_CATEGORIES,
   type Property,
   type RecurrenceFrequency,
   type WorkOrderCategory,
 } from '@/lib/schemas/work-order'
-import { UNASSIGNED } from '@/lib/work-orders/filters'
+import { readPropertyCsv, UNASSIGNED } from '@/lib/work-orders/filters'
 
 export type RecurringFilters = {
   categories: WorkOrderCategory[]
@@ -93,7 +92,7 @@ export function parseRecurringFilters(
 ): RecurringFilters {
   return {
     categories: readCsv(source, RECURRING_PARAM.category, WORK_ORDER_CATEGORIES),
-    properties: readCsv(source, RECURRING_PARAM.property, PROPERTIES),
+    properties: readPropertyCsv(source, RECURRING_PARAM.property),
     frequencies: readCsv(
       source,
       RECURRING_PARAM.frequency,

@@ -12,8 +12,6 @@ import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
 import { formatDate } from '@/lib/datetime/format'
 import {
   CATEGORY_LABELS,
-  PROPERTIES_BY_LABEL,
-  PROPERTY_LABELS,
   WORK_ORDER_CATEGORIES_BY_LABEL,
   type Property,
   type WorkOrderCategory,
@@ -21,6 +19,7 @@ import {
 } from '@/lib/schemas/work-order'
 import type { AssignableUser } from '@/lib/work-orders/assignable-users'
 import { formatLocation } from '@/lib/work-orders/location'
+import { propertyLabel, type PropertyLabels } from '@/lib/work-orders/properties'
 import { cn } from '@/lib/utils'
 
 import { QueueDetail, type QueueBucket, type QueueEntry } from './queue-detail'
@@ -50,6 +49,7 @@ export function SubmissionQueue({
   pending,
   canModerate,
   assignableUsers,
+  propertyLabels,
   timeZone,
 }: {
   // The page's title block, rendered on the server and passed down so it can
@@ -62,6 +62,7 @@ export function SubmissionQueue({
   canModerate: boolean
   // Directory for the approve form's assignee picker. Empty for non-moderators.
   assignableUsers: AssignableUser[]
+  propertyLabels: PropertyLabels
   timeZone: string
 }) {
   const [active, setActive] = useState<string>(ALL)
@@ -78,7 +79,10 @@ export function SubmissionQueue({
 
   // Only offer facilities that actually have something pending, so the filter
   // never lists a choice that empties the queue.
-  const facilityOptions = useMemo(() => facilityOptionsFor(pending), [pending])
+  const facilityOptions = useMemo(
+    () => facilityOptionsFor(pending, propertyLabels),
+    [pending, propertyLabels]
+  )
 
   // Facility narrows the pool before the category tabs read it, so the tab
   // counts describe what a tab would actually show under the active filter.
@@ -130,7 +134,7 @@ export function SubmissionQueue({
                 )}
               >
                 <RiMapPinLine className="size-4 opacity-70" />
-                {facilitySummary(facilities)}
+                {facilitySummary(facilities, propertyLabels)}
                 <RiArrowDownSLine className="size-4 opacity-60" />
               </Button>
             }
@@ -183,6 +187,7 @@ export function SubmissionQueue({
                         expanded={expandedId === item.id}
                         canModerate={canModerate}
                         assignableUsers={assignableUsers}
+                        propertyLabels={propertyLabels}
                         timeZone={timeZone}
                         onToggle={handleToggle}
                         onDone={handleDone}
@@ -204,6 +209,7 @@ const QueueListRow = memo(function QueueListRow({
   expanded,
   canModerate,
   assignableUsers,
+  propertyLabels,
   timeZone,
   onToggle,
   onDone,
@@ -212,6 +218,7 @@ const QueueListRow = memo(function QueueListRow({
   expanded: boolean
   canModerate: boolean
   assignableUsers: AssignableUser[]
+  propertyLabels: PropertyLabels
   timeZone: string
   onToggle: (id: string) => void
   onDone: () => void
@@ -219,7 +226,7 @@ const QueueListRow = memo(function QueueListRow({
   // Facility leads the meta line and carries a little more weight than the rest
   // of it: it's the first thing a reviewer scans for, and on narrow screens the
   // line truncates from the right, so it stays visible.
-  const facility = formatLocation(item.property, item.unitNumber)
+  const facility = formatLocation(item.property, item.unitNumber, propertyLabels)
   const requester =
     item.reporterName ?? item.reporterEmail ?? item.reporterPhone
   const meta = [
@@ -274,6 +281,7 @@ const QueueListRow = memo(function QueueListRow({
           item={item}
           canModerate={canModerate}
           assignableUsers={assignableUsers}
+          propertyLabels={propertyLabels}
           timeZone={timeZone}
           onDone={onDone}
         />
@@ -368,22 +376,28 @@ function TabCount({ children }: { children: React.ReactNode }) {
 // What the facility trigger reads when closed. Naming the first selection keeps
 // the active filter legible at a glance; past one, a count is shorter than a
 // list long enough to crowd the tabs beside it.
-function facilitySummary(facilities: Property[]): string {
+function facilitySummary(
+  facilities: Property[],
+  labels: PropertyLabels
+): string {
   if (facilities.length === 0) return 'All Facilities'
-  const first = PROPERTY_LABELS[facilities[0]]
+  const first = propertyLabel(labels, facilities[0])
   return facilities.length === 1 ? first : `${first} +${facilities.length - 1}`
 }
 
 // Facilities represented in the queue, alphabetically by label rather than in
 // the order they happen to appear in the list.
-function facilityOptionsFor(items: QueueEntry[]): Option<Property>[] {
+function facilityOptionsFor(
+  items: QueueEntry[],
+  labels: PropertyLabels
+): Option<Property>[] {
   const present = new Set<Property>()
   for (const item of items) {
     if (item.property) present.add(item.property)
   }
-  return PROPERTIES_BY_LABEL.filter((property) => present.has(property)).map(
-    (property) => ({ value: property, label: PROPERTY_LABELS[property] })
-  )
+  return [...present]
+    .map((property) => ({ value: property, label: propertyLabel(labels, property) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
 }
 
 function countByCategory(

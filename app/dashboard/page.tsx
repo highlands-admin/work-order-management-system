@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { applyWorkOrderFilters } from '@/lib/work-orders/apply-filters'
+import { getProperties } from '@/lib/work-orders/fetch-properties'
 import {
   fetchAssignableUsers,
   formatAssigneeLabel,
@@ -141,6 +142,7 @@ export default async function DashboardPage({
         </div>
         <DashboardFilters
           selected={filters}
+          properties={await getProperties()}
           assigneeOptions={assigneeOptions}
         />
       </div>

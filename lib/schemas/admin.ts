@@ -1,6 +1,7 @@
 import * as z from 'zod'
 
 import { WORK_ORDER_CATEGORIES } from '@/lib/schemas/work-order'
+import { PROPERTY_KEY_PATTERN } from '@/lib/work-orders/properties'
 
 export const APP_ROLES = [
   'administrator',
@@ -51,3 +52,25 @@ export const setCategoryApproversSchema = z.object({
 export type SetCategoryApproversInput = z.infer<
   typeof setCategoryApproversSchema
 >
+
+const propertyNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Enter a name')
+  .max(60, 'Keep the name under 60 characters')
+
+const propertyKeySchema = z.string().regex(PROPERTY_KEY_PATTERN, 'Invalid property')
+
+export const addPropertySchema = z.object({
+  name: propertyNameSchema,
+})
+
+export const renamePropertySchema = z.object({
+  key: propertyKeySchema,
+  name: propertyNameSchema,
+})
+
+export const setPropertyActiveSchema = z.object({
+  key: propertyKeySchema,
+  isActive: z.boolean(),
+})
