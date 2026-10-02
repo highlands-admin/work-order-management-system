@@ -1,0 +1,124 @@
+name: Deploy to IONOS (staging)
+
+# Builds the staging branch and deploys it to
+#   staging.workorders.highlands.technology / staging.cadence.highlands.technology
+# on the IONOS server: /var/www/staging/wo, systemd unit staging-wo, :3001.
+#
+# Staging talks to the staging Supabase project (a scrubbed copy of production)
+# and the work-order-attachments-staging bucket. EMAIL_ALLOWLIST in the server's
+# .env limits who staging can email. Production (deploy-ionos.yml, pm2 "wo",
+# /var/www/wo) is never touched from here. Server setup lives in
+# highlands-admin/highlands-infra.
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: ionos-deploy-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    env:
+      TARGET: ${{ secrets.IONOS_USER }}@${{ secrets.IONOS_HOST }}
+      APP_DIR: /var/www/staging/wo
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same Node as the server (/opt/node-24/bin/node).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.IONOS_SSH_KEY }}
+
+      - name: Trust the server host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.IONOS_HOST }}" >> ~/.ssh/known_hosts
+
+      # The Server Actions key must match between build and runtime. Staging's
+      # lives only in the server's .env, so read it from there (masked).
+      - name: Read the staging Server Actions key
+        run: |
+          key=$(ssh "$TARGET" "grep '^NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=' $APP_DIR/.env | cut -d= -f2-")
+          test -n "$key" || { echo "::error::NEXT_SERVER_ACTIONS_ENCRYPTION_KEY missing in $APP_DIR/.env"; exit 1; }
+          echo "::add-mask::$key"
+          echo "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
+
+      # NEXT_PUBLIC_* values are inlined at build time. These are the staging
+      # project's public values (the publishable key is meant for browsers).
+      - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ojkgwfacdbtlnavkqyjn.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_y5p2ZJvQWScii1vgjXaL2A_qnIJGkFH
+          NEXT_PUBLIC_SITE_URL: https://staging.workorders.highlands.technology
+          NEXT_DEPLOYMENT_ID: ${{ github.sha }}
+        run: npm run build
+
+      # Refuse to ship a bundle that still points at production.
+      - name: Check the bundle targets staging
+        run: |
+          if grep -rq jppfamslzlthnircmete .next/static .next/server 2>/dev/null; then
+            echo "::error::build contains the production Supabase project ref"; exit 1
+          fi
+
+      - name: Stage standalone bundle
+        run: |
+          rm -rf deploy
+          mkdir -p deploy
+          cp -r .next/standalone/. deploy/
+          cp -r .next/static deploy/.next/static
+          cp -r public deploy/public
+          echo "${{ github.sha }}" > deploy/REVISION
+
+      - name: Preflight
+        run: |
+          ssh "$TARGET" "APP_DIR=$APP_DIR bash -se" <<'EOF'
+            set -euo pipefail
+            test -f $APP_DIR/.env || { echo "::error::$APP_DIR/.env is missing"; exit 1; }
+            systemctl cat staging-wo >/dev/null || { echo "::error::staging-wo unit is not installed"; exit 1; }
+            if grep -q jppfamslzlthnircmete $APP_DIR/.env; then echo "::error::$APP_DIR/.env points at production"; exit 1; fi
+          EOF
+
+      - name: Rsync bundle to server
+        run: |
+          rsync -az --delete --exclude='.env' --exclude='.next/cache' --chown=staging:staging \
+            deploy/ "$TARGET:$APP_DIR/"
+
+      - name: Restart
+        run: |
+          ssh "$TARGET" "APP_DIR=$APP_DIR bash -se" <<'EOF'
+            set -euo pipefail
+            install -d -o staging -g staging $APP_DIR/.next/cache
+            systemctl enable --quiet staging-wo
+            systemctl restart staging-wo
+          EOF
+
+      - name: Health check
+        run: |
+          ssh "$TARGET" 'bash -se' <<'EOF'
+            for attempt in $(seq 1 15); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3001/login || true)
+              case "$code" in 200|307|308) echo "Healthy: /login -> $code"; exit 0 ;; esac
+              echo "attempt $attempt: $code"; sleep 3
+            done
+            journalctl -u staging-wo --no-pager --lines=60
+            exit 1
+          EOF
+
+      - name: Verify production is unaffected
+        run: |
+          ssh "$TARGET" 'bash -se' <<'EOF'
+            pm2 jlist | python3 -c "import json,sys; bad=[p['name'] for p in json.load(sys.stdin) if p['pm2_env']['status']!='online']; print('pm2 not online:', bad) if bad else print('pm2 apps online')"
+            curl -s -o /dev/null -w 'prod wo :3000 -> %{http_code}\n' --max-time 5 http://127.0.0.1:3000/login
+          EOF

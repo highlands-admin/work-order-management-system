@@ -1,4 +1,4 @@
-import { Resend } from 'resend'
+import { createEmailClient } from '@/lib/email/resend-client'
 
 import {
   renderInvitationHtml,
@@ -40,7 +40,7 @@ export async function sendInvitationEmail(
       : 'You have been invited',
   }
 
-  const resend = new Resend(apiKey)
+  const resend = createEmailClient(apiKey)
   const { error } = await resend.emails.send({
     from,
     to: input.to,

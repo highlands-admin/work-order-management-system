@@ -1,4 +1,4 @@
-import { Resend } from 'resend'
+import { createEmailClient } from '@/lib/email/resend-client'
 
 import {
   renderWorkOrderAssignmentHtml,
@@ -79,7 +79,7 @@ export async function sendWorkOrderAssignmentEmail(
     url: `${getSiteUrl()}/work-orders/${wo.id}`,
   }
 
-  const resend = new Resend(apiKey)
+  const resend = createEmailClient(apiKey)
   const { error } = await resend.emails.send({
     from,
     to: input.to,
