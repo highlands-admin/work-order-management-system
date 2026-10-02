@@ -1,7 +1,7 @@
 name: Deploy to IONOS (staging)
 
 # Builds the staging branch and deploys it to
-#   staging.workorders.highlands.technology / staging.cadence.highlands.technology
+#   staging.workorders.highlands.technology (no staging cadence: same app)
 # on the IONOS server: /var/www/staging/wo, systemd unit staging-wo, :3001.
 #
 # Staging talks to the staging Supabase project (a scrubbed copy of production)
