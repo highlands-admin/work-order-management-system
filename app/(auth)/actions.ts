@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   acceptInviteSchema,
   forgotPasswordSchema,
+  loginCodeSchema,
   loginSchema,
   signUpSchema,
   updatePasswordSchema,
@@ -196,6 +197,84 @@ export async function loginAction(
     if (error.code === 'email_not_confirmed') {
       redirect(`/verify?email=${encodeURIComponent(parsed.data.email)}`)
     }
+    return formError(undefined, { email: raw.email }, error.message)
+  }
+
+  revalidatePath('/', 'layout')
+  redirect('/work-orders')
+}
+
+// Emails a 6-digit sign-in code, the passwordless alternative to loginAction.
+// shouldCreateUser is off so this never creates an account; an unknown email is
+// sent to signup instead. Supabase sends the "Magic Link" email template, which
+// must show {{ .Token }} (see lib/email/templates/otp-signin.html).
+export async function sendLoginCodeAction(
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const raw = { email: String(formData.get('email') ?? '') }
+
+  const parsed = loginCodeSchema.safeParse(raw)
+  if (!parsed.success) {
+    return formError(z4FieldErrors(parsed.error), raw)
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.signInWithOtp({
+    email: parsed.data.email,
+    options: { shouldCreateUser: false },
+  })
+
+  if (error) {
+    return formError(undefined, raw, loginCodeErrorMessage(error.code, error.message))
+  }
+
+  // The code page also sends codes for its resend link, so it reports success
+  // in place instead of redirecting.
+  if (formData.get('resend') === '1') {
+    return {
+      status: 'success',
+      message: 'A new code has been sent to your email.',
+      values: raw,
+    }
+  }
+
+  redirect(`/login/code?email=${encodeURIComponent(parsed.data.email)}`)
+}
+
+function loginCodeErrorMessage(code: string | undefined, fallback: string): string {
+  // With shouldCreateUser off, Supabase reports an unknown email as otp_disabled.
+  if (code === 'otp_disabled') {
+    return 'No account was found for this email. Check the address, or sign up for a new account.'
+  }
+  if (code === 'over_email_send_rate_limit') {
+    return 'A code was sent recently. Wait a minute, then try again.'
+  }
+  return fallback
+}
+
+export async function verifyLoginCodeAction(
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const raw = {
+    email: String(formData.get('email') ?? ''),
+    token: String(formData.get('token') ?? ''),
+  }
+
+  const parsed = verifySchema.safeParse(raw)
+  if (!parsed.success) {
+    return formError(z4FieldErrors(parsed.error), { email: raw.email })
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.verifyOtp({
+    email: parsed.data.email,
+    token: parsed.data.token,
+    type: 'email',
+  })
+
+  if (error) {
     return formError(undefined, { email: raw.email }, error.message)
   }
 
