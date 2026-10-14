@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useActionState, useState } from 'react'
 
 import { EmailField } from '@/components/auth/email-field'
@@ -78,6 +79,25 @@ export function SignUpForm() {
         onValueChange={() => markEdited('email')}
         required
       />
+      {state.accountExists && !isEdited('email') ? (
+        <p className="-mt-2 text-sm text-muted-foreground">
+          Forgot your password?{' '}
+          <Link
+            href={`/forgot-password?email=${encodeURIComponent(state.values?.email ?? '')}`}
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            Reset it here
+          </Link>
+          , or{' '}
+          <Link
+            href="/login"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            sign in
+          </Link>
+          .
+        </p>
+      ) : null}
 
       <Field>
         <FieldLabel htmlFor="password">Password</FieldLabel>

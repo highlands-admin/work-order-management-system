@@ -140,7 +140,7 @@ export async function signUpAction(
     )
   }
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
@@ -153,6 +153,20 @@ export async function signUpAction(
 
   if (error) {
     return formError(undefined, safeValues, error.message)
+  }
+
+  // For an email that already has a confirmed account, Supabase Auth sends no
+  // code and returns a placeholder user with an empty identities list instead
+  // of an error. Without this check the user would wait on /verify for a code
+  // that never arrives. An existing but unconfirmed account gets a fresh code,
+  // so it still continues to /verify.
+  if (data.user && data.user.identities?.length === 0) {
+    return {
+      status: 'error',
+      fieldErrors: { email: ['An account with this email already exists.'] },
+      values: safeValues,
+      accountExists: true,
+    }
   }
 
   redirect(`/verify?email=${encodeURIComponent(parsed.data.email)}`)

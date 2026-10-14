@@ -7,7 +7,12 @@ import { ForgotPasswordForm } from './forgot-password-form'
 
 export const metadata: Metadata = { title: 'Reset password' }
 
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ email?: string }>
+}) {
+  const { email } = await searchParams
   return (
     <AuthCard
       title="Reset Your Password"
@@ -21,7 +26,7 @@ export default function ForgotPasswordPage() {
         </Link>
       }
     >
-      <ForgotPasswordForm />
+      <ForgotPasswordForm defaultEmail={email ?? ''} />
     </AuthCard>
   )
 }

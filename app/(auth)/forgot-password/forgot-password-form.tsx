@@ -10,7 +10,11 @@ import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import { forgotPasswordAction } from '../actions'
 import { initialAuthState } from '../auth-state'
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({
+  defaultEmail = '',
+}: {
+  defaultEmail?: string
+}) {
   const [state, action] = useActionState(
     forgotPasswordAction,
     initialAuthState
@@ -22,7 +26,7 @@ export function ForgotPasswordForm() {
       <FormError state={state} />
 
       <EmailField
-        defaultValue={state.values?.email}
+        defaultValue={state.values?.email ?? defaultEmail}
         serverError={getError('email')}
         onValueChange={() => markEdited('email')}
         autoFocus
