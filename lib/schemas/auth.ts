@@ -66,6 +66,12 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>
 
+export const loginCodeSchema = z.object({
+  email,
+})
+
+export type LoginCodeInput = z.infer<typeof loginCodeSchema>
+
 export const verifySchema = z.object({
   email,
   token: otp,

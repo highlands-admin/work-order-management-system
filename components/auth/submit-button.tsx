@@ -12,6 +12,7 @@ export function SubmitButton({
   disabled,
   className,
   size = 'cta',
+  variant,
   form,
   pending: pendingOverride,
 }: {
@@ -20,6 +21,7 @@ export function SubmitButton({
   disabled?: boolean
   className?: string
   size?: ComponentProps<typeof Button>['size']
+  variant?: ComponentProps<typeof Button>['variant']
   // The id of the form this button submits, for a button rendered outside it.
   form?: string
   // useFormStatus only sees a submission from inside the form element, so a
@@ -33,6 +35,7 @@ export function SubmitButton({
       type="submit"
       form={form}
       size={size}
+      variant={variant}
       disabled={pending || disabled}
       className={cn(className)}
     >
