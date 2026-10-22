@@ -1,6 +1,9 @@
 import * as z from 'zod'
 
-import { WORK_ORDER_CATEGORIES } from '@/lib/schemas/work-order'
+import {
+  IT_REQUEST_TYPES,
+  WORK_ORDER_CATEGORIES,
+} from '@/lib/schemas/work-order'
 import { PROPERTY_KEY_PATTERN } from '@/lib/work-orders/properties'
 
 export const APP_ROLES = [
@@ -52,6 +55,20 @@ export const setCategoryApproversSchema = z.object({
 export type SetCategoryApproversInput = z.infer<
   typeof setCategoryApproversSchema
 >
+
+// The default assignee for a category, or for one IT request type when
+// itRequestType is set. A null userId clears it.
+export const setDefaultAssigneeSchema = z
+  .object({
+    category: z.enum(WORK_ORDER_CATEGORIES),
+    itRequestType: z.enum(IT_REQUEST_TYPES).nullable(),
+    userId: z.uuid('Invalid user').nullable(),
+  })
+  .refine((v) => v.itRequestType === null || v.category === 'it', {
+    message: 'Only IT work orders have request types.',
+  })
+
+export type SetDefaultAssigneeInput = z.infer<typeof setDefaultAssigneeSchema>
 
 const propertyNameSchema = z
   .string()

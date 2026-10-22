@@ -1,39 +1,55 @@
-import type {
-  ITRequestType,
-  WorkOrderCategory,
-} from '@/lib/schemas/work-order'
-import type { AssignableUser } from '@/lib/work-orders/assignable-users'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-// Who picks up a work order when nobody is chosen for it, so routed work never
-// sits in the live list unowned. Like the category approvers, the people are
-// identified by email read from the environment, keeping addresses out of the
-// repo. A request-type entry wins over its category's entry. Categories without
-// an entry stay unassigned until someone picks an assignee by hand.
-const CATEGORY_DEFAULT_ENV: Partial<Record<WorkOrderCategory, string>> = {
-  it: 'DEFAULT_ASSIGNEE_EMAIL_IT',
+import type { WorkOrderCategory } from '@/lib/schemas/work-order'
+
+// One row of the default_assignees table, which administrators manage at
+// /admin/default-assignees. A null itRequestType is the category's default; an
+// IT request type overrides it for that type of request.
+export type DefaultAssigneeRule = {
+  category: WorkOrderCategory
+  itRequestType: string | null
+  userId: string
 }
 
-const IT_REQUEST_TYPE_DEFAULT_ENV: Partial<Record<ITRequestType, string>> = {
-  access_identity: 'DEFAULT_ASSIGNEE_EMAIL_IT_ACCESS_IDENTITY',
+// Loads the caller's organization's default assignees. RLS limits the table
+// to administrators, who are the only ones that apply defaults. Returns an
+// empty list when the lookup fails, so a failure leaves work orders unassigned
+// as before rather than blocking the create or approval.
+export async function fetchDefaultAssigneeRules(
+  supabase: SupabaseClient
+): Promise<DefaultAssigneeRule[]> {
+  const { data, error } = await supabase
+    .from('default_assignees')
+    .select('category, it_request_type, user_id')
+  if (error) {
+    console.error('default_assignees lookup failed', error)
+    return []
+  }
+  return (
+    (data ?? []) as {
+      category: WorkOrderCategory
+      it_request_type: string | null
+      user_id: string
+    }[]
+  ).map((row) => ({
+    category: row.category,
+    itRequestType: row.it_request_type,
+    userId: row.user_id,
+  }))
 }
 
-function emailFromEnv(envVar: string | undefined): string | null {
-  if (!envVar) return null
-  return process.env[envVar]?.trim().toLowerCase() || null
-}
-
-// Returns the default assignee's user id, or null when no default applies (no
-// mapping, the environment variable is unset, or no user has that email).
+// Returns who a work order falls to when nobody is picked, or null when no
+// default applies. A rule for the exact IT request type wins over the
+// category's default.
 export function resolveDefaultAssignee(
+  rules: DefaultAssigneeRule[],
   category: WorkOrderCategory,
-  itRequestType: ITRequestType | null | undefined,
-  users: AssignableUser[]
+  itRequestType: string | null | undefined
 ): string | null {
-  const email =
-    (category === 'it' && itRequestType
-      ? emailFromEnv(IT_REQUEST_TYPE_DEFAULT_ENV[itRequestType])
-      : null) ?? emailFromEnv(CATEGORY_DEFAULT_ENV[category])
-  if (!email) return null
-
-  return users.find((u) => u.email?.toLowerCase() === email)?.user_id ?? null
+  const forCategory = rules.filter((r) => r.category === category)
+  const specific = itRequestType
+    ? forCategory.find((r) => r.itRequestType === itRequestType)
+    : undefined
+  const fallback = forCategory.find((r) => r.itRequestType === null)
+  return (specific ?? fallback)?.userId ?? null
 }

@@ -13,7 +13,11 @@ import {
   fetchAssignableUsers,
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
-import { resolveDefaultAssignee } from '@/lib/work-orders/default-assignees'
+import {
+  fetchDefaultAssigneeRules,
+  resolveDefaultAssignee,
+  type DefaultAssigneeRule,
+} from '@/lib/work-orders/default-assignees'
 import { getProperties } from '@/lib/work-orders/fetch-properties'
 import { toPropertyLabels } from '@/lib/work-orders/properties'
 
@@ -92,7 +96,7 @@ function bucketFor(
 function toEntry(
   row: SubmissionRow,
   now: number,
-  assignableUsers: AssignableUser[]
+  defaultAssignees: DefaultAssigneeRule[]
 ): QueueEntry {
   return {
     id: row.id,
@@ -110,9 +114,9 @@ function toEntry(
     createdAt: row.created_at,
     bucket: bucketFor(row.priority, row.due_at, now),
     defaultAssigneeId: resolveDefaultAssignee(
+      defaultAssignees,
       row.category,
-      row.it_request_type,
-      assignableUsers
+      row.it_request_type
     ),
   }
 }
@@ -133,15 +137,22 @@ export default async function SubmissionsPage() {
     ?.user_role
   const canModerate = userRole === 'administrator'
 
-  // Only the approve form needs the directory, and only administrators see it,
-  // so requesters never pay for the extra round trip.
-  const assignableUsers: AssignableUser[] = canModerate
-    ? await fetchAssignableUsers(supabase)
-    : []
+  // Only the approve form needs the directory and the default assignees, and
+  // only administrators see it, so requesters never pay for the extra round
+  // trips.
+  const [assignableUsers, defaultAssignees]: [
+    AssignableUser[],
+    DefaultAssigneeRule[],
+  ] = canModerate
+    ? await Promise.all([
+        fetchAssignableUsers(supabase),
+        fetchDefaultAssigneeRules(supabase),
+      ])
+    : [[], []]
 
   const now = currentTime()
   const pending = ((pendingResult.data ?? []) as SubmissionRow[])
-    .map((row) => toEntry(row, now, assignableUsers))
+    .map((row) => toEntry(row, now, defaultAssignees))
     .sort(compareQueue)
   const fetchError = pendingResult.error
   const timeZone = await getTimeZone()

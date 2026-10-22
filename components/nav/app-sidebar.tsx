@@ -15,6 +15,7 @@ import {
   RiNotification3Line,
   RiRepeatLine,
   RiUser3Line,
+  RiUserFollowLine,
 } from '@remixicon/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -71,6 +72,11 @@ const adminItems: NavItem[] = [
   { title: 'Invitations', href: '/admin/invitations', icon: RiMailSendLine },
   { title: 'Users', href: '/admin/users', icon: RiGroupLine },
   { title: 'Approvers', href: '/admin/approvers', icon: RiCheckboxCircleLine },
+  {
+    title: 'Default Assignees',
+    href: '/admin/default-assignees',
+    icon: RiUserFollowLine,
+  },
 ]
 
 export function AppSidebar({

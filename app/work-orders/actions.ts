@@ -34,7 +34,10 @@ import { createClient } from '@/lib/supabase/server'
 import { syncWorkOrderAttachments } from '@/lib/work-orders/attachments'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 import { getCategoryApprovers } from '@/lib/work-orders/category-approvers'
-import { resolveDefaultAssignee } from '@/lib/work-orders/default-assignees'
+import {
+  fetchDefaultAssigneeRules,
+  resolveDefaultAssignee,
+} from '@/lib/work-orders/default-assignees'
 import { getProperties } from '@/lib/work-orders/fetch-properties'
 import { toPropertyLabels } from '@/lib/work-orders/properties'
 import { nextOccurrenceAfter } from '@/lib/work-orders/recurrence'
@@ -356,9 +359,9 @@ export async function createWorkOrderAction(
     ? undefined
     : (parsed.data.assignedTo ??
       resolveDefaultAssignee(
+        await fetchDefaultAssigneeRules(supabase),
         parsed.data.category,
-        parsed.data.itRequestType,
-        await fetchAssignableUsers(supabase)
+        parsed.data.itRequestType
       ) ??
       undefined)
 
@@ -1074,9 +1077,9 @@ export async function approveWorkOrderAction(
   let newAssignee = assigneeSubmitted ? (parsed.data.assignedTo ?? null) : null
   if (!workOrder.assigned_to) {
     const defaultAssignee = resolveDefaultAssignee(
+      await fetchDefaultAssigneeRules(supabase),
       workOrder.category,
-      workOrder.it_request_type,
-      await fetchAssignableUsers(supabase)
+      workOrder.it_request_type
     )
     if (defaultAssignee) {
       const { error: assignError } = await supabase
