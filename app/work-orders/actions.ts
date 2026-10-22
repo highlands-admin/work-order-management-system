@@ -24,6 +24,7 @@ import {
   transitionStatusSchema,
   updateRecurringWorkOrderSchema,
   updateWorkOrderSchema,
+  type ITRequestType,
   type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
@@ -33,6 +34,7 @@ import { createClient } from '@/lib/supabase/server'
 import { syncWorkOrderAttachments } from '@/lib/work-orders/attachments'
 import { fetchAssignableUsers } from '@/lib/work-orders/assignable-users'
 import { getCategoryApprovers } from '@/lib/work-orders/category-approvers'
+import { resolveDefaultAssignee } from '@/lib/work-orders/default-assignees'
 import { getProperties } from '@/lib/work-orders/fetch-properties'
 import { toPropertyLabels } from '@/lib/work-orders/properties'
 import { nextOccurrenceAfter } from '@/lib/work-orders/recurrence'
@@ -348,7 +350,17 @@ export async function createWorkOrderAction(
   // Submissions that need approval are assigned by the administrator at
   // approval time, so the form omits the assignee field for those roles and any
   // value that arrives anyway is dropped here.
-  const assignedTo = needsApproval ? undefined : parsed.data.assignedTo
+  // A work order that goes live with nobody picked falls to its category's
+  // default assignee, so it never sits in the main list unowned.
+  const assignedTo = needsApproval
+    ? undefined
+    : (parsed.data.assignedTo ??
+      resolveDefaultAssignee(
+        parsed.data.category,
+        parsed.data.itRequestType,
+        await fetchAssignableUsers(supabase)
+      ) ??
+      undefined)
 
   // When a frequency is set, the work order is filed as a recurring order: create
   // the template first, then file its first occurrence below, linked to it. The
@@ -1022,8 +1034,9 @@ export async function approveWorkOrderAction(
       rejected_reason: null,
       rejected_at: null,
       rejected_by: null,
-      // Leaving the dropdown empty means "approve without assigning", so the
-      // column is written either way rather than left at its previous value.
+      // Leaving the dropdown empty means "approve without assigning" (unless a
+      // default assignee applies below), so the column is written either way
+      // rather than left at its previous value.
       ...(assigneeSubmitted
         ? { assigned_to: parsed.data.assignedTo ?? null }
         : {}),
@@ -1031,7 +1044,7 @@ export async function approveWorkOrderAction(
     })
     .eq('id', workOrderId)
     .select(
-      'id, work_order_code, title, category, priority, status, property, unit_number, due_at, description, reported_by_name, reported_by_email, created_by'
+      'id, work_order_code, title, category, priority, status, property, unit_number, due_at, description, reported_by_name, reported_by_email, created_by, assigned_to, it_request_type'
     )
     .single<{
       id: string
@@ -1047,10 +1060,35 @@ export async function approveWorkOrderAction(
       reported_by_name: string | null
       reported_by_email: string | null
       created_by: string
+      assigned_to: string | null
+      it_request_type: ITRequestType | null
     }>()
 
   if (error) {
     return formError(undefined, raw, error.message)
+  }
+
+  // Who this approval hands the work to, if anyone. An approval that leaves the
+  // row unassigned falls back to the category's default assignee, so routed
+  // work never goes live unowned.
+  let newAssignee = assigneeSubmitted ? (parsed.data.assignedTo ?? null) : null
+  if (!workOrder.assigned_to) {
+    const defaultAssignee = resolveDefaultAssignee(
+      workOrder.category,
+      workOrder.it_request_type,
+      await fetchAssignableUsers(supabase)
+    )
+    if (defaultAssignee) {
+      const { error: assignError } = await supabase
+        .from('work_orders')
+        .update({ assigned_to: defaultAssignee, updated_by: claims.sub })
+        .eq('id', workOrderId)
+      if (assignError) {
+        console.error('Failed to apply default assignee', assignError)
+      } else {
+        newAssignee = defaultAssignee
+      }
+    }
   }
 
   const approvedWorkOrder: AssignmentWorkOrder = {
@@ -1077,14 +1115,10 @@ export async function approveWorkOrderAction(
   )
 
   // Tell the new assignee the work is theirs (unless the approver took it on).
-  if (
-    assigneeSubmitted &&
-    parsed.data.assignedTo &&
-    parsed.data.assignedTo !== claims.sub
-  ) {
+  if (newAssignee && newAssignee !== claims.sub) {
     await notifyAssignee(
       supabase,
-      parsed.data.assignedTo,
+      newAssignee,
       actorName(claims),
       approvedWorkOrder
     )
