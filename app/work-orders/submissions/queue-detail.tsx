@@ -72,6 +72,9 @@ export type QueueEntry = {
   reporterPhone: string | null
   createdAt: string
   bucket: QueueBucket
+  // Who the work falls to if approved without an assignee; preselected in the
+  // approve form so the approver sees it before confirming.
+  defaultAssigneeId: string | null
 }
 
 // The expanded detail for one submission, revealed inline beneath its list row.
@@ -92,7 +95,7 @@ export function QueueDetail({
   onDone: () => void
 }) {
   const [showReject, setShowReject] = useState(false)
-  const [assignedTo, setAssignedTo] = useState('')
+  const [assignedTo, setAssignedTo] = useState(item.defaultAssigneeId ?? '')
 
   // Value -> label map so the trigger can show the chosen name while the list
   // items are unmounted, and still fall back to the placeholder when empty.

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useActionState, useState } from 'react'
 
 import { EmailField } from '@/components/auth/email-field'
@@ -10,13 +11,22 @@ import {
 } from '@/components/auth/password-checklist'
 import { PasswordInput } from '@/components/auth/password-input'
 import { SubmitButton } from '@/components/auth/submit-button'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { buttonVariants } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import { useServerErrors } from '@/lib/hooks/use-server-errors'
 
 import { signUpAction } from '../actions'
-import { initialAuthState } from '../auth-state'
+import { initialAuthState, type AuthState } from '../auth-state'
 
 export function SignUpForm() {
   const [state, action] = useActionState(signUpAction, initialAuthState)
@@ -32,6 +42,10 @@ export function SignUpForm() {
   const firstNameError = getError('firstName')
   const lastNameError = getError('lastName')
   const showPasswordErrors = Boolean(getError('password'))
+  // Each submission returns a new state object, so closing the popup only
+  // hides it for the response it was shown for.
+  const [dismissedState, setDismissedState] = useState<AuthState | null>(null)
+  const accountExistsOpen = Boolean(state.accountExists) && dismissedState !== state
   const showConfirmErrors =
     Boolean(getError('confirmPassword')) && !isEdited('password')
 
@@ -78,6 +92,39 @@ export function SignUpForm() {
         onValueChange={() => markEdited('email')}
         required
       />
+      <AlertDialog
+        open={accountExistsOpen}
+        onOpenChange={(open) => {
+          if (!open) setDismissedState(state)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogTitle>You already have an account</AlertDialogTitle>
+          <AlertDialogDescription>
+            An account with{' '}
+            <span className="font-medium text-foreground">
+              {state.values?.email}
+            </span>{' '}
+            already exists, so no code was sent. Sign in, or reset your password
+            if you do not remember it.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <Link
+              href="/login"
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Sign in
+            </Link>
+            <Link
+              href={`/forgot-password?email=${encodeURIComponent(state.values?.email ?? '')}`}
+              className={buttonVariants({ size: 'sm' })}
+            >
+              Reset password
+            </Link>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Field>
         <FieldLabel htmlFor="password">Password</FieldLabel>

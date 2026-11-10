@@ -126,6 +126,18 @@ values ('new.hire@highlands.care', 'technician', 'aaaaaaaa-0000-0000-0000-000000
 insert into public.category_approvers (category, user_id)
 values ('it', 'aaaaaaaa-0000-0000-0000-000000000001');
 
+insert into public.default_assignees (category, it_request_type, user_id) values
+  ('it', null, 'aaaaaaaa-0000-0000-0000-000000000002'),
+  ('it', 'access_identity', 'aaaaaaaa-0000-0000-0000-000000000001');
+
+select throws_ok(
+  $$ insert into public.default_assignees (category, user_id)
+     values ('maintenance', 'bbbbbbbb-0000-0000-0000-000000000001') $$,
+  '42501',
+  'Default assignees must belong to the same organization',
+  'a default assignee from another organization is refused'
+);
+
 insert into public.recurring_work_orders
   (id, title, category, priority, description, frequency, anchor_date, next_due_at,
    created_by, updated_by)
@@ -202,6 +214,8 @@ select is((select count(*)::int from public.invitations), 0,
   'invitations: Org B sees no Org A invitations');
 select is((select count(*)::int from public.category_approvers), 0,
   'category_approvers: Org B sees no Org A approvers');
+select is((select count(*)::int from public.default_assignees), 0,
+  'default_assignees: Org B sees no Org A defaults');
 select is((select count(*)::int from public.notifications), 0,
   'notifications: Org B sees no Org A notifications');
 select is((select count(*)::int from public.user_roles), 2,

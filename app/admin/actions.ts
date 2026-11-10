@@ -11,7 +11,9 @@ import {
   inviteSchema,
   invitationIdSchema,
   setCategoryApproversSchema,
+  setDefaultAssigneeSchema,
   type SetCategoryApproversInput,
+  type SetDefaultAssigneeInput,
 } from '@/lib/schemas/admin'
 import { createClient } from '@/lib/supabase/server'
 
@@ -292,5 +294,50 @@ export async function setCategoryApproversAction(
   }
 
   revalidatePath('/admin/approvers')
+  return null
+}
+
+// Sets or clears the default assignee for a category, or for one IT request
+// type. Called directly from the default assignees page rather than through a
+// form, so it takes typed arguments. Returns an error message for the page to
+// show, or null.
+export async function setDefaultAssigneeAction(
+  input: SetDefaultAssigneeInput
+): Promise<string | null> {
+  const parsed = setDefaultAssigneeSchema.safeParse(input)
+  if (!parsed.success) return 'Invalid default assignee.'
+
+  let supabase
+  try {
+    ({ supabase } = await requireAdmin())
+  } catch (err) {
+    return (err as Error).message
+  }
+
+  const { category, itRequestType, userId } = parsed.data
+
+  // Replace whatever is set for this slot. RLS scopes both statements to the
+  // caller's organization, organization_id is filled by its column default,
+  // and a trigger rejects users from another organization.
+  let removal = supabase
+    .from('default_assignees')
+    .delete()
+    .eq('category', category)
+  removal =
+    itRequestType === null
+      ? removal.is('it_request_type', null)
+      : removal.eq('it_request_type', itRequestType)
+  const { error: deleteError } = await removal
+  if (deleteError) return deleteError.message
+
+  if (userId) {
+    const { error: insertError } = await supabase
+      .from('default_assignees')
+      .insert({ category, it_request_type: itRequestType, user_id: userId })
+    if (insertError) return insertError.message
+  }
+
+  revalidatePath('/admin/default-assignees')
+  revalidatePath('/work-orders/submissions')
   return null
 }

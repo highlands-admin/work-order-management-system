@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { getTimeZone } from '@/lib/datetime/timezone'
 import {
   WORK_ORDER_PRIORITIES,
+  type ITRequestType,
   type Property,
   type WorkOrderCategory,
   type WorkOrderPriority,
@@ -12,6 +13,11 @@ import {
   fetchAssignableUsers,
   type AssignableUser,
 } from '@/lib/work-orders/assignable-users'
+import {
+  fetchDefaultAssigneeRules,
+  resolveDefaultAssignee,
+  type DefaultAssigneeRule,
+} from '@/lib/work-orders/default-assignees'
 import { getProperties } from '@/lib/work-orders/fetch-properties'
 import { toPropertyLabels } from '@/lib/work-orders/properties'
 
@@ -21,13 +27,14 @@ import { SubmissionQueue } from './submission-queue'
 export const metadata: Metadata = { title: 'Submissions' }
 
 const SUBMISSION_COLUMNS =
-  'id, work_order_code, title, category, property, unit_number, priority, due_at, description, reported_by_name, reported_by_email, reported_by_phone, created_at'
+  'id, work_order_code, title, category, it_request_type, property, unit_number, priority, due_at, description, reported_by_name, reported_by_email, reported_by_phone, created_at'
 
 type SubmissionRow = {
   id: string
   work_order_code: string
   title: string
   category: WorkOrderCategory
+  it_request_type: ITRequestType | null
   property: Property | null
   unit_number: string | null
   priority: WorkOrderPriority
@@ -86,7 +93,11 @@ function bucketFor(
   return 'later'
 }
 
-function toEntry(row: SubmissionRow, now: number): QueueEntry {
+function toEntry(
+  row: SubmissionRow,
+  now: number,
+  defaultAssignees: DefaultAssigneeRule[]
+): QueueEntry {
   return {
     id: row.id,
     workOrderCode: row.work_order_code,
@@ -102,6 +113,11 @@ function toEntry(row: SubmissionRow, now: number): QueueEntry {
     reporterPhone: row.reported_by_phone,
     createdAt: row.created_at,
     bucket: bucketFor(row.priority, row.due_at, now),
+    defaultAssigneeId: resolveDefaultAssignee(
+      defaultAssignees,
+      row.category,
+      row.it_request_type
+    ),
   }
 }
 
@@ -121,15 +137,22 @@ export default async function SubmissionsPage() {
     ?.user_role
   const canModerate = userRole === 'administrator'
 
-  // Only the approve form needs the directory, and only administrators see it,
-  // so requesters never pay for the extra round trip.
-  const assignableUsers: AssignableUser[] = canModerate
-    ? await fetchAssignableUsers(supabase)
-    : []
+  // Only the approve form needs the directory and the default assignees, and
+  // only administrators see it, so requesters never pay for the extra round
+  // trips.
+  const [assignableUsers, defaultAssignees]: [
+    AssignableUser[],
+    DefaultAssigneeRule[],
+  ] = canModerate
+    ? await Promise.all([
+        fetchAssignableUsers(supabase),
+        fetchDefaultAssigneeRules(supabase),
+      ])
+    : [[], []]
 
   const now = currentTime()
   const pending = ((pendingResult.data ?? []) as SubmissionRow[])
-    .map((row) => toEntry(row, now))
+    .map((row) => toEntry(row, now, defaultAssignees))
     .sort(compareQueue)
   const fetchError = pendingResult.error
   const timeZone = await getTimeZone()
