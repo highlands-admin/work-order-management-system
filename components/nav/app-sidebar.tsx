@@ -14,6 +14,7 @@ import {
   RiMailSendLine,
   RiNotification3Line,
   RiRepeatLine,
+  RiShieldCheckLine,
   RiUser3Line,
   RiUserFollowLine,
 } from '@remixicon/react'
@@ -58,6 +59,11 @@ const workOrderItems: NavItem[] = [
     title: 'Recurring Schedules',
     href: '/work-orders/recurring',
     icon: RiRepeatLine,
+  },
+  {
+    title: 'State Compliance',
+    href: '/work-orders/compliance',
+    icon: RiShieldCheckLine,
   },
 ]
 
