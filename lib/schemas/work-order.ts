@@ -348,7 +348,9 @@ const baseWorkOrderFields = {
   category: z.enum(WORK_ORDER_CATEGORIES, { message: 'Select a category' }),
   priority: z.enum(WORK_ORDER_PRIORITIES, { message: 'Select a priority' }),
   property: optionalProperty,
-  unitNumber: trimmedOptional.pipe(z.string().max(10).optional()),
+  unitNumber: trimmedOptional.pipe(
+    z.string().max(40, 'Keep the apartment or area under 40 characters').optional()
+  ),
   dueAt: trimmedOptional.pipe(
     z.iso.datetime({ offset: true, message: 'Enter a valid date and time' }).optional()
   ),
@@ -558,6 +560,26 @@ function requireDescriptiveTitle<
   if (message) ctx.addIssue({ code: 'custom', message, path: ['title'] })
 }
 
+// New Maintenance work orders must say where the problem is: an apartment
+// ("B30") or a common area ("Kitchen"). Shared by the server schema and the
+// form's Location step. Create only, like the title rule.
+export function unitRequiredError(
+  unitNumber: string | undefined,
+  category: string
+): string | null {
+  if (category !== 'maintenance') return null
+  return unitNumber?.trim()
+    ? null
+    : 'Enter the apartment or area, e.g. "B30" or "Kitchen"'
+}
+
+function requireUnitForMaintenance<
+  T extends { unitNumber?: string; category: WorkOrderCategory },
+>(data: T, ctx: z.RefinementCtx) {
+  const message = unitRequiredError(data.unitNumber, data.category)
+  if (message) ctx.addIssue({ code: 'custom', message, path: ['unitNumber'] })
+}
+
 function requireFutureDueDate<T extends { dueAt?: string }>(
   data: T,
   ctx: z.RefinementCtx
@@ -574,6 +596,7 @@ function requireFutureDueDate<T extends { dueAt?: string }>(
 export const createWorkOrderSchema = z
   .object({ ...baseWorkOrderFields, ...recurrenceFields })
   .superRefine(requireDescriptiveTitle)
+  .superRefine(requireUnitForMaintenance)
   .superRefine(requirePropertyUnlessIT)
   .superRefine(requireMarketingFields)
   .superRefine(requireRecurrenceAnchor)
@@ -618,7 +641,9 @@ export const updateRecurringWorkOrderSchema = z
     category: z.enum(WORK_ORDER_CATEGORIES, { message: 'Select a category' }),
     priority: z.enum(WORK_ORDER_PRIORITIES, { message: 'Select a priority' }),
     property: optionalProperty,
-    unitNumber: trimmedOptional.pipe(z.string().max(10).optional()),
+    unitNumber: trimmedOptional.pipe(
+    z.string().max(40, 'Keep the apartment or area under 40 characters').optional()
+  ),
     description: z
       .string()
       .trim()

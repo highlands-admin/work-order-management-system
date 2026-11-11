@@ -43,6 +43,7 @@ import {
   IT_REQUEST_TYPE_LABELS,
   MARKETING_BRIEF_EXEMPT_REQUEST_TYPES,
   descriptiveTitleError,
+  unitRequiredError,
   MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
   RECURRENCE_FREQUENCIES,
@@ -357,6 +358,8 @@ function NewWorkOrderFormInner({
       if (categoryValue !== 'it' && !val('property')) {
         errors.property = 'Select a facility'
       }
+      const unitError = unitRequiredError(val('unitNumber'), categoryValue)
+      if (unitError) errors.unitNumber = unitError
     }
 
     return errors
@@ -820,7 +823,8 @@ function NewWorkOrderFormInner({
 
               <Field data-invalid={unitNumberError ? 'true' : undefined}>
                 <FieldLabel htmlFor="unitNumber">
-                  Apartment Number/Area <Optional />
+                  Apartment Number/Area{' '}
+                  {categoryValue === 'maintenance' ? <Required /> : <Optional />}
                 </FieldLabel>
                 <Input
                   id="unitNumber"
@@ -829,7 +833,9 @@ function NewWorkOrderFormInner({
                   defaultValue={state.values?.unitNumber}
                   onChange={() => editField('unitNumber')}
                   aria-invalid={unitNumberError ? true : undefined}
-                  placeholder="e.g. 2A"
+                  placeholder={
+                    categoryValue === 'maintenance' ? 'e.g. B30 or Kitchen' : 'e.g. 2A'
+                  }
                 />
                 <FieldError>{unitNumberError}</FieldError>
               </Field>

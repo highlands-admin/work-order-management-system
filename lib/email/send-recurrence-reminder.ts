@@ -1,3 +1,4 @@
+import { bareAddress, buildDueDateInvite } from '@/lib/email/calendar-invite'
 import { createEmailClient } from '@/lib/email/resend-client'
 
 import {
@@ -55,6 +56,8 @@ export async function sendRecurrenceReminderEmail(
 
   const wo = input.workOrder
   const dueText = wo.dueAt ? formatDate(wo.dueAt) : 'soon'
+  const overdue = wo.dueAt ? new Date(wo.dueAt).getTime() < Date.now() : false
+  const url = `${getSiteUrl()}/work-orders/${wo.id}`
 
   const rows: { label: string; value: string }[] = [
     { label: 'Category', value: CATEGORY_LABELS[wo.category] },
@@ -77,21 +80,50 @@ export async function sendRecurrenceReminderEmail(
 
   const templateInput = {
     greeting: input.recipientFirstName ? `Hi ${input.recipientFirstName},` : 'Hi,',
-    intro: `This recurring work order is due ${dueText}. Please schedule it before the due date.`,
+    intro: overdue
+      ? `This item was due ${dueText} and is overdue. Please get it done and close the work order. A reminder is on your calendar for tomorrow at 9 AM.`
+      : `This item is due ${dueText}. Please schedule it before the due date. It is on your calendar for 9 AM that day.`,
     code: wo.code,
     title: wo.title,
     rows,
     description: wo.description,
-    url: `${getSiteUrl()}/work-orders/${wo.id}`,
+    url,
   }
+
+  // A calendar invite for the due date, so the item lands on the recipient's
+  // calendar even if they never open Workflow 360.
+  const attachments = wo.dueAt
+    ? [
+        {
+          filename: 'invite.ics',
+          contentType: 'text/calendar; charset=utf-8; method=REQUEST',
+          content: Buffer.from(
+            buildDueDateInvite({
+              workOrderId: wo.id,
+              code: wo.code,
+              title: wo.title,
+              propertyName: wo.propertyName,
+              description: wo.description,
+              dueAt: wo.dueAt,
+              url,
+              organizerEmail: bareAddress(from),
+              attendeeEmail: input.to,
+            })
+          ),
+        },
+      ]
+    : undefined
 
   const resend = createEmailClient(apiKey)
   const { error } = await resend.emails.send({
     from,
     to: input.to,
-    subject: `Reminder: ${wo.code} ${wo.title} due ${dueText}`,
+    subject: `${overdue ? 'Overdue' : 'Reminder'}: ${wo.code} ${wo.title}${
+      wo.propertyName ? ` (${wo.propertyName})` : ''
+    } due ${dueText}`,
     html: renderWorkOrderAssignmentHtml(templateInput),
     text: renderWorkOrderAssignmentText(templateInput),
+    attachments,
   })
 
   if (error) return { error: error.message }

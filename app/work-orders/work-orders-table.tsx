@@ -588,10 +588,22 @@ export function WorkOrdersTable({
                 <div className="flex min-w-0 items-center gap-1.5">
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate">{wo.title}</span>
-                    {/* Maintenance work orders show the description's
-                        first line, so the problem is visible in the list. */}
-                    {descriptionPreview(wo.category, wo.description) ? (
+                    {/* Maintenance work orders show where (apartment or area,
+                        in bold) and the description's first line, so the
+                        problem is clear without opening the work order. */}
+                    {wo.category === 'maintenance' &&
+                    (wo.unit_number ||
+                      descriptionPreview(wo.category, wo.description)) ? (
                       <span className="truncate text-xs font-normal text-muted-foreground">
+                        {wo.unit_number ? (
+                          <span className="font-semibold text-foreground">
+                            {wo.unit_number}
+                          </span>
+                        ) : null}
+                        {wo.unit_number &&
+                        descriptionPreview(wo.category, wo.description)
+                          ? ' · '
+                          : null}
                         {descriptionPreview(wo.category, wo.description)}
                       </span>
                     ) : null}
@@ -626,9 +638,6 @@ export function WorkOrdersTable({
               </TableCell>
               <TableCell className="truncate px-4 py-3">
                 {wo.property ? propertyLabel(propertyLabels, wo.property) : '—'}
-                {wo.unit_number ? (
-                  <span className="text-muted-foreground"> · {wo.unit_number}</span>
-                ) : null}
               </TableCell>
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {formatDate(wo.created_at, timeZone)}

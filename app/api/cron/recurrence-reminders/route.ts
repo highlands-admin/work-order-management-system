@@ -61,7 +61,19 @@ export async function POST(request: NextRequest): Promise<Response> {
   let emailsFailed = 0
   let skipped = 0
 
+  // Several alerts can fall due on the same day for one work order (a new
+  // occurrence that is already inside its 7-day and 1-day windows, or one that
+  // is already overdue). Send one email per work order, for the most urgent
+  // alert, and mark all of them sent.
+  const byWorkOrder = new Map<string, ReminderRow[]>()
   for (const row of rows) {
+    const list = byWorkOrder.get(row.id) ?? []
+    list.push(row)
+    byWorkOrder.set(row.id, list)
+  }
+
+  for (const group of byWorkOrder.values()) {
+    const row = group.reduce((a, b) => (b.lead_days < a.lead_days ? b : a))
     const recipients = (row.recipients ?? []).filter((r) => r.email)
     if (recipients.length === 0) {
       skipped += 1
@@ -103,22 +115,25 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     }
 
-    // Mark this alert as sent for the occurrence so it never repeats, even if a
-    // recipient failed (logged above), to avoid re-emailing the rest.
-    const { error: recordError } = await supabase.rpc('record_reminder_sent', {
-      p_work_order_id: row.id,
-      p_lead_days: row.lead_days,
-    })
-    if (recordError) {
-      console.error('record_reminder_sent failed', {
-        workOrder: row.id,
-        error: recordError.message,
+    // Mark these alerts as sent for the occurrence so they never repeat, even if
+    // a recipient failed (logged above), to avoid re-emailing the rest.
+    for (const due of group) {
+      const { error: recordError } = await supabase.rpc('record_reminder_sent', {
+        p_work_order_id: due.id,
+        p_lead_days: due.lead_days,
       })
+      if (recordError) {
+        console.error('record_reminder_sent failed', {
+          workOrder: due.id,
+          error: recordError.message,
+        })
+      }
     }
   }
 
   return NextResponse.json({
     alerts: rows.length,
+    workOrders: byWorkOrder.size,
     emailsSent,
     emailsFailed,
     skipped,
