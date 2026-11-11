@@ -587,23 +587,20 @@ export function WorkOrdersTable({
               <TableCell className="px-4 py-3 font-medium">
                 <div className="flex min-w-0 items-center gap-1.5">
                   <span className="flex min-w-0 flex-col">
-                    <span className="truncate">{wo.title}</span>
-                    {/* Maintenance work orders show where (apartment or area,
-                        in bold) and the description's first line, so the
-                        problem is clear without opening the work order. */}
-                    {wo.category === 'maintenance' &&
-                    (wo.unit_number ||
-                      descriptionPreview(wo.category, wo.description)) ? (
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate">{wo.title}</span>
+                      {/* Maintenance: the apartment or area as a pill beside
+                          the title, so where the problem is stands out. */}
+                      {wo.category === 'maintenance' && wo.unit_number ? (
+                        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary ring-1 ring-primary/20">
+                          {wo.unit_number}
+                        </span>
+                      ) : null}
+                    </span>
+                    {/* Maintenance work orders show the description's first
+                        line, so the problem is clear without opening it. */}
+                    {descriptionPreview(wo.category, wo.description) ? (
                       <span className="truncate text-xs font-normal text-muted-foreground">
-                        {wo.unit_number ? (
-                          <span className="font-semibold text-foreground">
-                            {wo.unit_number}
-                          </span>
-                        ) : null}
-                        {wo.unit_number &&
-                        descriptionPreview(wo.category, wo.description)
-                          ? ' · '
-                          : null}
                         {descriptionPreview(wo.category, wo.description)}
                       </span>
                     ) : null}
