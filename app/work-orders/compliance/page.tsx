@@ -193,8 +193,6 @@ export default async function CompliancePage({
                   aria-current={isSelected ? 'page' : undefined}
                   className={cn(
                     'flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:bg-muted/40',
-                    counts.overdue > 0 &&
-                      'border-l-4 border-rose-500 bg-rose-50/60 dark:bg-rose-950/20',
                     isSelected && 'ring-2 ring-primary'
                   )}
                 >

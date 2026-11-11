@@ -531,28 +531,31 @@ const ROOM_ONLY_TITLE =
 // rejected; the apartment has its own field. Other categories (IT, marketing,
 // licenses) keep free-form titles. Applied on create only, so editing an older
 // work order with a short title does not block an unrelated change.
+//
+// Shared by the server schema and the form's first step, so a bad title is
+// caught before the requester moves on. Returns the message, or null when the
+// title is fine.
+export function descriptiveTitleError(
+  title: string,
+  category: string
+): string | null {
+  if (category !== 'maintenance') return null
+  const trimmed = title.trim()
+  if (ROOM_ONLY_TITLE.test(trimmed)) {
+    return 'That looks like an apartment number. Put it in Apartment Number/Area, and describe the problem here, e.g. "Ceiling leak above bed".'
+  }
+  const words = trimmed.split(/\s+/).filter((w) => /\p{L}/u.test(w))
+  if (words.length < 2) {
+    return 'Describe the problem in at least two words, e.g. "PTAC not cooling" instead of "PTAC".'
+  }
+  return null
+}
+
 function requireDescriptiveTitle<
   T extends { title: string; category: WorkOrderCategory },
 >(data: T, ctx: z.RefinementCtx) {
-  if (data.category !== 'maintenance') return
-  if (ROOM_ONLY_TITLE.test(data.title)) {
-    ctx.addIssue({
-      code: 'custom',
-      message:
-        'That looks like an apartment number. Put it in Apartment Number/Area, and describe the problem here, e.g. "Ceiling leak above bed".',
-      path: ['title'],
-    })
-    return
-  }
-  const words = data.title.split(/\s+/).filter((w) => /\p{L}/u.test(w))
-  if (words.length < 2) {
-    ctx.addIssue({
-      code: 'custom',
-      message:
-        'Describe the problem in at least two words, e.g. "PTAC not cooling" instead of "PTAC".',
-      path: ['title'],
-    })
-  }
+  const message = descriptiveTitleError(data.title, data.category)
+  if (message) ctx.addIssue({ code: 'custom', message, path: ['title'] })
 }
 
 function requireFutureDueDate<T extends { dueAt?: string }>(

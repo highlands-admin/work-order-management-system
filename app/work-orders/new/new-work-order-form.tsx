@@ -42,6 +42,7 @@ import {
   IT_REQUEST_TYPES,
   IT_REQUEST_TYPE_LABELS,
   MARKETING_BRIEF_EXEMPT_REQUEST_TYPES,
+  descriptiveTitleError,
   MARKETING_DESCRIPTION_PLACEHOLDER,
   PRIORITY_LABELS,
   RECURRENCE_FREQUENCIES,
@@ -297,6 +298,10 @@ function NewWorkOrderFormInner({
 
     if (index === 0) {
       if (!val('title')) errors.title = 'Title is required'
+      else {
+        const titleError = descriptiveTitleError(val('title'), val('category'))
+        if (titleError) errors.title = titleError
+      }
       if (!val('category')) errors.category = 'Select a category'
       if (!val('priority')) errors.priority = 'Select a priority'
     } else if (index === 1) {
