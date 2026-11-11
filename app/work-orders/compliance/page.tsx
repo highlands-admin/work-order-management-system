@@ -1,4 +1,3 @@
-import { RiAlarmWarningLine } from '@remixicon/react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -156,15 +155,6 @@ export default async function CompliancePage({
     ? items.filter((i) => i.schedule.property === selected.key)
     : []
 
-  const nameByKey = new Map(properties.map((p) => [p.key, p.name]))
-  const communityName = (key: string | null) =>
-    (key && nameByKey.get(key)) ?? key ?? ''
-
-  // Most overdue first.
-  const overdue = items
-    .filter((i) => i.status === 'overdue')
-    .sort((a, b) => (a.daysUntilDue ?? 0) - (b.daysUntilDue ?? 0))
-
   const error = schedulesResult.error ?? occurrencesResult.error
 
   return (
@@ -189,41 +179,6 @@ export default async function CompliancePage({
         </p>
       ) : (
         <>
-          {/* Everything overdue, across every community, before anything else. */}
-          {overdue.length > 0 ? (
-            <section className="flex flex-col gap-3 rounded-xl border border-rose-300 bg-rose-50 p-4 dark:border-rose-900/60 dark:bg-rose-950/30">
-              <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300">
-                <RiAlarmWarningLine className="size-5 shrink-0" aria-hidden />
-                <h2 className="font-heading text-lg font-semibold">
-                  {overdue.length} overdue{' '}
-                  {overdue.length === 1 ? 'item' : 'items'}
-                </h2>
-              </div>
-              <ul className="flex flex-col divide-y divide-rose-200 dark:divide-rose-900/50">
-                {overdue.map((item) => (
-                  <li
-                    key={item.schedule.id}
-                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-sm"
-                  >
-                    <span>
-                      <span className="font-medium">
-                        {communityName(item.schedule.property)}
-                      </span>
-                      <span className="text-muted-foreground"> · </span>
-                      {item.schedule.title}
-                    </span>
-                    <span className="flex items-center gap-3">
-                      <span className="font-semibold text-rose-700 dark:text-rose-300">
-                        {dueDistanceLabel(item.daysUntilDue ?? 0)}
-                      </span>
-                      <WorkOrderLink item={item} today={today} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
           {/* One card per community: how many items need attention. */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {communities.map((c) => {

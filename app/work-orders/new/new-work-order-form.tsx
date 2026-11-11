@@ -464,17 +464,24 @@ function NewWorkOrderFormInner({
                 defaultValue={state.values?.title}
                 onChange={() => editField('title')}
                 aria-invalid={titleError ? true : undefined}
-                placeholder="What's wrong? e.g. Ceiling leak above bed"
+                placeholder={
+                  categoryValue === 'maintenance'
+                    ? "What's wrong? e.g. Ceiling leak above bed"
+                    : 'A short, descriptive name for this work order'
+                }
                 maxLength={120}
                 required
               />
-              {titleError ? null : (
+              {/* Maintenance titles kept arriving as an apartment number
+                  ("101") or a single word ("Door"), so Maintenance asks for
+                  the problem; the apartment goes in the Location step. */}
+              {categoryValue === 'maintenance' && !titleError ? (
                 <FieldDescription>
                   Describe the problem, not the location: &ldquo;PTAC not
                   cooling&rdquo;, &ldquo;Door won&rsquo;t latch&rdquo;. Add the
-                  apartment number below.
+                  apartment number in the Location step.
                 </FieldDescription>
-              )}
+              ) : null}
               <FieldError>{titleError}</FieldError>
             </Field>
 

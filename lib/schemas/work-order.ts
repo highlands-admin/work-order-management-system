@@ -526,14 +526,15 @@ function requireRecurrenceAnchor<
 const ROOM_ONLY_TITLE =
   /^(?:(?:room|rm|apt|apartment|unit|suite|ste)\.?\s*)?#?\s*\d+[a-z]?(?:\s*[-/]\s*\d+[a-z]?)?$/i
 
-// New work orders need a title that says what is wrong, so the list is readable
-// without opening each one. Titles like "101" or "Door" are rejected; the
-// apartment has its own field. Applied on create only, so editing an older work
-// order with a short title does not block an unrelated change.
-function requireDescriptiveTitle<T extends { title: string }>(
-  data: T,
-  ctx: z.RefinementCtx
-) {
+// New Maintenance work orders need a title that says what is wrong, so the list
+// is readable without opening each one. Titles like "101" or "Door" are
+// rejected; the apartment has its own field. Other categories (IT, marketing,
+// licenses) keep free-form titles. Applied on create only, so editing an older
+// work order with a short title does not block an unrelated change.
+function requireDescriptiveTitle<
+  T extends { title: string; category: WorkOrderCategory },
+>(data: T, ctx: z.RefinementCtx) {
+  if (data.category !== 'maintenance') return
   if (ROOM_ONLY_TITLE.test(data.title)) {
     ctx.addIssue({
       code: 'custom',
