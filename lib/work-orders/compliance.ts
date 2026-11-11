@@ -67,14 +67,19 @@ export type ComplianceSchedule = {
   next_due_at: string | null
   last_completed_on: string | null
   active: boolean
+  generation_lead_days: number
 }
 
 export type ComplianceItem = {
   schedule: ComplianceSchedule
   lastDone: string | null
   nextDue: string | null
+  // Days from today to the next due date; negative when overdue.
+  daysUntilDue: number | null
   // The occurrence someone should act on now, if one has been generated.
   openWorkOrderId: string | null
+  // When the next work order will be created, for items not yet generated.
+  workOrderOpensOn: string | null
   status: ComplianceStatus
 }
 
@@ -130,6 +135,24 @@ function addDays(date: string, days: number): string {
   return next.toISOString().slice(0, 10)
 }
 
+function daysBetween(from: string, to: string): number {
+  const toUtc = (date: string) => {
+    const [y, m, d] = date.split('-').map(Number)
+    return Date.UTC(y, m - 1, d)
+  }
+  return Math.round((toUtc(to) - toUtc(from)) / 86_400_000)
+}
+
+// "Overdue by 3 days", "Due today", "Due in 12 days".
+export function dueDistanceLabel(daysUntilDue: number): string {
+  if (daysUntilDue < 0) {
+    const n = -daysUntilDue
+    return `Overdue by ${n} ${n === 1 ? 'day' : 'days'}`
+  }
+  if (daysUntilDue === 0) return 'Due today'
+  return `Due in ${daysUntilDue} ${daysUntilDue === 1 ? 'day' : 'days'}`
+}
+
 // Works out one schedule's compliance state from its own fields and its
 // generated work orders.
 //
@@ -172,5 +195,19 @@ export function toComplianceItem(
   else if (lastDone || nextDue) status = 'current'
   else status = 'no_record'
 
-  return { schedule, lastDone, nextDue, openWorkOrderId, status }
+  // The generator creates the work order this many days before it is due.
+  const workOrderOpensOn =
+    !openWorkOrderId && nextDue && schedule.active
+      ? addDays(nextDue, -schedule.generation_lead_days)
+      : null
+
+  return {
+    schedule,
+    lastDone,
+    nextDue,
+    daysUntilDue: nextDue ? daysBetween(today, nextDue) : null,
+    openWorkOrderId,
+    workOrderOpensOn,
+    status,
+  }
 }

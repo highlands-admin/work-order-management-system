@@ -1,3 +1,4 @@
+import { RiAlarmWarningLine } from '@remixicon/react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
@@ -21,6 +22,7 @@ import {
   COMPLIANCE_STATUS_LABELS,
   COMPLIANCE_STATUS_ORDER,
   complianceFrequencyLabel,
+  dueDistanceLabel,
   formatCalendarDate,
   toComplianceItem,
   type ComplianceItem,
@@ -33,7 +35,7 @@ import { getProperties } from '@/lib/work-orders/fetch-properties'
 export const metadata: Metadata = { title: 'State Compliance' }
 
 const SCHEDULE_COLUMNS =
-  'id, title, category, property, provider, description, frequency, recurrence_interval, next_due_at, last_completed_on, active'
+  'id, title, category, property, provider, description, frequency, recurrence_interval, next_due_at, last_completed_on, active, generation_lead_days'
 
 type OccurrenceRow = ComplianceOccurrence & { recurring_work_order_id: string }
 
@@ -52,6 +54,41 @@ function trackerNotes(description: string): string | null {
   const marker = 'Tracker notes:'
   const at = description.indexOf(marker)
   return at === -1 ? null : description.slice(at + marker.length).trim()
+}
+
+// What happens next for an item's work order: a link when one is open,
+// otherwise when the schedule will create it, or a prompt to add a date.
+function WorkOrderLink({
+  item,
+  today,
+}: {
+  item: ComplianceItem
+  today: string
+}) {
+  if (item.openWorkOrderId) {
+    return (
+      <Link
+        href={`/work-orders/${item.openWorkOrderId}`}
+        className="font-medium text-primary hover:underline"
+      >
+        Open work order
+      </Link>
+    )
+  }
+  if (item.workOrderOpensOn) {
+    // Already past its creation date: the daily 9 AM job creates it next.
+    return (
+      <span className="text-muted-foreground">
+        {item.workOrderOpensOn <= today
+          ? 'On the next daily run'
+          : `Opens ${formatCalendarDate(item.workOrderOpensOn)}`}
+      </span>
+    )
+  }
+  if (item.status === 'no_record') {
+    return <span className="text-muted-foreground">Needs a date</span>
+  }
+  return <span className="text-muted-foreground">None scheduled</span>
 }
 
 function countByStatus(items: ComplianceItem[]): Record<ComplianceStatus, number> {
@@ -119,6 +156,15 @@ export default async function CompliancePage({
     ? items.filter((i) => i.schedule.property === selected.key)
     : []
 
+  const nameByKey = new Map(properties.map((p) => [p.key, p.name]))
+  const communityName = (key: string | null) =>
+    (key && nameByKey.get(key)) ?? key ?? ''
+
+  // Most overdue first.
+  const overdue = items
+    .filter((i) => i.status === 'overdue')
+    .sort((a, b) => (a.daysUntilDue ?? 0) - (b.daysUntilDue ?? 0))
+
   const error = schedulesResult.error ?? occurrencesResult.error
 
   return (
@@ -143,6 +189,41 @@ export default async function CompliancePage({
         </p>
       ) : (
         <>
+          {/* Everything overdue, across every community, before anything else. */}
+          {overdue.length > 0 ? (
+            <section className="flex flex-col gap-3 rounded-xl border border-rose-300 bg-rose-50 p-4 dark:border-rose-900/60 dark:bg-rose-950/30">
+              <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300">
+                <RiAlarmWarningLine className="size-5 shrink-0" aria-hidden />
+                <h2 className="font-heading text-lg font-semibold">
+                  {overdue.length} overdue{' '}
+                  {overdue.length === 1 ? 'item' : 'items'}
+                </h2>
+              </div>
+              <ul className="flex flex-col divide-y divide-rose-200 dark:divide-rose-900/50">
+                {overdue.map((item) => (
+                  <li
+                    key={item.schedule.id}
+                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-sm"
+                  >
+                    <span>
+                      <span className="font-medium">
+                        {communityName(item.schedule.property)}
+                      </span>
+                      <span className="text-muted-foreground"> · </span>
+                      {item.schedule.title}
+                    </span>
+                    <span className="flex items-center gap-3">
+                      <span className="font-semibold text-rose-700 dark:text-rose-300">
+                        {dueDistanceLabel(item.daysUntilDue ?? 0)}
+                      </span>
+                      <WorkOrderLink item={item} today={today} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           {/* One card per community: how many items need attention. */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {communities.map((c) => {
@@ -157,6 +238,8 @@ export default async function CompliancePage({
                   aria-current={isSelected ? 'page' : undefined}
                   className={cn(
                     'flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:bg-muted/40',
+                    counts.overdue > 0 &&
+                      'border-l-4 border-rose-500 bg-rose-50/60 dark:bg-rose-950/20',
                     isSelected && 'ring-2 ring-primary'
                   )}
                 >
@@ -206,7 +289,7 @@ export default async function CompliancePage({
                               'Last Done',
                               'Next Due',
                               'Status',
-                              '',
+                              'Work Order',
                             ].map((label) => (
                               <TableHead
                                 key={label}
@@ -219,8 +302,20 @@ export default async function CompliancePage({
                         </TableHeader>
                         <TableBody>
                           {rows.map((item) => (
-                            <TableRow key={item.schedule.id}>
-                              <TableCell className="px-4 py-3 align-top">
+                            <TableRow
+                              key={item.schedule.id}
+                              className={cn(
+                                item.status === 'overdue' &&
+                                  'bg-rose-50 hover:bg-rose-100/70 dark:bg-rose-950/30 dark:hover:bg-rose-950/50'
+                              )}
+                            >
+                              <TableCell
+                                className={cn(
+                                  'px-4 py-3 align-top',
+                                  item.status === 'overdue' &&
+                                    'border-l-4 border-l-rose-500'
+                                )}
+                              >
                                 <div className="font-medium">
                                   {item.schedule.title}
                                 </div>
@@ -248,20 +343,27 @@ export default async function CompliancePage({
                                 {item.nextDue
                                   ? formatCalendarDate(item.nextDue)
                                   : '—'}
+                                {item.daysUntilDue !== null &&
+                                (item.status === 'overdue' ||
+                                  item.status === 'due_soon') ? (
+                                  <div
+                                    className={cn(
+                                      'mt-0.5 text-xs font-semibold',
+                                      item.status === 'overdue'
+                                        ? 'text-rose-700 dark:text-rose-300'
+                                        : 'text-amber-700 dark:text-amber-300'
+                                    )}
+                                  >
+                                    {dueDistanceLabel(item.daysUntilDue)}
+                                  </div>
+                                ) : null}
                               </TableCell>
                               <TableCell className="px-4 py-3 align-top">
                                 <StatusPill status={item.status} />
                               </TableCell>
                               <TableCell className="px-4 py-3 text-right align-top">
                                 <div className="flex flex-col items-end gap-1 text-sm">
-                                  {item.openWorkOrderId ? (
-                                    <Link
-                                      href={`/work-orders/${item.openWorkOrderId}`}
-                                      className="text-primary hover:underline"
-                                    >
-                                      Open work order
-                                    </Link>
-                                  ) : null}
+                                  <WorkOrderLink item={item} today={today} />
                                   <Link
                                     href={`/work-orders/recurring/${item.schedule.id}/edit`}
                                     className="text-muted-foreground hover:underline"
