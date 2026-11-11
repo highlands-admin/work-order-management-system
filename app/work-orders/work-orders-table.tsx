@@ -588,11 +588,11 @@ export function WorkOrdersTable({
                 <div className="flex min-w-0 items-center gap-1.5">
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate">{wo.title}</span>
-                    {/* Short titles ("Door", "101") get the description's
+                    {/* Maintenance work orders show the description's
                         first line, so the problem is visible in the list. */}
-                    {descriptionPreview(wo.title, wo.description) ? (
+                    {descriptionPreview(wo.category, wo.description) ? (
                       <span className="truncate text-xs font-normal text-muted-foreground">
-                        {descriptionPreview(wo.title, wo.description)}
+                        {descriptionPreview(wo.category, wo.description)}
                       </span>
                     ) : null}
                   </span>
@@ -693,16 +693,15 @@ export function WorkOrdersTable({
 // in progress; done and closed work is never overdue. The clock read lives in
 // this helper so it isn't flagged as an impure call during render.
 // Titles shorter than this ("Door", "Ptac", "101") rarely say what is wrong.
-const SHORT_TITLE_CHARS = 20
-
-// The first line of a description, shown under a short title so a vague one
-// doesn't force opening the work order. Descriptive titles stand on their own.
+// The first line of a Maintenance work order's description, shown under its
+// title. Maintenance titles are often vague ("Door", "101"), so the problem is
+// visible without opening the work order; other categories show the title only.
 // The cell truncates it with an ellipsis, so no length cap is needed here.
 function descriptionPreview(
-  title: string,
+  category: WorkOrderCategory,
   description: string | null | undefined
 ): string | null {
-  if (title.trim().length >= SHORT_TITLE_CHARS) return null
+  if (category !== 'maintenance') return null
   const firstLine = description
     ?.split(/\r?\n/)
     .map((line) => line.trim())
