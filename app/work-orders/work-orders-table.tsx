@@ -592,7 +592,7 @@ export function WorkOrdersTable({
                       {/* Maintenance: the apartment or area as a pill beside
                           the title, so where the problem is stands out. */}
                       {wo.category === 'maintenance' && wo.unit_number ? (
-                        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary ring-1 ring-primary/20">
+                        <span className="inline-flex h-4 shrink-0 items-center rounded-full bg-primary/10 px-1.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-primary ring-1 ring-inset ring-primary/20">
                           {wo.unit_number}
                         </span>
                       ) : null}

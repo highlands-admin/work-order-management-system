@@ -227,9 +227,14 @@ export default async function CompliancePage({
                   )
                 if (rows.length === 0) return null
                 return (
-                  <section key={category} className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                  <section key={category} className="flex flex-col gap-3">
+                    {/* A clear divider between License/Permit and
+                        Compliance/Inspection, readable on a shared screen. */}
+                    <h3 className="flex items-baseline gap-2 border-l-4 border-primary pl-3 font-heading text-lg font-semibold">
                       {CATEGORY_LABELS[category]}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        {rows.length} {rows.length === 1 ? 'item' : 'items'}
+                      </span>
                     </h3>
                     <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10 shadow-md dark:shadow-none">
                       <Table>
