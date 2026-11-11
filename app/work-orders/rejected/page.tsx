@@ -118,8 +118,8 @@ export default async function ArchivePage({
   let query = supabase
     .from('work_orders')
     .select(
-      `id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, recurring_work_order_id, created_at, updated_at${
-        highlight ? ', description, unit_number, search_text' : ''
+      `id, work_order_code, title, category, status, property, assigned_to, priority, due_at, reported_by_name, recurring_work_order_id, created_at, updated_at, description, unit_number${
+        highlight ? ', search_text' : ''
       }`,
       { count: 'exact' }
     )

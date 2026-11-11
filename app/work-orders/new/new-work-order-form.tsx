@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { DateTimePicker } from '@/components/ui/date-time-picker'
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -463,10 +464,17 @@ function NewWorkOrderFormInner({
                 defaultValue={state.values?.title}
                 onChange={() => editField('title')}
                 aria-invalid={titleError ? true : undefined}
-                placeholder="A short, descriptive name for this work order"
+                placeholder="What's wrong? e.g. Ceiling leak above bed"
                 maxLength={120}
                 required
               />
+              {titleError ? null : (
+                <FieldDescription>
+                  Describe the problem, not the location: &ldquo;PTAC not
+                  cooling&rdquo;, &ldquo;Door won&rsquo;t latch&rdquo;. Add the
+                  apartment number below.
+                </FieldDescription>
+              )}
               <FieldError>{titleError}</FieldError>
             </Field>
 

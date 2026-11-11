@@ -104,9 +104,10 @@ export type WorkOrderListItem = {
   recurring_work_order_id: string | null
   created_at: string
   updated_at: string
-  // Fetched only when a search is active, to show why each row matched. The
-  // individual fields let the snippet be labeled with where the match was; the
-  // blob (own fields + note bodies) is the fallback that also covers notes.
+  // Description and unit are always loaded: the list shows the description's
+  // first line under the title and the unit beside the facility. They also
+  // label search matches. The blob (own fields + note bodies) is fetched only
+  // when a search is active, as the fallback that also covers notes.
   description?: string | null
   unit_number?: string | null
   search_text?: string | null
@@ -585,7 +586,16 @@ export function WorkOrdersTable({
               </TableCell>
               <TableCell className="px-4 py-3 font-medium">
                 <div className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate">{wo.title}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{wo.title}</span>
+                    {/* The problem at a glance, so a vague title ("Door",
+                        "101") doesn't force opening the work order. */}
+                    {descriptionPreview(wo.description) ? (
+                      <span className="truncate text-xs font-normal text-muted-foreground">
+                        {descriptionPreview(wo.description)}
+                      </span>
+                    ) : null}
+                  </span>
                   {wo.recurring_work_order_id ? (
                     <Link
                       href="/work-orders/recurring"
@@ -616,6 +626,9 @@ export function WorkOrdersTable({
               </TableCell>
               <TableCell className="truncate px-4 py-3">
                 {wo.property ? propertyLabel(propertyLabels, wo.property) : '—'}
+                {wo.unit_number ? (
+                  <span className="text-muted-foreground"> · {wo.unit_number}</span>
+                ) : null}
               </TableCell>
               <TableCell className="truncate px-4 py-3 text-muted-foreground">
                 {formatDate(wo.created_at, timeZone)}
@@ -679,6 +692,16 @@ export function WorkOrdersTable({
 // A work order is overdue when its due date has passed and it is still open or
 // in progress; done and closed work is never overdue. The clock read lives in
 // this helper so it isn't flagged as an impure call during render.
+// The first line of a description, collapsed to one line for the list. The
+// cell truncates it with an ellipsis, so no length cap is needed here.
+function descriptionPreview(description: string | null | undefined): string | null {
+  const firstLine = description
+    ?.split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean)
+  return firstLine ?? null
+}
+
 function isOverdue(dueAt: string | null, status: WorkOrderStatus): boolean {
   if (!dueAt) return false
   if (status !== 'open' && status !== 'in_progress') return false

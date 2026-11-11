@@ -522,6 +522,38 @@ function requireRecurrenceAnchor<
 // has no pre-existing due date to protect, so this can reject outright.
 // Editing an existing work order deliberately skips this: an already-overdue
 // due date must stay saveable when some other field changes.
+// A bare apartment or room number: "101", "Room 101", "Apt #12B", "Unit 3-4".
+const ROOM_ONLY_TITLE =
+  /^(?:(?:room|rm|apt|apartment|unit|suite|ste)\.?\s*)?#?\s*\d+[a-z]?(?:\s*[-/]\s*\d+[a-z]?)?$/i
+
+// New work orders need a title that says what is wrong, so the list is readable
+// without opening each one. Titles like "101" or "Door" are rejected; the
+// apartment has its own field. Applied on create only, so editing an older work
+// order with a short title does not block an unrelated change.
+function requireDescriptiveTitle<T extends { title: string }>(
+  data: T,
+  ctx: z.RefinementCtx
+) {
+  if (ROOM_ONLY_TITLE.test(data.title)) {
+    ctx.addIssue({
+      code: 'custom',
+      message:
+        'That looks like an apartment number. Put it in Apartment Number/Area, and describe the problem here, e.g. "Ceiling leak above bed".',
+      path: ['title'],
+    })
+    return
+  }
+  const words = data.title.split(/\s+/).filter((w) => /\p{L}/u.test(w))
+  if (words.length < 2) {
+    ctx.addIssue({
+      code: 'custom',
+      message:
+        'Describe the problem in at least two words, e.g. "PTAC not cooling" instead of "PTAC".',
+      path: ['title'],
+    })
+  }
+}
+
 function requireFutureDueDate<T extends { dueAt?: string }>(
   data: T,
   ctx: z.RefinementCtx
@@ -537,6 +569,7 @@ function requireFutureDueDate<T extends { dueAt?: string }>(
 
 export const createWorkOrderSchema = z
   .object({ ...baseWorkOrderFields, ...recurrenceFields })
+  .superRefine(requireDescriptiveTitle)
   .superRefine(requirePropertyUnlessIT)
   .superRefine(requireMarketingFields)
   .superRefine(requireRecurrenceAnchor)
