@@ -131,12 +131,17 @@ export async function sendRecurrenceReminderEmail(
 }
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('en-US', { dateStyle: 'medium' })
+  return new Date(value).toLocaleDateString('en-US', {
+    dateStyle: 'medium',
+    timeZone: 'America/New_York',
+  })
 }
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    // The server runs in UTC; the communities read Eastern time.
+    timeZone: 'America/New_York',
   })
 }
