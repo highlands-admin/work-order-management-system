@@ -61,6 +61,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // A platform admin has paused this member's organization. The database
+  // already returns nothing for it; this shows why instead of empty pages.
+  const isPausedPage = request.nextUrl.pathname.startsWith('/paused')
+  if (user?.org_suspended === true && !isPublicAuthRoute && !isPausedPage) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/paused'
+    url.search = ''
+    return NextResponse.redirect(url)
+  }
+
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
   // creating a new response object with NextResponse.next() make sure to:
   // 1. Pass the request in it, like so:

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Figtree, Manrope } from "next/font/google";
 import "./globals.css";
+import { DemoBanner } from "@/components/nav/demo-banner";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +59,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
+        <DemoBanner />
         {children}
         <Toaster />
       </body>

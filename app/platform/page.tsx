@@ -53,6 +53,7 @@ export default async function PlatformPage() {
                 <TableHead className={HEAD_CLASS}>Signup domain</TableHead>
                 <TableHead className={HEAD_CLASS}>Members</TableHead>
                 <TableHead className={HEAD_CLASS}>Administrators</TableHead>
+                <TableHead className={HEAD_CLASS}>Access</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -77,6 +78,17 @@ export default async function PlatformPage() {
                         ({org.pending_admin_invites} invited)
                       </span>
                     ) : null}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    {org.suspended_at ? (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-300">
+                        Paused
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                        Active
+                      </span>
+                    )}
                   </TableCell>
                 </LinkTableRow>
               ))}

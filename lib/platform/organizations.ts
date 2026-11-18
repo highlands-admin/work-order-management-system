@@ -11,6 +11,31 @@ export type PlatformOrganization = {
   admin_count: number
   pending_admin_invites: number
   created_at: string
+  // Set while a platform admin has paused the organization.
+  suspended_at: string | null
+  has_demo: boolean
+  // The organization the signed-in platform admin belongs to.
+  is_own: boolean
+}
+
+export type PlatformAdminInvitation = {
+  id: string
+  email: string
+  first_name: string | null
+  last_name: string | null
+  created_at: string
+  expires_at: string
+  accepted_at: string | null
+  revoked_at: string | null
+  status: 'pending' | 'accepted' | 'revoked' | 'expired'
+}
+
+export type PlatformOrgAdmin = {
+  user_id: string
+  email: string
+  full_name: string | null
+  last_sign_in_at: string | null
+  joined_at: string
 }
 
 // Every organization with member and administrator counts. The RPC refuses

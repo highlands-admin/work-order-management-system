@@ -20,6 +20,7 @@ import {
   renamePropertySchema,
   setPropertyActiveSchema,
 } from '@/lib/schemas/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
   nextAvailablePropertyKey,
@@ -411,4 +412,168 @@ export async function platformSetPropertyActiveAction(
 
   revalidatePath(`/platform/${organizationId}`)
   return null
+}
+
+// ── invitations, pausing, and demo accounts ──────────────────────────────
+
+type AdminInvitationRow = {
+  id: string
+  email: string
+  first_name: string | null
+  last_name: string | null
+  status: 'pending' | 'accepted' | 'revoked' | 'expired'
+}
+
+function formOrgId(formData: FormData): string | null {
+  const id = String(formData.get('organizationId') ?? '')
+  return organizationIdSchema.safeParse(id).success ? id : null
+}
+
+export async function platformRevokeInvitationAction(
+  formData: FormData
+): Promise<void> {
+  const organizationId = formOrgId(formData)
+  const invitationId = String(formData.get('invitationId') ?? '')
+  if (!organizationId || !organizationIdSchema.safeParse(invitationId).success) {
+    return
+  }
+  const { supabase } = await requireSuperAdmin()
+  await supabase.rpc('platform_revoke_invitation', {
+    p_organization_id: organizationId,
+    p_invitation_id: invitationId,
+  })
+  revalidatePath('/platform')
+  revalidatePath(`/platform/${organizationId}`)
+}
+
+// Sends a fresh invitation (new link, new 7 days) and cancels the old one.
+export async function platformResendInvitationAction(
+  formData: FormData
+): Promise<void> {
+  const organizationId = formOrgId(formData)
+  const invitationId = String(formData.get('invitationId') ?? '')
+  if (!organizationId) return
+  const context = await requireSuperAdmin()
+
+  const [{ data: invites }, { data: organizations }] = await Promise.all([
+    context.supabase.rpc('platform_list_admin_invitations', {
+      p_organization_id: organizationId,
+    }),
+    context.supabase.rpc('platform_list_organizations'),
+  ])
+  const invite = ((invites ?? []) as AdminInvitationRow[]).find(
+    (row) => row.id === invitationId
+  )
+  const organization = (
+    (organizations ?? []) as { id: string; name: string }[]
+  ).find((org) => org.id === organizationId)
+  if (!invite || !organization || invite.status === 'accepted') return
+
+  if (invite.status === 'pending') {
+    await context.supabase.rpc('platform_revoke_invitation', {
+      p_organization_id: organizationId,
+      p_invitation_id: invitationId,
+    })
+  }
+  await inviteAdministrator(context.supabase, {
+    organizationId,
+    organizationName: organization.name,
+    email: invite.email,
+    firstName: invite.first_name,
+    lastName: invite.last_name,
+    inviterName: context.inviterName,
+  })
+  revalidatePath('/platform')
+  revalidatePath(`/platform/${organizationId}`)
+}
+
+export async function platformSetSuspendedAction(
+  organizationId: string,
+  suspended: boolean
+): Promise<string | null> {
+  if (!organizationIdSchema.safeParse(organizationId).success) {
+    return 'Invalid organization.'
+  }
+  let supabase
+  try {
+    ({ supabase } = await requireSuperAdmin())
+  } catch (err) {
+    return (err as Error).message
+  }
+  const { error } = await supabase.rpc('platform_set_organization_suspended', {
+    p_organization_id: organizationId,
+    p_suspended: suspended,
+  })
+  if (error) return error.message
+  revalidatePath('/platform')
+  revalidatePath(`/platform/${organizationId}`)
+  return null
+}
+
+// Signs this browser in as the organization's read-only demo account,
+// creating the account the first time. The platform admin's own session ends;
+// they sign back in after leaving the demo.
+export async function platformOpenDemoAction(formData: FormData): Promise<void> {
+  const organizationId = formOrgId(formData)
+  if (!organizationId) throw new Error('Invalid organization.')
+  const { supabase } = await requireSuperAdmin()
+
+  const { data: organizations } = await supabase.rpc('platform_list_organizations')
+  const organization = (
+    (organizations ?? []) as { id: string; slug: string; suspended_at: string | null }[]
+  ).find((org) => org.id === organizationId)
+  if (!organization) throw new Error('Organization not found.')
+  if (organization.suspended_at) {
+    throw new Error('Resume the organization before opening its demo.')
+  }
+
+  const admin = createAdminClient()
+  const { data: existingEmail } = await supabase.rpc('platform_demo_email', {
+    p_organization_id: organizationId,
+  })
+  let email = typeof existingEmail === 'string' ? existingEmail : null
+
+  if (!email) {
+    email = `demo+${organization.slug}@highlands.solutions`
+    const { error: prepareError } = await supabase.rpc('platform_prepare_demo', {
+      p_organization_id: organizationId,
+      p_email: email,
+      p_token: randomBytes(24).toString('hex'),
+    })
+    if (prepareError) throw new Error(prepareError.message)
+
+    const { data: created, error: createError } =
+      await admin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        password: randomBytes(32).toString('hex'),
+        user_metadata: { first_name: 'Demo', last_name: 'Viewer' },
+      })
+    if (createError || !created.user) {
+      throw new Error(createError?.message ?? 'Could not create the demo account.')
+    }
+
+    const { error: registerError } = await supabase.rpc('platform_register_demo', {
+      p_organization_id: organizationId,
+      p_user_id: created.user.id,
+    })
+    if (registerError) throw new Error(registerError.message)
+  }
+
+  // A one-time sign-in token for the demo account, redeemed right here so it
+  // never leaves the server.
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+  })
+  if (linkError || !link.properties?.hashed_token) {
+    throw new Error(linkError?.message ?? 'Could not sign in to the demo.')
+  }
+  const { error: verifyError } = await supabase.auth.verifyOtp({
+    type: 'magiclink',
+    token_hash: link.properties.hashed_token,
+  })
+  if (verifyError) throw new Error(verifyError.message)
+
+  redirect('/work-orders')
 }
