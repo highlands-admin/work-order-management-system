@@ -70,6 +70,9 @@ async function inviteAdministrator(
     firstName: string | null
     lastName: string | null
     inviterName: string | null
+    // The invitee becomes an organization owner, who can manage the other
+    // administrators.
+    makeOwner: boolean
   }
 ): Promise<string | null> {
   // Each account belongs to one organization, and an invitation only applies
@@ -95,6 +98,7 @@ async function inviteAdministrator(
     p_last_name: input.lastName ?? '',
     p_token: token,
     p_expires_at: expiresAt,
+    p_make_owner: input.makeOwner,
   })
   if (error) return error.message
 
@@ -190,6 +194,8 @@ export async function createOrganizationAction(
     firstName: parsed.data.adminFirstName || null,
     lastName: parsed.data.adminLastName || null,
     inviterName,
+    // The first administrator owns the organization.
+    makeOwner: true,
   })
 
   revalidatePath('/platform')
@@ -283,6 +289,7 @@ export async function inviteOrganizationAdminAction(
     firstName: parsed.data.firstName || null,
     lastName: parsed.data.lastName || null,
     inviterName: context.inviterName,
+    makeOwner: formData.get('makeOwner') === 'on',
   })
   if (inviteError) return formError(undefined, raw, inviteError)
 
@@ -422,6 +429,7 @@ type AdminInvitationRow = {
   first_name: string | null
   last_name: string | null
   status: 'pending' | 'accepted' | 'revoked' | 'expired'
+  make_owner: boolean
 }
 
 function formOrgId(formData: FormData): string | null {
@@ -482,8 +490,23 @@ export async function platformResendInvitationAction(
     firstName: invite.first_name,
     lastName: invite.last_name,
     inviterName: context.inviterName,
+    makeOwner: invite.make_owner,
   })
   revalidatePath('/platform')
+  revalidatePath(`/platform/${organizationId}`)
+}
+
+// Makes an administrator an organization owner, or removes ownership.
+export async function platformSetOwnerAction(formData: FormData): Promise<void> {
+  const organizationId = formOrgId(formData)
+  const userId = String(formData.get('userId') ?? '')
+  if (!organizationId || !organizationIdSchema.safeParse(userId).success) return
+  const { supabase } = await requireSuperAdmin()
+  await supabase.rpc('platform_set_org_owner', {
+    p_organization_id: organizationId,
+    p_user_id: userId,
+    p_is_owner: formData.get('isOwner') === 'true',
+  })
   revalidatePath(`/platform/${organizationId}`)
 }
 

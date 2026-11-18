@@ -12,11 +12,14 @@ export function RoleSelect({
   currentRole,
   disabled,
   helpText,
+  allowAdministrator = true,
 }: {
   userId: string
   currentRole: AppRole
   disabled?: boolean
   helpText?: string
+  // Only organization owners can make someone an administrator.
+  allowAdministrator?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
@@ -40,7 +43,12 @@ export function RoleSelect({
           }}
           className="h-7 appearance-none rounded-md border border-input bg-transparent pl-2 pr-7 text-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
         >
-          {APP_ROLES.map((r) => (
+          {APP_ROLES.filter(
+            (r) =>
+              allowAdministrator ||
+              r !== 'administrator' ||
+              currentRole === 'administrator'
+          ).map((r) => (
             <option key={r} value={r}>
               {ROLE_LABELS[r]}
             </option>

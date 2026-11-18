@@ -72,7 +72,8 @@ export function CreateOrganizationForm() {
       <div>
         <p className="text-sm font-medium">First administrator</p>
         <p className="text-sm text-muted-foreground">
-          They receive an email invitation and set their own password.
+          They receive an email invitation, set their own password, and become
+          the organization&apos;s owner, who can add more administrators.
         </p>
       </div>
 

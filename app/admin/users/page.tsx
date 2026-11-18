@@ -25,6 +25,7 @@ type AdminUserRow = {
   role: AppRole | null
   created_at: string
   last_sign_in_at: string | null
+  is_owner: boolean
 }
 
 export default async function UsersPage() {
@@ -33,7 +34,11 @@ export default async function UsersPage() {
   const currentUserId = (claimsData?.claims as { sub?: string } | undefined)
     ?.sub
 
-  const { data, error } = await supabase.rpc('admin_list_users')
+  const [{ data, error }, { data: ownerData }] = await Promise.all([
+    supabase.rpc('admin_list_users'),
+    supabase.rpc('is_org_owner'),
+  ])
+  const viewerIsOwner = ownerData === true
   const users = (data ?? []) as AdminUserRow[]
   const timeZone = await getTimeZone()
 
@@ -43,7 +48,10 @@ export default async function UsersPage() {
         <h1 className="font-heading text-2xl font-semibold">Users</h1>
         <p className="text-sm text-muted-foreground">
           Everyone with access to this workspace. Change a role to update
-          someone&apos;s permissions immediately.
+          someone&apos;s permissions immediately.{' '}
+          {viewerIsOwner
+            ? 'As an organization owner, you can also promote and demote administrators.'
+            : 'Only organization owners can add or change administrators.'}
         </p>
       </div>
 
@@ -79,10 +87,22 @@ export default async function UsersPage() {
                   .join(' ')
                 const isSelf = u.user_id === currentUserId
                 const isAdmin = u.role === 'administrator'
-                const locked = isSelf || isAdmin
+                // Owners are changed by Highlands only. Other administrators
+                // can be changed by owners only.
+                const locked =
+                  isSelf || u.is_owner || (isAdmin && !viewerIsOwner)
                 return (
                   <TableRow key={u.user_id}>
-                    <TableCell className="px-4 py-3">{name || '—'}</TableCell>
+                    <TableCell className="px-4 py-3">
+                      <span className="flex flex-wrap items-center gap-2">
+                        {name || '—'}
+                        {u.is_owner ? (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                            Owner
+                          </span>
+                        ) : null}
+                      </span>
+                    </TableCell>
                     <TableCell className="px-4 py-3 text-muted-foreground">
                       {u.email}
                     </TableCell>
@@ -91,6 +111,7 @@ export default async function UsersPage() {
                         userId={u.user_id}
                         currentRole={u.role ?? 'requester'}
                         disabled={locked}
+                        allowAdministrator={viewerIsOwner}
                       />
                     </TableCell>
                     <TableCell className="px-4 py-3 text-muted-foreground">

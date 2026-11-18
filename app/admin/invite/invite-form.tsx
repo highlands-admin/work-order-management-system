@@ -13,7 +13,12 @@ import { APP_ROLES, ROLE_LABELS } from '@/lib/schemas/admin'
 import { initialAuthState } from '../../(auth)/auth-state'
 import { inviteUserAction } from '../actions'
 
-export function InviteForm() {
+export function InviteForm({
+  canInviteAdministrators,
+}: {
+  // Only organization owners can invite administrators.
+  canInviteAdministrators: boolean
+}) {
   const [state, action] = useActionState(inviteUserAction, initialAuthState)
   const { markEdited, getError } = useServerErrors(state, state.fieldErrors)
   const emailError = getError('email')
@@ -59,7 +64,9 @@ export function InviteForm() {
           className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:bg-input/30"
           required
         >
-          {APP_ROLES.map((r) => (
+          {APP_ROLES.filter(
+            (r) => canInviteAdministrators || r !== 'administrator'
+          ).map((r) => (
             <option key={r} value={r}>
               {ROLE_LABELS[r]}
             </option>

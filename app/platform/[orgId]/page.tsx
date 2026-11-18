@@ -27,6 +27,7 @@ import {
   platformRenamePropertyAction,
   platformResendInvitationAction,
   platformRevokeInvitationAction,
+  platformSetOwnerAction,
   platformSetPropertyActiveAction,
 } from '../actions'
 import { AccessControl } from './access-control'
@@ -162,14 +163,22 @@ export default async function PlatformOrganizationPage({
                   <TableHead className={HEAD_CLASS}>Administrator</TableHead>
                   <TableHead className={HEAD_CLASS}>Joined</TableHead>
                   <TableHead className={HEAD_CLASS}>Last signed in</TableHead>
+                  <TableHead className={`${HEAD_CLASS} text-right`}>
+                    Owner
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {admins.map((admin) => (
                   <TableRow key={admin.user_id}>
                     <TableCell className="px-4 py-3">
-                      <div className="font-medium">
+                      <div className="flex flex-wrap items-center gap-2 font-medium">
                         {admin.full_name ?? admin.email}
+                        {admin.is_owner ? (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                            Owner
+                          </span>
+                        ) : null}
                       </div>
                       {admin.full_name ? (
                         <div className="text-xs text-muted-foreground">
@@ -184,6 +193,23 @@ export default async function PlatformOrganizationPage({
                       {admin.last_sign_in_at
                         ? formatDateTime(admin.last_sign_in_at, timeZone)
                         : 'Never'}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
+                      <form action={platformSetOwnerAction}>
+                        <input type="hidden" name="organizationId" value={organization.id} />
+                        <input type="hidden" name="userId" value={admin.user_id} />
+                        <input
+                          type="hidden"
+                          name="isOwner"
+                          value={admin.is_owner ? 'false' : 'true'}
+                        />
+                        <button
+                          type="submit"
+                          className={`rounded-md px-2 py-1 text-xs font-medium hover:bg-muted ${admin.is_owner ? 'text-destructive' : 'text-foreground'}`}
+                        >
+                          {admin.is_owner ? 'Remove owner' : 'Make owner'}
+                        </button>
+                      </form>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -216,6 +242,11 @@ export default async function PlatformOrganizationPage({
                       >
                         {STATUS_LABEL[invite.status]}
                       </span>
+                      {invite.make_owner ? (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          as owner
+                        </span>
+                      ) : null}
                       {invite.accepted_at ? (
                         <div className="mt-1 text-xs text-muted-foreground">
                           {formatDateTime(invite.accepted_at, timeZone)}
@@ -327,7 +358,10 @@ export default async function PlatformOrganizationPage({
         title="Invite an administrator"
         description="Administrators manage the organization's users and approvers."
       >
-        <InviteAdminForm organizationId={organization.id} />
+        <InviteAdminForm
+          organizationId={organization.id}
+          defaultOwner={!admins.some((admin) => admin.is_owner)}
+        />
       </FormSection>
 
       <section aria-labelledby="properties-title" className="flex flex-col gap-4">

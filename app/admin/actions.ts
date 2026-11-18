@@ -217,13 +217,21 @@ export async function changeUserRoleAction(formData: FormData): Promise<void> {
   const selfId = (claims as { sub?: string } | undefined)?.sub
   if (selfId && selfId === parsed.data.userId) return
 
-  // Admins cannot change another administrator's role. Mirrored by RLS on user_roles.
-  const { data: target } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', parsed.data.userId)
-    .maybeSingle()
-  if (target?.role === 'administrator') return
+  // Only organization owners promote or demote administrators, and owners
+  // themselves are changed by Highlands only. Mirrored by a trigger on
+  // user_roles, which is what actually enforces it.
+  const [{ data: target }, { data: isOwner }] = await Promise.all([
+    supabase
+      .from('user_roles')
+      .select('role, is_owner')
+      .eq('user_id', parsed.data.userId)
+      .maybeSingle(),
+    supabase.rpc('is_org_owner'),
+  ])
+  if (!target || target.is_owner) return
+  const touchesAdministrator =
+    target.role === 'administrator' || parsed.data.role === 'administrator'
+  if (touchesAdministrator && isOwner !== true) return
 
   await supabase
     .from('user_roles')

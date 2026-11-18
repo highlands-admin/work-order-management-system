@@ -11,7 +11,13 @@ import { useServerErrors } from '@/lib/hooks/use-server-errors'
 import { initialAuthState } from '../../(auth)/auth-state'
 import { inviteOrganizationAdminAction } from '../actions'
 
-export function InviteAdminForm({ organizationId }: { organizationId: string }) {
+export function InviteAdminForm({
+  organizationId,
+  defaultOwner,
+}: {
+  organizationId: string
+  defaultOwner: boolean
+}) {
   const [state, action] = useActionState(
     inviteOrganizationAdminAction,
     initialAuthState
@@ -76,6 +82,22 @@ export function InviteAdminForm({ organizationId }: { organizationId: string }) 
           />
         </Field>
       </div>
+
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          name="makeOwner"
+          defaultChecked={defaultOwner}
+          className="mt-0.5 size-4 accent-primary"
+        />
+        <span>
+          <span className="font-medium">Organization owner</span>
+          <span className="block text-muted-foreground">
+            Owners can add, promote, and remove the organization&apos;s other
+            administrators. Leave unchecked for an ordinary administrator.
+          </span>
+        </span>
+      </label>
 
       <div className="flex items-center gap-3">
         <SubmitButton

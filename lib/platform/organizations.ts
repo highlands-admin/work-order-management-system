@@ -28,6 +28,7 @@ export type PlatformAdminInvitation = {
   accepted_at: string | null
   revoked_at: string | null
   status: 'pending' | 'accepted' | 'revoked' | 'expired'
+  make_owner: boolean
 }
 
 export type PlatformOrgAdmin = {
@@ -36,6 +37,8 @@ export type PlatformOrgAdmin = {
   full_name: string | null
   last_sign_in_at: string | null
   joined_at: string
+  // Organization owners can manage the other administrators.
+  is_owner: boolean
 }
 
 // Every organization with member and administrator counts. The RPC refuses
