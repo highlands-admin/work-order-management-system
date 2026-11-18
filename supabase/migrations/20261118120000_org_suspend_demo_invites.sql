@@ -469,7 +469,7 @@ end;
 $$;
 
 -- Administrator invitations for one organization, newest first, with a
--- status the page can show as is. The demo account's invitation is left out.
+-- status the page can show as is. Demo account invitations are left out.
 create or replace function public.platform_list_admin_invitations(p_organization_id uuid)
 returns table (
   id          uuid,
@@ -503,11 +503,7 @@ begin
   from public.invitations i
   where i.organization_id = p_organization_id
     and i.role = 'administrator'
-    and lower(i.email) not in (
-      select lower(u.email)
-      from public.demo_accounts d
-      join auth.users u on u.id = d.user_id
-    )
+    and lower(i.email) not like 'demo+%@highlands.solutions'
   order by i.created_at desc;
 end;
 $$;
@@ -644,6 +640,14 @@ begin
     raise exception 'This organization already has a demo account.'
       using errcode = '23505';
   end if;
+
+  -- A failed earlier attempt can leave its invitation behind.
+  update public.invitations
+     set revoked_at = now()
+   where organization_id = p_organization_id
+     and lower(email) = lower(trim(p_email))
+     and accepted_at is null
+     and revoked_at is null;
 
   insert into public.invitations
     (organization_id, email, role, first_name, last_name, invited_by, token, expires_at)

@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { SubmitButton } from '@/components/auth/submit-button'
 import { FormSection } from '@/components/forms/form-section'
 import { PropertiesManager } from '@/components/properties/properties-manager'
 import {
@@ -25,13 +24,13 @@ import type { PropertyOption } from '@/lib/work-orders/properties'
 
 import {
   platformAddPropertyAction,
-  platformOpenDemoAction,
   platformRenamePropertyAction,
   platformResendInvitationAction,
   platformRevokeInvitationAction,
   platformSetPropertyActiveAction,
 } from '../actions'
 import { AccessControl } from './access-control'
+import { OpenDemoForm } from './open-demo-form'
 import { InviteAdminForm } from './invite-admin-form'
 import { OrganizationSettingsForm } from './organization-settings-form'
 
@@ -298,15 +297,11 @@ export default async function PlatformOrganizationPage({
             of the platform admin, so use Exit demo in the banner and sign back
             in when you are done.
           </p>
-          <form action={platformOpenDemoAction}>
-            <input type="hidden" name="organizationId" value={organization.id} />
-            <SubmitButton
-              label={`Open demo as ${organization.name}`}
-              pendingLabel="Opening demo..."
-              size="sm"
-              disabled={suspended}
-            />
-          </form>
+          <OpenDemoForm
+            organizationId={organization.id}
+            organizationName={organization.name}
+            disabled={suspended}
+          />
           {suspended ? (
             <p className="text-muted-foreground">
               Resume access to open the demo.

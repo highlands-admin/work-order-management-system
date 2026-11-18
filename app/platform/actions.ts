@@ -510,70 +510,93 @@ export async function platformSetSuspendedAction(
   return null
 }
 
+// A random password that satisfies the project's password rules (lower and
+// upper case, digit, symbol). Nobody ever types it; sign-in uses a one-time
+// token below.
+function demoPassword(): string {
+  return `${randomBytes(24).toString('base64url')}Aa1!`
+}
+
 // Signs this browser in as the organization's read-only demo account,
 // creating the account the first time. The platform admin's own session ends;
-// they sign back in after leaving the demo.
-export async function platformOpenDemoAction(formData: FormData): Promise<void> {
+// they sign back in after leaving the demo. Returns an error message, or
+// redirects into the app on success.
+export async function platformOpenDemoAction(
+  _prev: string | null,
+  formData: FormData
+): Promise<string | null> {
   const organizationId = formOrgId(formData)
-  if (!organizationId) throw new Error('Invalid organization.')
-  const { supabase } = await requireSuperAdmin()
+  if (!organizationId) return 'Invalid organization.'
 
-  const { data: organizations } = await supabase.rpc('platform_list_organizations')
-  const organization = (
-    (organizations ?? []) as { id: string; slug: string; suspended_at: string | null }[]
-  ).find((org) => org.id === organizationId)
-  if (!organization) throw new Error('Organization not found.')
-  if (organization.suspended_at) {
-    throw new Error('Resume the organization before opening its demo.')
-  }
+  try {
+    const { supabase } = await requireSuperAdmin()
 
-  const admin = createAdminClient()
-  const { data: existingEmail } = await supabase.rpc('platform_demo_email', {
-    p_organization_id: organizationId,
-  })
-  let email = typeof existingEmail === 'string' ? existingEmail : null
-
-  if (!email) {
-    email = `demo+${organization.slug}@highlands.solutions`
-    const { error: prepareError } = await supabase.rpc('platform_prepare_demo', {
-      p_organization_id: organizationId,
-      p_email: email,
-      p_token: randomBytes(24).toString('hex'),
-    })
-    if (prepareError) throw new Error(prepareError.message)
-
-    const { data: created, error: createError } =
-      await admin.auth.admin.createUser({
-        email,
-        email_confirm: true,
-        password: randomBytes(32).toString('hex'),
-        user_metadata: { first_name: 'Demo', last_name: 'Viewer' },
-      })
-    if (createError || !created.user) {
-      throw new Error(createError?.message ?? 'Could not create the demo account.')
+    const { data: organizations } = await supabase.rpc(
+      'platform_list_organizations'
+    )
+    const organization = (
+      (organizations ?? []) as {
+        id: string
+        slug: string
+        suspended_at: string | null
+      }[]
+    ).find((org) => org.id === organizationId)
+    if (!organization) return 'Organization not found.'
+    if (organization.suspended_at) {
+      return 'Resume the organization before opening its demo.'
     }
 
-    const { error: registerError } = await supabase.rpc('platform_register_demo', {
+    const admin = createAdminClient()
+    const { data: existingEmail } = await supabase.rpc('platform_demo_email', {
       p_organization_id: organizationId,
-      p_user_id: created.user.id,
     })
-    if (registerError) throw new Error(registerError.message)
-  }
+    let email = typeof existingEmail === 'string' ? existingEmail : null
 
-  // A one-time sign-in token for the demo account, redeemed right here so it
-  // never leaves the server.
-  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
-    type: 'magiclink',
-    email,
-  })
-  if (linkError || !link.properties?.hashed_token) {
-    throw new Error(linkError?.message ?? 'Could not sign in to the demo.')
+    if (!email) {
+      email = `demo+${organization.slug}@highlands.solutions`
+      const { error: prepareError } = await supabase.rpc(
+        'platform_prepare_demo',
+        {
+          p_organization_id: organizationId,
+          p_email: email,
+          p_token: randomBytes(24).toString('hex'),
+        }
+      )
+      if (prepareError) return prepareError.message
+
+      const { data: created, error: createError } =
+        await admin.auth.admin.createUser({
+          email,
+          email_confirm: true,
+          password: demoPassword(),
+          user_metadata: { first_name: 'Demo', last_name: 'Viewer' },
+        })
+      if (createError || !created.user) {
+        return `Could not create the demo account: ${createError?.message ?? 'unknown error'}`
+      }
+
+      const { error: registerError } = await supabase.rpc(
+        'platform_register_demo',
+        { p_organization_id: organizationId, p_user_id: created.user.id }
+      )
+      if (registerError) return registerError.message
+    }
+
+    // A one-time sign-in token for the demo account, redeemed right here so
+    // it never leaves the server.
+    const { data: link, error: linkError } =
+      await admin.auth.admin.generateLink({ type: 'magiclink', email })
+    if (linkError || !link.properties?.hashed_token) {
+      return `Could not sign in to the demo: ${linkError?.message ?? 'no token'}`
+    }
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      type: 'magiclink',
+      token_hash: link.properties.hashed_token,
+    })
+    if (verifyError) return `Could not sign in to the demo: ${verifyError.message}`
+  } catch (err) {
+    return (err as Error).message
   }
-  const { error: verifyError } = await supabase.auth.verifyOtp({
-    type: 'magiclink',
-    token_hash: link.properties.hashed_token,
-  })
-  if (verifyError) throw new Error(verifyError.message)
 
   redirect('/work-orders')
 }
