@@ -1,19 +1,27 @@
 import { signOutAction } from '@/app/(auth)/actions'
 import { createClient } from '@/lib/supabase/server'
 
-// A strip across every page while a platform admin is signed in as an
-// organization's read-only demo account. Exiting signs the demo out.
+// A bar pinned to the top of every page while a platform admin is signed in
+// as an organization's read-only demo account, naming the organization so it
+// is always clear whose view this is. Exiting signs the demo out.
 export async function DemoBanner() {
   const supabase = await createClient()
   const { data } = await supabase.auth.getClaims()
   const claims = data?.claims as { demo?: boolean } | undefined
   if (claims?.demo !== true) return null
 
+  // Members can read their own organization's row, so this is the demo's org.
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('name')
+    .maybeSingle()
+  const orgName = (org as { name?: string } | null)?.name ?? 'this organization'
+
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3 bg-amber-400 px-4 py-2 text-sm font-medium text-amber-950">
-      <span>
-        Demo view, read-only. Nothing you do here is saved, and no emails go
-        out.
+    <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-amber-400 px-4 py-2 text-sm text-amber-950 shadow-md">
+      <span className="font-semibold">Viewing as {orgName}</span>
+      <span className="hidden sm:inline">
+        Demo, read-only. Nothing you do here is saved, and no emails go out.
       </span>
       <form action={signOutAction}>
         <button
